@@ -14,6 +14,7 @@ dist/
 # Artifacts
 models/
 models/checkpoints/
+!src/rul_prediction/models/
 experiments/
 reports/figures/
 data/raw/
