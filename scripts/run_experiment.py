@@ -1,10 +1,11 @@
-"""Train a classical RUL baseline on engineered features and log validation metrics.
+"""Train a baseline model and log validation metrics.
 
-Evaluation is on VALIDATION ENGINES only (never official test data).
+Classical models use engineered window features; lstm/gru consume raw
+(scaled) windows directly. Evaluation is on VALIDATION ENGINES only.
 
 Usage:
-    .venv/Scripts/python.exe scripts/run_experiment.py --dataset FD001 --model r xgboost
-    (model in: mean, linear, rf, xgboost)
+    .venv/Scripts/python.exe scripts/run_experiment.py --dataset FD001 --model xgboost
+    .venv/Scripts/python.exe scripts/run_experiment.py --dataset FD001 --model lstm --loss huber
 """
 
 from __future__ import annotations
@@ -30,43 +31,47 @@ MAX_RUL = 125
 PROCESSED = Path("data/processed")
 RESULTS_CSV = Path("experiments/results.csv")
 
-MODELS = {"mean": MeanBaseline, "linear": linear_regressor, "rf": random_forest, "xgboost": xgboost_regressor}
+MODELS = {"mean", "linear", "rf", "xgboost", "lstm", "gru"}
 
 
-def _load_windows(dataset: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict]:
+def _load_windows(dataset: str):
     train_d = np.load(PROCESSED / f"{dataset}_train_sequences.npz")
     val_d = np.load(PROCESSED / f"{dataset}_validation_sequences.npz")
-    lifetimes = load_train(dataset)["cycle"].groupby(load_train(dataset)["engine_id"]).max().to_dict()
+    train_raw = load_train(dataset)
+    lifetimes = train_raw.groupby("engine_id")["cycle"].max().to_dict()
     return train_d, val_d, lifetimes
 
 
 def _final_cycles(engine_ids: np.ndarray, lifetimes: dict) -> np.ndarray:
-    """Final cycle of each window; make_sequences orders windows in engine blocks, cycles ascending."""
     out = np.empty(len(engine_ids), dtype=int)
     i = 0
-    for engine, block_len in _block_lengths(engine_ids).items():
+    for engine, _ in _blocks(engine_ids):
+        block_len = int(np.sum(engine_ids == engine))
         out[i : i + block_len] = WINDOW + np.arange(block_len)
         i += block_len
     return out
 
 
-def _block_lengths(engine_ids: np.ndarray) -> dict:
-    lengths, cur, count = {}, engine_ids[0], 0
-    for e in engine_ids:
-        if e == cur:
-            count += 1
-        else:
-            lengths[cur] = count
-            cur, count = e, 1
-    lengths[cur] = count
-    return lengths
+def _blocks(engine_ids: np.ndarray):
+    start = 0
+    engine = engine_ids[0]
+    for k in range(1, len(engine_ids)):
+        if engine_ids[k] != engine:
+            yield engine, k - start
+            start, engine = k, engine_ids[k]
+    yield engine, len(engine_ids) - start
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Classical RUL baseline runner")
+    parser = argparse.ArgumentParser(description="RUL baseline runner")
     parser.add_argument("--dataset", default="FD001")
-    parser.add_argument("--model", required=True, choices=list(MODELS))
+    parser.add_argument("--model", required=True, choices=sorted(MODELS))
     parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--loss", default="mse", help="deep models: mse | huber | mae")
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--patience", type=int, default=8)
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--notes", default="window-level engineered features")
     args = parser.parse_args()
 
@@ -74,28 +79,62 @@ def main() -> None:
     Xtr, ytr, ids_tr = train_d["X"], train_d["y"], train_d["engine_ids"]
     Xva, yva, ids_va = val_d["X"], val_d["y"], val_d["engine_ids"]
 
-    Ftr, names = extract_features(Xtr, _final_cycles(ids_tr, lifetimes))
-    Fva, _ = extract_features(Xva, _final_cycles(ids_va, lifetimes))
-    feature_desc = f"engineered:{len(names)}"
-
     t0 = time.monotonic()
-    if args.model == "mean":
-        model = MeanBaseline().fit(Ftr, ytr)
-    elif args.model == "xgboost":
-        model = xgboost_regressor(args.seed)
-        model.fit(Ftr, ytr, eval_set=[(Fva, yva)], verbose=False)
+    notes = args.notes
+    if args.model in ("lstm", "gru"):
+        from rul_prediction.models.gru import gru_model
+        from rul_prediction.models.lstm import lstm_model
+        from rul_prediction.training.callbacks import build_callbacks
+        from rul_prediction.training.trainer import set_seed, train_sequence_model
+
+        import tensorflow as tf
+
+        tf.get_logger().setLevel("ERROR")
+        set_seed(args.seed)
+        builder = lstm_model if args.model == "lstm" else gru_model
+        model = builder(Xtr.shape[1], Xtr.shape[2], loss=args.loss,
+                        learning_rate=args.learning_rate, seed=args.seed)
+        param_count = model.count_params()
+        checkpoint = Path("models/checkpoints") / f"{args.dataset}_{args.model}_seed{args.seed}.weights.h5"
+        history = train_sequence_model(
+            model, Xtr, ytr, Xva, yva,
+            batch_size=args.batch_size, epochs=args.epochs,
+            callbacks=build_callbacks(checkpoint, patience=args.patience),
+        )
+        best_epoch = int(np.argmin(history.history["val_loss"])) + 1
+        notes = (f"loss={args.loss} param_count={param_count} best_epoch={best_epoch} "
+                 f"version=keras3 (+ early stopping, LR reduce, checkpoint)")
+        feature_desc = f"sequences:{Xtr.shape[1]}x{Xtr.shape[2]}"
     else:
-        model = MODELS[args.model](args.seed)
-        model.fit(Ftr, ytr)
+        Ftr, names = extract_features(Xtr, _final_cycles(ids_tr, lifetimes))
+        Fva, _ = extract_features(Xva, _final_cycles(ids_va, lifetimes))
+        feature_desc = f"engineered:{len(names)}"
+        if args.model == "mean":
+            model = MeanBaseline().fit(Ftr, ytr)
+        elif args.model == "xgboost":
+            model = xgboost_regressor(args.seed)
+            model.fit(Ftr, ytr, eval_set=[(Fva, yva)], verbose=False)
+        else:
+            model = {"linear": linear_regressor, "rf": random_forest}[args.model](args.seed)
+            model.fit(Ftr, ytr)
     train_time = time.monotonic() - t0
 
-    pred = np.clip(np.asarray(model.predict(Fva), dtype=float), 0, MAX_RUL)
-    metrics = {
-        "rmse": rmse(yva, pred),
-        "mae": mae(yva, pred),
-        "r2": r2(yva, pred),
-        "nasa": nasa_score(yva, pred),
-    }
+    if args.model in ("lstm", "gru"):
+        pred = np.clip(np.asarray(model.predict(Xva, verbose=0)).ravel(), 0, MAX_RUL)
+        metrics = {
+            "rmse": rmse(yva, pred),
+            "mae": mae(yva, pred),
+            "r2": r2(yva, pred),
+            "nasa": nasa_score(yva, pred),
+        }
+    else:
+        pred = np.clip(np.asarray(model.predict(Fva), dtype=float), 0, MAX_RUL)
+        metrics = {
+            "rmse": rmse(yva, pred),
+            "mae": mae(yva, pred),
+            "r2": r2(yva, pred),
+            "nasa": nasa_score(yva, pred),
+        }
 
     experiment_id = f"{args.dataset}_{args.model}_seed{args.seed}_{int(time.time())}"
     row = {
@@ -111,7 +150,7 @@ def main() -> None:
         "validation R2": round(metrics["r2"], 4),
         "NASA score": round(metrics["nasa"], 3),
         "training time (s)": round(train_time, 3),
-        "notes": args.notes,
+        "notes": notes,
     }
 
     RESULTS_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -122,7 +161,7 @@ def main() -> None:
             writer.writeheader()
         writer.writerow(row)
 
-    print(f"[{args.model}] features={len(names)}  train_time={train_time:.2f}s")
+    print(f"[{args.model}] features={feature_desc}  train_time={train_time:.2f}s")
     print(f"  RMSE={metrics['rmse']:.4f}  MAE={metrics['mae']:.4f}  R2={metrics['r2']:.4f}  NASA={metrics['nasa']:.3f}")
     print(f"  logged -> {RESULTS_CSV}")
 

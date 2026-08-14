@@ -62,9 +62,13 @@ def _build(dataset: str, data_dir: Path, split_path: Path) -> None:
 
     def _windows(part, clip=True):
         part = add_rul(part, max_rul=MAX_RUL if clip else None, clip=clip)
-        features = transform(part, SENSOR_COLUMNS, scaler)
+        part = part.copy()
+        # Scale features IN PLACE so windowed sequences carry scaled values;
+        # make_sequences reads columns straight off this frame.
+        scaled = transform(part, SENSOR_COLUMNS, scaler)
+        part[SENSOR_COLUMNS] = scaled
         X, y, ids = make_sequences(part, SENSOR_COLUMNS, WINDOW)
-        return X, y, ids, features
+        return X, y, ids, scaled
 
     X_train, y_train, train_ids, train_feats = _windows(train_part)
     X_val, y_val, val_ids, val_feats = _windows(val_part)

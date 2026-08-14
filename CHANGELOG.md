@@ -1,6 +1,32 @@
 # CHANGELOG
 
-## [0.6.0] — Phase 5 — 2026-08-14
+## [0.7.0] — Phase 6 — 2026-08-14
+
+### Added
+- `src/rul_prediction/models/lstm.py` and `gru.py`: comparable recurrent baselines (128 -> Dropout 0.3 -> 64 -> Dropout 0.3 -> Dense 32 -> Dense 1; Adam with clipnorm=1.0).
+- `src/rul_prediction/training/trainer.py` (`set_seed`, `train_sequence_model`) and `callbacks.py` (EarlyStopping, ReduceLROnPlateau, ModelCheckpoint). Validation partition is engine-disjoint; official test data never used.
+- `scripts/run_experiment.py` extended with `--model lstm|gru`, `--loss`, `--epochs`, `--batch-size`, `--patience`, `--learning-rate`.
+- `tests/test_artifacts.py`: data-contract guards (windows scaled, targets clipped).
+- Installed `tensorflow` 2.21.0 (project-local); regenerated `requirements-lock.txt`.
+
+### CRITICAL BUG FIX (data preprocessing)
+Found and fixed a silent Phase-4 defect: `scripts/preprocess.py` computed the scaled feature matrix but wrote RAW sensor values into the persisted sequence windows (`transform()` result was discarded at build time). Symptoms: every NN model collapsed to a constant RUL prediction (RMSE ~41.9, pred_std=0.0) while classical models were unaffected (per-column affine rescaling is absorbed by linear/trees). Diagnosis via bisection (toy task learned fine; fabricated-target LSTM learned fine; real-input/real-target constant) then direct artifact inspection (sensor_9 raw ~9064, sensor_1 constant 518.67). Fix: scale features in place before `make_sequences`, regenerated all `data/processed` artifacts, added `test_artifacts.py` guards. Sequence counts unchanged (14022 / 3709).
+
+### Validation benchmark (validation engines only, seed 42; RUL cap 125) - AFTER fix
+| model | RMSE | MAE | R2 | NASA |
+|---|---|---|---|---|
+| mean | 41.94 | 37.50 | -0.00 | 676502 |
+| linear | 16.77 | 12.97 | 0.840 | 16032 |
+| random forest | 15.67 | 11.14 | 0.860 | 17392 |
+| xgboost | 14.25 | 10.12 | 0.884 | 13128 |
+| lstm | 14.21 | 10.91 | 0.885 | 12731 |
+| **gru** | **13.47** | **9.57** | **0.897** | 19178 |
+
+**Validation champion: GRU** (best RMSE/MAE/R2). LSTM has best NASA score (its error profile is less late-biased - analysed in Phase 10). Official test data not consulted.
+
+### Notes
+- LSTM best epoch 6, GRU stopped early via patience (epochs logged in `experiments/results.csv` notes).
+- Model weights checkpointed under `models/checkpoints/` (gitignored).
 
 ### Added
 - `src/rul_prediction/features/engineered_features.py`: history-only window features (last value, mean, std, min, max, linear slope, last-5/last-10 means) per sensor + engine age — never uses future cycles.
