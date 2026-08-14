@@ -1,6 +1,28 @@
 # CHANGELOG
 
-## [0.4.0] — Phase 3 — 2026-08-14
+## [0.5.0] — Phase 4 — 2026-08-14
+
+### Added
+- `src/rul_prediction/data/preprocessing.py`: `add_rul` (max_cycle - cycle, optional clip), `fit_scaler` / `transform` / `save_scaler` / `load_scaler` (scaler fitted on training engines only).
+- `src/rul_prediction/data/sequences.py`: `make_sequences` (sliding windows built per engine, never crossing engine boundaries; target = RUL of final cycle in window).
+- `src/rul_prediction/data/splitting.py`: added `read_split_file` to consume the pinned split.
+- `scripts/preprocess.py`: full processing path (builds scaled windows + persisted artifacts); `--validate-only` retained.
+- Tests: `tests/test_sequences.py` (RUL, clipping, dims/dtype, target correctness, short-engine skip, boundary integrity, scaler-fitted-on-train-only, train/validation disjointness).
+- Installed `scikit-learn`, `joblib` into `.venv` (also brought in `scipy`, resolving the earlier missing-dependency warning). Regenerated `requirements-lock.txt`.
+
+### Products (FD001, generated, gitignored under `data/processed/`)
+- `FD001_scaler.joblib` (fitted on 80 training engines only)
+- `FD001_train_sequences.npz`: 14022 windows x (30, 21)
+- `FD001_validation_sequences.npz`: 3709 windows
+- `FD001_scaled_features.npz`: scaled train/validation/test feature arrays + engine IDs
+- `FD001_metadata.json`
+
+### Diagnostic output (real)
+Train engines: 80 | Validation engines: 20 | Overlap: 0 | Train sequences: 14022 | Validation sequences: 3709 | Sequence length: 30 | Input features: 21 | Scaler fit partition: TRAIN ONLY
+(Sequence counts independently recomputed and match.)
+
+### Notes
+- Clip cap `max_rul=125` and window `30` are Phase-4 defaults; final values selected in Phase 8 using validation only. Constant sensors retained in the 21 features (Phase 8 ablation).
 
 ### Added
 - `src/rul_prediction/data/splitting.py`: deterministic engine-level train/validation split (seed 42, 80/20) with a `python -m` CLI.

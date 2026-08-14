@@ -57,6 +57,15 @@ def write_split_file(
     return path
 
 
+def read_split_file(path: str | Path) -> tuple[set[int], set[int]]:
+    """Read a previously written split JSON -> (train_engine_ids, validation_engine_ids)."""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    train = set(payload["train_engine_ids"])
+    validation = set(payload["validation_engine_ids"])
+    assert train.isdisjoint(validation)
+    return train, validation
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Engine-level train/validation split")
     parser.add_argument("--dataset", default="FD001")
