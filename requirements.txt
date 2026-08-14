@@ -1,0 +1,15 @@
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+pyyaml
+joblib
+tensorflow
+xgboost
+jupyterlab
+ipykernel
+pytest
+pytest-cov
+shap
+streamlit
