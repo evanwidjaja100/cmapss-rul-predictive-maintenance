@@ -1,6 +1,28 @@
 # CHANGELOG
 
-## [0.5.0] — Phase 4 — 2026-08-14
+## [0.6.0] — Phase 5 — 2026-08-14
+
+### Added
+- `src/rul_prediction/features/engineered_features.py`: history-only window features (last value, mean, std, min, max, linear slope, last-5/last-10 means) per sensor + engine age — never uses future cycles.
+- `src/rul_prediction/models/baseline.py`: `MeanBaseline`, `linear_regressor`, `random_forest`.
+- `src/rul_prediction/models/xgboost_model.py`: `xgboost_regressor` with early stopping on the validation partition.
+- `src/rul_prediction/evaluation/metrics.py` (RMSE, MAE, R2) and `nasa_score.py` (PHM asymmetric score).
+- `scripts/run_experiment.py`: trains a model on engineered features, evaluates on validation engines only, appends to `experiments/results.csv`.
+- Tests: `tests/test_metrics.py`, `tests/test_features.py`.
+- Installed `xgboost` into `.venv`; regenerated `requirements-lock.txt`.
+
+### Classical benchmark (validation engines only, seed 42, 169 engineered features, RUL cap 125)
+| model | RMSE | MAE | R2 | NASA |
+|---|---|---|---|---|
+| mean | 41.94 | 37.50 | -0.00 | 676502 |
+| linear | 16.81 | 13.02 | 0.839 | 16076 |
+| random forest | 15.67 | 11.16 | 0.860 | 17421 |
+| **xgboost** | **14.23** | **10.14** | **0.885** | **13271** |
+
+**Validation champion: XGBoost** (best on all four metrics). Official test data not consulted.
+
+### Notes
+- NASA score favors early over late predictions; all models here tend to late-predict at validation, keeping NASA scores high (error analysis in Phase 10).
 
 ### Added
 - `src/rul_prediction/data/preprocessing.py`: `add_rul` (max_cycle - cycle, optional clip), `fit_scaler` / `transform` / `save_scaler` / `load_scaler` (scaler fitted on training engines only).

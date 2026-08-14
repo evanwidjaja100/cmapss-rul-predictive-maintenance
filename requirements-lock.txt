@@ -1,4 +1,4 @@
-## Phase 4 environment snapshot (2026-08-14)
+## Phase 5 environment snapshot (2026-08-14)
 ## Python 3.12.6, generated via .venv\\Scripts\\python.exe -m pip freeze
 ## NOTE: this file is regenerated from the live environment at each phase end.
 
@@ -115,3 +115,4 @@ webcolors==25.10.0
 webencodings==0.5.1
 websocket-client==1.9.0
 wheel==0.48.0
+xgboost==3.4.0
