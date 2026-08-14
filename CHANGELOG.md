@@ -1,6 +1,14 @@
 # CHANGELOG
 
-## [0.3.0] — Phase 2 — 2026-08-14
+## [0.4.0] — Phase 3 — 2026-08-14
+
+### Added
+- `src/rul_prediction/data/splitting.py`: deterministic engine-level train/validation split (seed 42, 80/20) with a `python -m` CLI.
+- `experiments/splits/FD001_seed42.json`: pinned 80/20 partition (80 train / 20 validation engines, zero overlap).
+- Tests: `tests/test_splitting.py` (determinism, no overlap, full coverage, ratio, seed sensitivity, JSON round-trip).
+
+### Notes
+- Split performed on engine IDs only; overlapping windows are never produced here (Phase 4 consumes this split).
 
 ### Added
 - `notebooks/01_data_exploration.ipynb`: fully executed EDA notebook using project package functions (self-anchors to repo root; 25 cells, 0 errors).
