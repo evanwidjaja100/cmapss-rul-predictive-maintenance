@@ -1,6 +1,24 @@
 # CHANGELOG
 
-## [0.7.0] — Phase 6 — 2026-08-14
+## [0.8.0] — Phase 7 — 2026-08-14
+
+### Added
+- `src/rul_prediction/models/tcn.py`: TCN with causal convolutions, 4 residual dilated blocks (dilations 1, 2, 4, 8, kernel 3, receptive field 61 >= window 30), BatchNorm, dropout 0.2, global pooling.
+- `scripts/run_experiment.py`: `--model tcn` with identical protocol to LSTM/GRU (same scaled 30x21 windows, MSE, Adam 1e-3 clipnorm=1, batch 128, patience 8, seed 42).
+
+### Comparison table (validation engines only, seed 42, RUL cap 125)
+| model | RMSE | MAE | R2 | NASA |
+|---|---|---|---|---|
+| xgboost | 14.25 | 10.12 | 0.884 | 13128 |
+| lstm | 14.21 | 10.91 | 0.885 | 12731 |
+| **gru** | **13.47** | **9.57** | **0.897** | 19178 |
+| tcn | 17.80 | 13.26 | 0.819 | 23802 |
+
+**Research question answer (this configuration):** a causal-convolutional TCN does NOT outperform the recurrent architectures on FD001 validation; GRU remains the validation champion. TCN still beats linear/logistic-style engineered baselines but with the worst NASA score of the four contenders. The residual dilated block assumption (that long sparse-receptive-field temporal features add value here) did not materialize — candidates for Phase 8 ablations: filters, dilation depth, pooling, dropout.
+
+### Notes
+- TCN: 123,969 parameters; early-stopped with best-weights restore (logged in results.csv).
+- Guardrails unchanged: engine-disjoint validation, official test untouched.
 
 ### Added
 - `src/rul_prediction/models/lstm.py` and `gru.py`: comparable recurrent baselines (128 -> Dropout 0.3 -> 64 -> Dropout 0.3 -> Dense 32 -> Dense 1; Adam with clipnorm=1.0).

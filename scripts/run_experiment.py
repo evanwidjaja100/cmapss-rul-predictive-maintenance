@@ -31,7 +31,7 @@ MAX_RUL = 125
 PROCESSED = Path("data/processed")
 RESULTS_CSV = Path("experiments/results.csv")
 
-MODELS = {"mean", "linear", "rf", "xgboost", "lstm", "gru"}
+MODELS = {"mean", "linear", "rf", "xgboost", "lstm", "gru", "tcn"}
 
 
 def _load_windows(dataset: str):
@@ -81,9 +81,10 @@ def main() -> None:
 
     t0 = time.monotonic()
     notes = args.notes
-    if args.model in ("lstm", "gru"):
+    if args.model in ("lstm", "gru", "tcn"):
         from rul_prediction.models.gru import gru_model
         from rul_prediction.models.lstm import lstm_model
+        from rul_prediction.models.tcn import tcn_model
         from rul_prediction.training.callbacks import build_callbacks
         from rul_prediction.training.trainer import set_seed, train_sequence_model
 
@@ -91,7 +92,7 @@ def main() -> None:
 
         tf.get_logger().setLevel("ERROR")
         set_seed(args.seed)
-        builder = lstm_model if args.model == "lstm" else gru_model
+        builder = {"lstm": lstm_model, "gru": gru_model, "tcn": tcn_model}[args.model]
         model = builder(Xtr.shape[1], Xtr.shape[2], loss=args.loss,
                         learning_rate=args.learning_rate, seed=args.seed)
         param_count = model.count_params()
@@ -119,7 +120,7 @@ def main() -> None:
             model.fit(Ftr, ytr)
     train_time = time.monotonic() - t0
 
-    if args.model in ("lstm", "gru"):
+    if args.model in ("lstm", "gru", "tcn"):
         pred = np.clip(np.asarray(model.predict(Xva, verbose=0)).ravel(), 0, MAX_RUL)
         metrics = {
             "rmse": rmse(yva, pred),
