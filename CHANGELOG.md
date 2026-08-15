@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [0.11.0] — Phase 10 — 2026-08-15
+
+### Added
+- `src/rul_prediction/serving/inference.py`: `RulPredictor` — loads frozen config (validated: model/variant/window/max_rul must match), Phase 9 model + train-only scaler; predicts per-unit RUL with the exact Phase 9 pipeline (scale, 90-cycle windows with zero-padding for short units, 169 features, clip [0,45]).
+- `scripts/serve.py`: `serve` (stdlib HTTP, `GET /health`, `POST /predict` with positional or named C-MAPSS rows) and `batch` (predicts a test-style file, optional RUL metrics).
+- `tests/test_inference_golden.py`: golden-file check — serving predictions must match the Phase 9 official test predictions per unit (<=1e-4); short-unit padding check.
+
+### Verification
+- Golden test passes; HTTP smoke test: 100 units / 26 padded on the full test payload.
+- Batch mode reproduces Phase 9 official metrics exactly: RMSE 2.4024 | MAE 1.4548 | R² 0.9619 | NASA 14.767.
+- 49 pytest tests pass. No retraining; model loaded, never refit.
+
+### Notes
+- Only stdlib for the HTTP layer (no FastAPI/uvicorn dependency); auth/TLS/Docker intentionally skipped until a real deployment target exists.
+- Cosmetic xgboost warning when loading the `.joblib`-named UBJSON model artifact.
+
 ## [0.10.0] — Phase 9 — 2026-08-15
 
 ### Added
