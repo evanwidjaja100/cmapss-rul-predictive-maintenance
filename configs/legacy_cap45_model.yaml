@@ -1,0 +1,45 @@
+# LEGACY MODEL CONFIGURATION - 45-CYCLE MAINTENANCE-HORIZON EXPERIMENT
+# LEGACY / historical artifact. Do NOT use as the primary NASA C-MAPSS benchmark.
+# This is a copy of the original frozen Phase 9 configuration
+# (configs/final_model.yaml, commit 02ccbbd), preserved for historical evidence
+# and reproducibility of the legacy experiment.
+# Primary target of this configuration: min(raw_rul, 45) (RUL clipped at 45
+# cycles). Its metrics (RMSE 2.40 on FD001 official test) are NOT comparable
+# with raw-RUL benchmarks because the target range is intentionally truncated.
+# The same model evaluated against raw official NASA RUL produces approximately
+# RMSE 50.37 / MAE 39.05 / R2 -0.47 / NASA 19261.8 - see
+# experiments/FD001_final_test_results.json (metrics_raw_rul).
+# Methodology V2 (see AUDIT_V2.md) uses RAW RUL as the primary target.
+
+# FINAL MODEL CONFIGURATION - frozen BEFORE any official test-set contact (Phase 9)
+# Selected on VALIDATION ENGINES ONLY in Phase 8 ablations (seed 42, 80/20 engine split).
+
+model: xgboost
+dataset: FD001
+variant: w90_c45_all          # data/processed/FD001_w90_c45_all/
+window: 90                    # sequence length (A-ablation winner)
+max_rul: 45                   # RUL clipping cap (B-ablation winner); predictions clipped at this cap
+sensors: all                  # D-ablation winner (all 21 channels)
+loss: n/a                     # XGBoost uses its own objective; C-ablation (MSE) applies to deep models only
+seed: 42
+
+# Hyperparameters (identical to every Phase 5-8 xgboost run)
+xgboost:
+  n_estimators: 500
+  max_depth: 6
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  early_stopping_rounds: 30
+  eval_set: validation engines only (never test)
+
+# Pre-test validation metrics (for reproducibility check, NOT test metrics)
+validation_metrics:
+  rmse: 2.376
+  mae: 1.258
+  r2: 0.969
+  nasa_score: 326.486
+
+# Guardrails
+test_usage: LEGACY EXPERIMENT - official test set evaluated after config freeze (see AUDIT_V2.md for corrected contact history)
+scaler_fit: TRAINING ENGINES ONLY (test never used for fitting or tuning)
