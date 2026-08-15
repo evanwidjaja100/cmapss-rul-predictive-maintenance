@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## [0.9.0] — Phase 8 — 2026-08-15
+
+### Added
+- `scripts/preprocess.py` variant support: `--window`, `--max-rul` (or `none`), `--sensors all|varying`; each (window, cap, sensors) combination is built into `data/processed/<dataset>_w<W>_c<cap>_<sensors>/` with its own scaler (fit on TRAINING ENGINES ONLY), sequences, and metadata JSON. Constant-sensor detection runs on the training partition only.
+- `scripts/run_experiment.py --variant ...`: window and RUL cap now come from the variant (X shapes / `c<cap>` parsing); deep-model notes carry the custom `--notes` text; results.csv `RUL cap` column reflects the variant (incl. `none`).
+- `scripts/build_ablation_table.py`: derives `reports/tables/ablation_results.csv` from validation-only `experiments/results.csv` by classifying each row into factors A-D/E.
+- `tests/test_experiment_helpers.py`; `tests/test_artifacts.py` extended with a varying-sensor variant guard (15 features, still scaled).
+
+### Ablation findings (validation engines only, seed 42; official test set untouched)
+- **A window**: 90 wins (RMSE 11.17 vs 13.47 at 30); 120 slightly worse (11.68) as sequences thin out.
+- **B RUL cap**: tighter is better down to **45** (RMSE 2.63, R² 0.950); verified the gain is real, not a constant-predictor artifact (per-bucket tracking corr 0.979, 0% of predictions stuck at the cap).
+- **C loss**: MSE beats MAE (15.10) and Huber (15.38).
+- **D sensors**: keeping all 21 beats dropping the 6 constants for GRU (13.47 vs 14.23); XGBoost barely prefers 15.
+- **E architecture @ final variant (w90_c45_all)**: **XGBoost wins** (RMSE 2.376, R² 0.969, NASA 326) over GRU (2.654) and LSTM (2.922) — a flip from the base config where GRU was champion; documented honestly.
+- Recurring negative: with a tight cap the last-45-cycle signal favors hand-built window features over learned recurrence.
+
+### Locked for Phase 9
+- Final config (validation-selected): **XGBoost @ variant w90_c45_all** (window 90, RUL cap 45, all sensors, seed 42) → RMSE 2.376 | MAE 1.258 | R² 0.969 | NASA 326. Composition check w90_c45 GRU = 2.65 (no factor interaction loss).
+- Full table: `reports/tables/ablation_results.csv`; details in `reports/phase8_ablation.md`.
+
+### Notes
+- `data/processed` now holds 11 variants (ignored by git); metadata JSON records scaler fit partition, removed sensors, sequence counts.
+- 45 pytest tests pass.
+
 ## [0.8.0] — Phase 7 — 2026-08-14
 
 ### Added

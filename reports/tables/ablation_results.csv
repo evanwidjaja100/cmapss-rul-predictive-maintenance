@@ -1,0 +1,27 @@
+factor,model,variant,loss,validation RMSE,validation MAE,validation R2,NASA score,training time (s)
+A window=30,lstm,w30_c125_all,mse,14.2144,10.9116,0.8847,12731.0,119.266
+A window=30,gru,w30_c125_all,mse,13.4705,9.5658,0.8965,19177.575,144.641
+A window=30,mean,w30_c125_all,-,41.9364,37.5032,-0.0034,676502.04,0.297
+A window=30,linear,w30_c125_all,-,16.7715,12.9681,0.8395,16031.561,0.453
+A window=30,rf,w30_c125_all,-,15.6711,11.1366,0.8599,17392.011,78.187
+A window=30,xgboost,w30_c125_all,-,14.2481,10.1168,0.8842,13127.924,3.906
+A window=30,tcn,w30_c125_all,mse,17.7974,13.2636,0.8193,23802.169,293.625
+A window=15,gru,w15_c125_all,mse,16.743,12.2316,0.8392,33294.6,142.906
+A window=50,gru,w50_c125_all,mse,11.8814,8.7776,0.919,8104.524,342.016
+A window=60,gru,w60_c125_all,mse,11.6273,8.4837,0.9216,6918.506,392.172
+A window=90,gru,w90_c125_all,mse,11.1717,8.3719,0.9212,4203.363,1005.625
+A window=120,gru,w120_c125_all,mse,11.6812,8.1308,0.9037,3163.08,630.234
+A window=30; B cap=100,gru,w30_c100_all,mse,8.9888,6.0106,0.9254,5268.018,161.985
+A window=30; B cap=150,gru,w30_c150_all,mse,18.0885,14.1978,0.866,28948.817,150.969
+A window=30; B cap=none,gru,w30_cnone_all,mse,31.5896,22.1367,0.7558,1415355.064,252.61
+A window=30; B cap=60,gru,w30_c60_all,mse,3.9246,2.439,0.9488,1063.598,272.641
+A window=30; B cap=75,gru,w30_c75_all,mse,5.3488,3.1429,0.9468,1703.34,248.047
+A window=30; B cap=45,gru,w30_c45_all,mse,2.6309,1.7497,0.9499,643.59,333.468
+A window=30; C loss=mae,gru,w30_c125_all,mae,15.1046,10.4855,0.8698,17620.414,193.344
+A window=30; C loss=huber,gru,w30_c125_all,huber,15.3764,10.4024,0.8651,22493.637,265.422
+A window=30; D sensors=varying,gru,w30_c125_varying,mse,14.2283,10.3415,0.8845,18942.493,170.453
+A window=30; D sensors=varying,xgboost,w30_c125_varying,-,13.8722,9.9159,0.8902,11779.716,5.813
+composed A+B; B cap=45; E architecture,gru,w90_c45_all,mse,2.6545,1.7433,0.9613,449.093,397.141
+B cap=60,gru,w90_c60_all,mse,3.7884,2.3887,0.9619,689.161,462.531
+B cap=45; E architecture,xgboost,w90_c45_all,-,2.376,1.2578,0.969,326.486,6.64
+B cap=45; E architecture,lstm,w90_c45_all,mse,2.9217,1.6875,0.9531,462.231,509.985

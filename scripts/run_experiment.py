@@ -5,7 +5,7 @@ Classical models use engineered window features; lstm/gru consume raw
 
 Usage:
     .venv/Scripts/python.exe scripts/run_experiment.py --dataset FD001 --model xgboost
-    .venv/Scripts/python.exe scripts/run_experiment.py --dataset FD001 --model lstm --loss huber
+    .venv/Scripts/python.exe scripts/run_experiment.py --dataset FD001 --model gru --loss huber --variant w30_c125_all
 """
 
 from __future__ import annotations
@@ -25,29 +25,34 @@ from rul_prediction.features.engineered_features import extract_features
 from rul_prediction.models.baseline import MeanBaseline, linear_regressor, random_forest
 from rul_prediction.models.xgboost_model import xgboost_regressor
 
-WINDOW = 30
 SEED = 42
-MAX_RUL = 125
+BASE_VARIANT = "w30_c125_all"
 PROCESSED = Path("data/processed")
 RESULTS_CSV = Path("experiments/results.csv")
 
 MODELS = {"mean", "linear", "rf", "xgboost", "lstm", "gru", "tcn"}
 
 
-def _load_windows(dataset: str):
-    train_d = np.load(PROCESSED / f"{dataset}_train_sequences.npz")
-    val_d = np.load(PROCESSED / f"{dataset}_validation_sequences.npz")
+def _cap_from_variant(variant: str) -> int | None:
+    cap = variant.split("_c")[1].split("_")[0]
+    return None if cap == "none" else int(cap)
+
+
+def _load_windows(dataset: str, variant: str):
+    variant_dir = PROCESSED / f"{dataset}_{variant}"
+    train_d = np.load(variant_dir / f"{dataset}_train_sequences.npz")
+    val_d = np.load(variant_dir / f"{dataset}_validation_sequences.npz")
     train_raw = load_train(dataset)
     lifetimes = train_raw.groupby("engine_id")["cycle"].max().to_dict()
     return train_d, val_d, lifetimes
 
 
-def _final_cycles(engine_ids: np.ndarray, lifetimes: dict) -> np.ndarray:
+def _final_cycles(engine_ids: np.ndarray, window: int) -> np.ndarray:
     out = np.empty(len(engine_ids), dtype=int)
     i = 0
     for engine, _ in _blocks(engine_ids):
         block_len = int(np.sum(engine_ids == engine))
-        out[i : i + block_len] = WINDOW + np.arange(block_len)
+        out[i : i + block_len] = window + np.arange(block_len)
         i += block_len
     return out
 
@@ -72,12 +77,16 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--patience", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--variant", default=BASE_VARIANT)
     parser.add_argument("--notes", default="window-level engineered features")
     args = parser.parse_args()
 
-    train_d, val_d, lifetimes = _load_windows(args.dataset)
+    train_d, val_d, lifetimes = _load_windows(args.dataset, args.variant)
     Xtr, ytr, ids_tr = train_d["X"], train_d["y"], train_d["engine_ids"]
     Xva, yva, ids_va = val_d["X"], val_d["y"], val_d["engine_ids"]
+
+    window = int(Xtr.shape[1])
+    max_rul = _cap_from_variant(args.variant)
 
     t0 = time.monotonic()
     notes = args.notes
@@ -103,13 +112,16 @@ def main() -> None:
             callbacks=build_callbacks(checkpoint, patience=args.patience),
         )
         best_epoch = int(np.argmin(history.history["val_loss"])) + 1
-        notes = (f"loss={args.loss} param_count={param_count} best_epoch={best_epoch} "
-                 f"version=keras3 (+ early stopping, LR reduce, checkpoint)")
+        notes = (f"variant={args.variant} loss={args.loss} param_count={param_count} "
+                 f"best_epoch={best_epoch} version=keras3 (+ early stopping, LR reduce, checkpoint)")
+        if args.notes:
+            notes += f" | {args.notes}"
         feature_desc = f"sequences:{Xtr.shape[1]}x{Xtr.shape[2]}"
     else:
-        Ftr, names = extract_features(Xtr, _final_cycles(ids_tr, lifetimes))
-        Fva, _ = extract_features(Xva, _final_cycles(ids_va, lifetimes))
+        Ftr, names = extract_features(Xtr, _final_cycles(ids_tr, window))
+        Fva, _ = extract_features(Xva, _final_cycles(ids_va, window))
         feature_desc = f"engineered:{len(names)}"
+        notes = f"variant={args.variant} {notes}"
         if args.model == "mean":
             model = MeanBaseline().fit(Ftr, ytr)
         elif args.model == "xgboost":
@@ -121,21 +133,17 @@ def main() -> None:
     train_time = time.monotonic() - t0
 
     if args.model in ("lstm", "gru", "tcn"):
-        pred = np.clip(np.asarray(model.predict(Xva, verbose=0)).ravel(), 0, MAX_RUL)
-        metrics = {
-            "rmse": rmse(yva, pred),
-            "mae": mae(yva, pred),
-            "r2": r2(yva, pred),
-            "nasa": nasa_score(yva, pred),
-        }
+        pred = np.asarray(model.predict(Xva, verbose=0)).ravel()
     else:
-        pred = np.clip(np.asarray(model.predict(Fva), dtype=float), 0, MAX_RUL)
-        metrics = {
-            "rmse": rmse(yva, pred),
-            "mae": mae(yva, pred),
-            "r2": r2(yva, pred),
-            "nasa": nasa_score(yva, pred),
-        }
+        pred = np.asarray(model.predict(Fva), dtype=float)
+    if max_rul is not None:
+        pred = np.clip(pred, 0, max_rul)
+    metrics = {
+        "rmse": rmse(yva, pred),
+        "mae": mae(yva, pred),
+        "r2": r2(yva, pred),
+        "nasa": nasa_score(yva, pred),
+    }
 
     experiment_id = f"{args.dataset}_{args.model}_seed{args.seed}_{int(time.time())}"
     row = {
@@ -145,7 +153,7 @@ def main() -> None:
         "model": args.model,
         "seed": args.seed,
         "features": feature_desc,
-        "RUL cap": MAX_RUL,
+        "RUL cap": max_rul if max_rul is not None else "none",
         "validation RMSE": round(metrics["rmse"], 4),
         "validation MAE": round(metrics["mae"], 4),
         "validation R2": round(metrics["r2"], 4),
@@ -162,7 +170,7 @@ def main() -> None:
             writer.writeheader()
         writer.writerow(row)
 
-    print(f"[{args.model}] features={feature_desc}  train_time={train_time:.2f}s")
+    print(f"[{args.model}] variant={args.variant} features={feature_desc}  train_time={train_time:.2f}s")
     print(f"  RMSE={metrics['rmse']:.4f}  MAE={metrics['mae']:.4f}  R2={metrics['r2']:.4f}  NASA={metrics['nasa']:.3f}")
     print(f"  logged -> {RESULTS_CSV}")
 
