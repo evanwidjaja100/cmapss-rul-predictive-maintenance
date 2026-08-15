@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [0.10.0] — Phase 9 — 2026-08-15
+
+### Added
+- `configs/final_model.yaml`: configuration frozen BEFORE test contact (Phase 8 winner: XGBoost @ w90_c45_all — window 90, RUL cap 45, all sensors, seed 42) with its pre-test validation metrics for reproducibility gating.
+- `scripts/final_evaluation.py`: two-stage harness — (1) reproducibility pass on validation engines that must reproduce the frozen metrics within 1e-3 (else abort before test), (2) ONE-TIME official test evaluation writing `experiments/FD001_final_test_results.json` + per-unit `test_predictions.csv` (with `padded_short` flags) and `models/final/FD001_final_model.joblib`.
+- `tests/test_final_evaluation.py`: window-padding logic (short units zero-padded at start, tail preserved; long units take last window).
+
+### Official test-set results (FD001, 100 units, evaluated exactly once)
+- Clipped at frozen cap 45 (primary convention): **RMSE 2.402 | MAE 1.455 | R² 0.962 | NASA 14.77**.
+- Raw RUL (transparency only; predictions capped at 45 by design): RMSE 50.37, R² −0.47.
+- 26/100 test units shorter than the 90-cycle window were left-padded (documented in predictions CSV).
+
+### Notes
+- Full audit trail in `reports/phase9_final_evaluation.md`; commit `02ccbbd` froze config + harness before the test run.
+- 47 pytest tests pass.
+
 ## [0.9.0] — Phase 8 — 2026-08-15
 
 ### Added
