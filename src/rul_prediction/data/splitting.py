@@ -66,6 +66,84 @@ def read_split_file(path: str | Path) -> tuple[set[int], set[int]]:
     return train, validation
 
 
+# ---- Methodology V2: three-way engine split (70 train / 15 validation / 15 calibration) ----
+
+V2_TRAIN_FRACTION = 0.70
+V2_VALIDATION_FRACTION = 0.15
+V2_CALIBRATION_FRACTION = 0.15
+
+
+def split_engine_ids_v2(
+    engine_ids,
+    seed: int = SEED,
+    train_fraction: float = V2_TRAIN_FRACTION,
+    validation_fraction: float = V2_VALIDATION_FRACTION,
+) -> tuple[set[int], set[int], set[int]]:
+    """Return (train, validation, calibration) engine IDs as pairwise-disjoint sets.
+
+    Methodology V2 split: calibration engines are reserved for uncertainty
+    calibration only and must never be used for model selection.
+    """
+    ids = sorted(int(e) for e in engine_ids)
+    rng = random.Random(seed)  # deterministic shuffle independent of global state
+    rng.shuffle(ids)
+
+    n_validation = int(round(len(ids) * validation_fraction))
+    n_calibration = int(round(len(ids) * validation_fraction))
+    validation = set(ids[:n_validation])
+    calibration = set(ids[n_validation : n_validation + n_calibration])
+    train = set(ids[n_validation + n_calibration :])
+    assert train.isdisjoint(validation), "engine overlap between train and validation"
+    assert train.isdisjoint(calibration), "engine overlap between train and calibration"
+    assert validation.isdisjoint(calibration), "engine overlap between validation and calibration"
+    return train, validation, calibration
+
+
+def write_v2_split_file(
+    engine_ids,
+    dataset: str,
+    out_dir: str | Path = DEFAULT_SPLITS_DIR,
+    seed: int = SEED,
+    train_fraction: float = V2_TRAIN_FRACTION,
+    validation_fraction: float = V2_VALIDATION_FRACTION,
+) -> Path:
+    """Persist the Methodology V2 split as JSON (never overwrites legacy split files)."""
+    train, validation, calibration = split_engine_ids_v2(
+        engine_ids, seed, train_fraction, validation_fraction
+    )
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{dataset}_v2_seed{seed}.json"
+    payload = {
+        "dataset": dataset,
+        "seed": seed,
+        "methodology": "v2",
+        "train_fraction": train_fraction,
+        "validation_fraction": validation_fraction,
+        "calibration_fraction": 1.0 - train_fraction - validation_fraction,
+        "n_train": len(train),
+        "n_validation": len(validation),
+        "n_calibration": len(calibration),
+        "train_engine_ids": sorted(train),
+        "validation_engine_ids": sorted(validation),
+        "calibration_engine_ids": sorted(calibration),
+    }
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def read_v2_split_file(path: str | Path) -> tuple[set[int], set[int], set[int]]:
+    """Read a Methodology V2 split JSON -> (train, validation, calibration) engine ID sets."""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    train = set(payload["train_engine_ids"])
+    validation = set(payload["validation_engine_ids"])
+    calibration = set(payload["calibration_engine_ids"])
+    assert train.isdisjoint(validation)
+    assert train.isdisjoint(calibration)
+    assert validation.isdisjoint(calibration)
+    return train, validation, calibration
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Engine-level train/validation split")
     parser.add_argument("--dataset", default="FD001")
