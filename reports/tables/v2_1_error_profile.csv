@@ -1,0 +1,12 @@
+count,mean_error,mean_abs_error,RMSE,MAE,NASA_sum,NASA_pct_of_total,group,split
+4,45.874,45.874,47.073,45.874,721.7,10.77,padded_observed_lt_window,observed_history
+40,17.426,22.843,29.678,22.843,5865.3,87.53,observed_45_127,observed_history
+56,-4.021,8.289,12.671,8.289,113.5,1.69,observed_ge_128,observed_history
+0,,,,,0.0,empty,implied_lifetime_lt_128,implied_lifetime
+100,6.554,15.614,23.041,15.614,6700.6,100.0,implied_lifetime_ge_128,implied_lifetime
+25,1.213,4.258,5.703,4.258,15.6,0.23,true_rul_0_29,true_rul_bin
+14,1.768,6.876,11.421,6.876,44.5,0.66,true_rul_30_59,true_rul_bin
+27,10.972,19.546,27.436,19.546,3339.8,49.84,true_rul_60_99,true_rul_bin
+34,8.943,24.44,29.766,24.44,3300.7,49.26,true_rul_ge_100,true_rul_bin
+4,45.874,45.874,47.073,45.874,721.7,10.77,padded_observed_lt_45,padded_vs_full
+96,4.915,14.353,21.463,14.353,5978.9,89.23,full_observed_ge_45,padded_vs_full

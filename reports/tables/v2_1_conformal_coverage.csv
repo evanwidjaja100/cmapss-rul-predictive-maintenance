@@ -1,0 +1,4 @@
+alpha,q,n,k,official_coverage,official_coverage_padded_lt45,official_coverage_full_ge45
+0.1,70.3429,15,15,0.98,1.0,0.9792
+0.2,48.1102,15,13,0.95,0.75,0.9583
+0.3,42.1291,15,12,0.92,0.25,0.9479

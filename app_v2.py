@@ -1,10 +1,12 @@
-"""Streamlit serving app for the frozen V2 model (Methodology V2, Phase V2-9).
+"""Streamlit serving app for the frozen V2.1 model (Methodology V2.1).
 
 Run:  .venv\\Scripts\\python.exe -m streamlit run app_v2.py
 
-Serves the frozen GRU w45 huber model (raw RUL) with 90% conformal intervals
-(V2-8) and the short-history out-of-distribution flag (V2-6). Demo mode uses
-the official FD001 test engines; upload mode accepts C-MAPSS-style files.
+Serves the CV-selected GRU w45 huber model (raw RUL) with the engine-cluster
+conformal interval (engine-level, 15 calibration engines) and objective /
+empirical history flags - no OOD classification (V2_1_REPAIR_PLAN.md R3/R12).
+Demo mode uses the official FD001 test engines; upload mode accepts
+C-MAPSS-style files.
 """
 
 from __future__ import annotations
@@ -13,7 +15,11 @@ import pandas as pd
 import streamlit as st
 
 from rul_prediction.data.loader import DATA_COLUMNS, load_test
-from rul_prediction.serving.v2_predictor import OOD_LIFETIME, V2Predictor
+from rul_prediction.serving.v2_predictor import (
+    RISK_OBSERVED_CYCLES,
+    V2Predictor,
+    limited_history_warning,
+)
 
 RISK_SENSORS = ["sensor_2", "sensor_4", "sensor_6", "sensor_7", "sensor_8"]
 
@@ -23,25 +29,30 @@ def get_predictor() -> V2Predictor:
     return V2Predictor()
 
 
-st.set_page_config(page_title="CMAPSS RUL — frozen V2 model", page_icon="🔧", layout="wide")
+st.set_page_config(page_title="CMAPSS RUL — frozen V2.1 model", page_icon="🔧", layout="wide")
 st.title("CMAPSS FD001 remaining-useful-life predictor")
 st.caption(
-    f"Frozen V2 model: GRU, window 45, huber loss, raw RUL target (no cap). "
-    f"90% split-conformal interval (q = {get_predictor().q_cycles:.1f} cycles) and OOD flag per engine. "
-    "Post-hoc: official test labels were inspected in the V2-0 audit."
+    f"Frozen V2.1 model: GRU, window 45, huber loss, raw RUL target (no cap). "
+    f"90% engine-cluster conformal interval (q = {get_predictor().q_cycles:.1f} cycles, "
+    "15 calibration engines). Post-hoc: official test labels were inspected in the V2-0 audit."
 )
 
 with st.sidebar:
     st.header("Method notes")
     st.write(
         f"- Target: **raw RUL** (cycles to failure, uncapped).\n"
-        f"- 90% interval: finite-sample conformal guarantee on exchangeable data "
-        "(validation coverage measured 88%).\n"
-        f"- Engines with fewer than {OOD_LIFETIME} observed cycles are flagged **OOD**: "
-        "below the training lifetime minimum; measured coverage there is 47.7% "
-        "(reports/v2_conformal.md).\n"
-        "- Model: `models/v2_frozen_gru_w45_huber.keras`; freeze + post-hoc "
-        "evaluation in reports/v2_freeze.md."
+        f"- 90% interval: engine-cluster finite-sample conformal guarantee "
+        f"(k = ceil((n+1)(1-alpha)) with n = 15 calibration engines); empirical "
+        "official-test coverage 98% at alpha=0.1 (reports/v2_1_conformal.md).\n"
+        f"- Test trajectories are truncated before failure: `cycle.max()` is the "
+        "observed history length, NOT a lifetime.\n"
+        f"- `history_is_padded` = observed cycles < window (45); the window is "
+        "left-padded in the shared representation - expected input, not OOD.\n"
+        f"- `short_history_risk_flag` (observed < {RISK_OBSERVED_CYCLES}) is an "
+        "EMPIRICAL risk flag from the V2.1 error analysis, not an OOD "
+        "classification (reports/v2_1_error_analysis.md).\n"
+        "- Model: `models/v2_1/fd001_gru_w45_huber.keras`; CV + freeze + post-hoc "
+        "evaluation in reports/v2_1_cross_validation.md."
     )
 
 predictor = get_predictor()
@@ -57,10 +68,14 @@ if mode.startswith("Demo"):
     c1.metric("Predicted RUL (cycles)", f"{result['prediction_raw_rul']:.0f}")
     c2.metric("90% interval", f"[{result['lo_90']:.0f}, {result['hi_90']:.0f}]")
     c3.metric("Alarm lower bound", f"{result['alarm_lower_bound']:.0f}")
-    c4.metric("Observed cycles", f"{result['n_cycles']}")
-    if result["ood_short_history"]:
-        st.warning(f"OOD: observed history ({result['n_cycles']} cycles) is below the "
-                   f"training minimum ({OOD_LIFETIME}); conformal coverage is unreliable here.")
+    c4.metric("Observed cycles", f"{result['n_cycles_observed']}")
+    warning = limited_history_warning(int(result["n_cycles_observed"]))
+    if warning:
+        st.warning(warning)
+    if result["short_history_risk_flag"]:
+        st.info(f"Empirical risk flag: {int(result['n_cycles_observed'])} observed cycles "
+                f"< {RISK_OBSERVED_CYCLES}; overprediction concentrates in this group "
+                "(see reports/v2_1_error_analysis.md).")
     st.subheader("Risk-relevant sensors (V2-7)")
     st.line_chart(history[["cycle", *RISK_SENSORS]].set_index("cycle"))
 else:
@@ -70,10 +85,14 @@ else:
         frame = pd.read_csv(uploaded, sep=r"\s+", header=None, engine="python")
         frame.columns = DATA_COLUMNS[: frame.shape[1]]
         table = predictor.predict_frame(frame)
-        n_ood = int(table["ood_short_history"].sum())
+        n_padded = int(table["history_is_padded"].sum())
+        n_risk = int(table["short_history_risk_flag"].sum())
         st.dataframe(table)
-        if n_ood:
-            st.warning(f"{n_ood} of {len(table)} engines are OOD (short history < {OOD_LIFETIME} "
-                       f"cycles): treat their intervals with caution (measured coverage 47.7%).")
+        if n_padded:
+            st.warning(f"{n_padded} of {len(table)} engines have padded windows "
+                       f"(observed < 45 cycles); their windows are left-padded.")
+        if n_risk:
+            st.info(f"{n_risk} of {len(table)} engines carry the empirical short-history "
+                    f"risk flag (observed < {RISK_OBSERVED_CYCLES} cycles).")
         csv = table.to_csv(index=False).encode("utf-8")
-        st.download_button("Download predictions CSV", csv, "v2_predictions.csv", "text/csv")
+        st.download_button("Download predictions CSV", csv, "v2_1_predictions.csv", "text/csv")

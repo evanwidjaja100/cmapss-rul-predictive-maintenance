@@ -16,6 +16,8 @@ models/
 models/checkpoints/
 !src/rul_prediction/models/
 experiments/
+!experiments/splits/
+!experiments/v2_1/
 reports/figures/
 data/raw/
 data/interim/
