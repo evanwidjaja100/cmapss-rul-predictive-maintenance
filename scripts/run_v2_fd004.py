@@ -44,12 +44,16 @@ PRED_CSV = ROOT / "experiments" / "v2_fd004_official_predictions.csv"
 
 
 def check_sealed_rul() -> None:
+    """Label integrity pin (historical). The 'sealed/first-ever' status ended at
+    V2-11 when the labels were inspected; official FD004 is now post-hoc by
+    policy (V2_1_REPAIR_PLAN.md R14). The hash pin remains as an integrity check.
+    """
     rul_path = ROOT / "data" / "raw" / "RUL_FD004.txt"
     digest = hashlib.sha256(rul_path.read_bytes()).hexdigest().upper()
     assert digest == SEALED_RUL_SHA256, (
         f"RUL_FD004.txt hash changed since download: {digest} vs {SEALED_RUL_SHA256} "
-        f"(sealed-labels gate). Aborting before any label read.")
-    print(f"sealed-labels gate passed: RUL_FD004.txt sha256 == {digest}")
+        f"(label integrity pin). Aborting.")
+    print(f"label integrity pin passed: RUL_FD004.txt sha256 == {digest}")
 
 
 def main() -> None:

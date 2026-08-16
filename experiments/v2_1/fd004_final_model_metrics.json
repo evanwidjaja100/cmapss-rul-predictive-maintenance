@@ -1,0 +1,25 @@
+{
+  "methodology": "v2.1",
+  "dataset": "FD004",
+  "variant": "C",
+  "model": "gru_w45_huber_condC",
+  "official_status": "post-hoc (labels inspected in V2-11; never sealed)",
+  "official_test_engine_count": 248,
+  "official_test_RMSE": 33.8266,
+  "official_test_MAE": 22.619,
+  "official_test_R2": 0.6151,
+  "official_test_NASA_total": 1345518.43,
+  "official_test_NASA_mean": 5425.4775,
+  "training_time": 1295.56,
+  "variant_results": {
+    "A_RMSE": 71.9264,
+    "A_R2": -0.2293,
+    "A_NASA": 2554269.56,
+    "C_RMSE": 29.3719,
+    "C_R2": 0.795,
+    "C_NASA": 46165.29,
+    "D_RMSE": 27.2231,
+    "D_R2": 0.8239,
+    "D_NASA": 68980.96
+  }
+}

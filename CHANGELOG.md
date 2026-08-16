@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## Methodology V2.1 (repair) — 2026-08-15 (`67a0e58` + follow-ups)
+
+> V2.1 repairs four audit findings (`V2_1_REPAIR_PLAN.md`, R1–R20). V2
+> conclusions that are superseded are labeled `SUPERSEDED BY METHODOLOGY V2.1`
+> in their reports; V2 remains historical record.
+
+- **Lifetime semantics corrected (R1/R2/R3/R4):** official test trajectories
+  are truncated before failure, so `cycle.max()` is observed history, never
+  lifetime. `implied_failure_cycle = observed_cycles + true_rul` is the
+  labeled quantity. The V2 claim "44 engines with lifetime < 128 carry 99.8%
+  of NASA" has **no lifetime-based counterpart — that group is empty on the
+  official test**; it was an observed-history artifact. Serving no longer
+  classifies OOD: `history_is_padded` (objective) + empirical short-history
+  risk flag. `reports/v2_1_error_analysis.md`.
+- **Engine-group 5-fold CV selection (R5/R6/R7/R8):** 85 development / 15
+  calibration engines (V2 calibration IDs preserved), 5-fold group CV
+  (seed 42), balanced fractions 0.25/0.45/0.65/0.80/0.95 fixed pre-comparison,
+  8 bounded candidates. Winner **gru_w45_huber** (RMSE 24.45±3.62, NASA
+  5,828±4,451, bias −0.25). Frozen on 85 dev engines: official post-hoc
+  RMSE 23.04 / R² 0.693 / NASA 6,700.59 (11.5× vs V2's 77,387.53).
+  `configs/final_model_v2_1_fd001.yaml`, `reports/v2_1_cross_validation.md`.
+- **Engine-cluster conformal (R9/R10/R11):** one max-|error| score per
+  calibration engine over its 5 checkpoints (n=15), k = ceil((n+1)(1−α))
+  clamped; α=0.1 → q = 70.34; official coverage 98%. V2-8's n=75 row-level
+  q=24.10 superseded. `reports/v2_1_conformal.md`.
+- **FD004 condition-aware modeling (R13/R14):** A/B (global scaler ± settings)
+  collapse reproduced (pred std 0.0, RMSE ~72); **C (KMeans k=6 per-regime
+  scalers) restores variance** — RMSE 29.37, R² 0.795, NASA 46,165 (55× vs A);
+  D (C + one-hot) RMSE-optimal (27.22) but NASA 68,981 — not selected. Frozen
+  C official post-hoc: RMSE 33.83 / NASA 1,345,518 (1.9× better than the
+  V2-11 collapse). FD004 official = post-hoc by policy from V2.1 on.
+  `configs/final_model_v2_1_fd004.yaml`, `reports/v2_1_fd004.md`.
+- **Engineering (R15–R20):** `explain_v2_shap.py` renamed
+  `explain_v2_sensitivity.py` (occlusion, not SHAP); `pyproject.toml`
+  `requires-python = ">=3.11,<3.13"`; `THIRD_PARTY_NOTICES.md`; CI markers
+  declared; `experiments/splits/` + `experiments/v2_1/` un-ignored for
+  auditability; V2 reports bannered SUPERSEDED; README/PROJECT_SPEC updated.
+- Tests: 110 → **115 passing** (16 V2.1 methodology + 5 FD004 condition +
+  rewritten serving tests); app smoke `python -c "import app_v2"` passes.
+
 ## Methodology V2 (Phases V2-0 … V2-12) — 2026-08-15
 
 > **Correction (V2-12):** legacy entries below claim the official test set was

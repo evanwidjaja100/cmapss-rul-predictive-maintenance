@@ -1,3 +1,10 @@
+> **SUPERSEDED BY METHODOLOGY V2.1** — this report documents the V2
+> methodology as historical record. V2.1 corrects the lifetime semantics
+> (observed history vs implied failure cycle), replaces the single 15-engine
+> validation with 5-fold engine-group CV, recalibrates conformal at the
+> engine level, and fixes the FD004 collapse with per-regime scaling.
+> See V2_1_REPAIR_PLAN.md and reports/v2_1_methodology.md.
+
 # Phase V2-6 — Error Analysis of the Frozen Model
 
 Date: 2026-08-15  |  Model: frozen GRU w45 huber (`models/v2_frozen_gru_w45_huber.keras`)  |  Target: raw RUL

@@ -1,3 +1,10 @@
+> **SUPERSEDED BY METHODOLOGY V2.1** — this report documents the V2
+> methodology as historical record. V2.1 corrects the lifetime semantics
+> (observed history vs implied failure cycle), replaces the single 15-engine
+> validation with 5-fold engine-group CV, recalibrates conformal at the
+> engine level, and fixes the FD004 collapse with per-regime scaling.
+> See V2_1_REPAIR_PLAN.md and reports/v2_1_methodology.md.
+
 # Phase V2-8 — Conformal Uncertainty Calibration
 
 Date: 2026-08-15  |  Model: frozen GRU w45 huber  |  Target: raw RUL  |  Calibration set: the **75 fixed calibration-manifest rows** (15 engines × 5 lifecycle fractions) — untouched by every prior phase; first use here.

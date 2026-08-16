@@ -1,0 +1,2 @@
+methodology,dataset,variant,model,official_status,official_test_engine_count,official_test_RMSE,official_test_MAE,official_test_R2,official_test_NASA_total,official_test_NASA_mean,training_time,variant_results
+v2.1,FD004,C,gru_w45_huber_condC,post-hoc (labels inspected in V2-11; never sealed),248,33.8266,22.619,0.6151,1345518.43,5425.4775,1295.56,"{'A_RMSE': 71.9264, 'A_R2': -0.2293, 'A_NASA': 2554269.56, 'C_RMSE': 29.3719, 'C_R2': 0.795, 'C_NASA': 46165.29, 'D_RMSE': 27.2231, 'D_R2': 0.8239, 'D_NASA': 68980.96}"

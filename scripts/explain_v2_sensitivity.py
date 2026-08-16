@@ -1,17 +1,17 @@
 """Phase V2-7: explainability of the frozen model via sensor-level attribution.
 
-Method (SHAP-style, exactly computable): for each sensor s, replace sensor s's
+Method (sensitivity/occlusion, NOT SHAP): for each sensor s, replace sensor s's
 values across the whole window with the per-sensor background median (from
 full-length train windows) and measure the prediction drop:
 
     attribution_s = f(window) - f(window with sensor s replaced by median)
 
 This is the marginal contribution of sensor s relative to the background
-distribution — the same contrast SHAP uses, evaluated exactly (no Monte-Carlo
-sampling; keras 3 breaks shap's deep/kernel explainers on this model — see
-reports/v2_explainability.md). Attributions are in raw-RUL units (prediction
-units). Sum-check: sum_s attribution_s vs f(window) - f(window with ALL
-sensors replaced); gap reported honestly (nonlinear model).
+distribution. (The script was renamed from explain_v2_shap.py in V2.1 because
+it is not SHAP; keras 3 breaks shap's deep/kernel explainers on this model —
+see reports/v2_explainability.md.) Attributions are in raw-RUL units
+(prediction units). Sum-check: sum_s attribution_s vs f(window) -
+f(window with ALL sensors replaced); gap reported honestly (nonlinear model).
 
 Target groups (from experiments/v2_error_profile.csv, full windows only):
   late-miss  : official engines with error > +50 cycles (the NASA tail)

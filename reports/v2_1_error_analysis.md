@@ -22,11 +22,11 @@ Model: `gru_w45_huber` (V2.1 CV-selected, 85 development engines). Official test
 
 ## What the V2 claim becomes
 
-V2 reported that 'engines with lifetime < 128 carry 99.8% of the NASA penalty'. Under the corrected definition (implied failure lifetime = observed_cycles + true_rul), the `implied_lifetime_lt_128` group is **empty on the official test** ({len(df)}/100 engines): every official engine has implied failure cycle >= 128. The V2 finding was really about OBSERVED HISTORY LENGTH (44 engines with cycle.max() < 128); that quantity is a trajectory-truncation artifact, not a lifetime. The observed-history rows above supersede it.
+V2 reported that 'engines with lifetime < 128 carry 99.8% of the NASA penalty'. Under the corrected definition (implied failure lifetime = observed_cycles + true_rul), the `implied_lifetime_lt_128` group is **empty on the official test** (100/100 engines): every official engine has implied failure cycle >= 128. The V2 finding was really about OBSERVED HISTORY LENGTH (44 engines with cycle.max() < 128); that quantity is a trajectory-truncation artifact, not a lifetime. The observed-history rows above supersede it.
 
 Observed-history split of the old claim: 40 engines in observed 45-127, 56 in observed >= 128, 4 padded (< window).
 
 ## Notes
 
 - `padded_observed_lt_window`: engines whose observed history is shorter than the model window (45); their windows are left-padded in the shared representation. This is expected input for the model, not out-of-distribution.
-- Only {int((df['observed_cycles'] < WINDOW).sum())} of {len(df)} official-test engines have observed history < {WINDOW}; small-sample caution applies to that subgroup.
+- Only 4 of 100 official-test engines have observed history < 45; small-sample caution applies to that subgroup.

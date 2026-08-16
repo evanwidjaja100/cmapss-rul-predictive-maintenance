@@ -1,3 +1,10 @@
+> **SUPERSEDED BY METHODOLOGY V2.1** — this report documents the V2
+> methodology as historical record. V2.1 corrects the lifetime semantics
+> (observed history vs implied failure cycle), replaces the single 15-engine
+> validation with 5-fold engine-group CV, recalibrates conformal at the
+> engine level, and fixes the FD004 collapse with per-regime scaling.
+> See V2_1_REPAIR_PLAN.md and reports/v2_1_methodology.md.
+
 # Phase V2-5 — Model Freeze & Post-Hoc Official FD001 Evaluation
 
 Date: 2026-08-15  |  Split: FD001 seed 42 (70/15/15 engines)  |  Target: **raw RUL (no cap)**

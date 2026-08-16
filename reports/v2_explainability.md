@@ -1,3 +1,10 @@
+> **SUPERSEDED BY METHODOLOGY V2.1** — this report documents the V2
+> methodology as historical record. V2.1 corrects the lifetime semantics
+> (observed history vs implied failure cycle), replaces the single 15-engine
+> validation with 5-fold engine-group CV, recalibrates conformal at the
+> engine level, and fixes the FD004 collapse with per-regime scaling.
+> See V2_1_REPAIR_PLAN.md and reports/v2_1_methodology.md.
+
 # Phase V2-7 — Explainability of the Frozen Model
 
 Date: 2026-08-15  |  Model: frozen GRU w45 huber (`models/v2_frozen_gru_w45_huber.keras`)  |  Target: raw RUL
@@ -10,7 +17,7 @@ Keras 3.15 breaks all three classic shap explainers on this model (Deep/Gradient
 
 i.e. "how many raw-RUL units would the prediction drop if sensor s had been typical". Units are prediction units (cycles). Evaluated on the 45-cycle terminal window of each official-test engine (full windows only; the 4 padded engines are excluded — their failures were analyzed in V2-6). Background median: per-sensor median over all 14,235 full-length train windows. **This is not an additive Shapley decomposition**: single-sensor replacements double-count shared signal, and the measured sum-check gap (|Σ attributions − total replacement effect|) is 74–109 cycles — reported honestly, not hidden. Attributions are directionally meaningful per sensor; they must not be summed.
 
-`shap` 0.52.0 is now installed (it was declared in `requirements.txt` but missing — V2-0 audit finding; no requirement change needed). Repro: `scripts/explain_v2_shap.py`; per-sensor CSV in `experiments/v2_shap_attributions.csv`, engine-67 position profile in `experiments/v2_shap_position_engine67.csv`.
+`shap` 0.52.0 is now installed (it was declared in `requirements.txt` but missing — V2-0 audit finding; no requirement change needed). Repro: `scripts/explain_v2_sensitivity.py`; per-sensor CSV in `experiments/v2_sensitivity_attributions.csv`, engine-67 position profile in `experiments/v2_sensitivity_position_engine67.csv`.
 
 ## Groups (official test, from `experiments/v2_error_profile.csv`)
 

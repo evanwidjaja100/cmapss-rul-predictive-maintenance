@@ -132,7 +132,7 @@ def main() -> None:
         "V2 reported that 'engines with lifetime < 128 carry 99.8% of the NASA "
         "penalty'. Under the corrected definition (implied failure lifetime = "
         f"observed_cycles + true_rul), the `implied_lifetime_lt_128` group is "
-        "**empty on the official test** ({len(df)}/100 engines): every official "
+        f"**empty on the official test** ({len(df)}/100 engines): every official "
         "engine has implied failure cycle >= 128. The V2 finding was really "
         "about OBSERVED HISTORY LENGTH (44 engines with cycle.max() < 128); "
         "that quantity is a trajectory-truncation artifact, not a lifetime. "
@@ -148,8 +148,8 @@ def main() -> None:
         f"shorter than the model window ({WINDOW}); their windows are "
         "left-padded in the shared representation. This is expected input "
         "for the model, not out-of-distribution.",
-        "- Only {int((df['observed_cycles'] < WINDOW).sum())} of {len(df)} "
-        "official-test engines have observed history < {WINDOW}; "
+        f"- Only {int((df['observed_cycles'] < WINDOW).sum())} of {len(df)} "
+        f"official-test engines have observed history < {WINDOW}; "
         "small-sample caution applies to that subgroup.",
     ]
     report = "\n".join(md)

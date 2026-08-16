@@ -15,7 +15,7 @@ dist/
 models/
 models/checkpoints/
 !src/rul_prediction/models/
-experiments/
+experiments/*
 !experiments/splits/
 !experiments/v2_1/
 reports/figures/

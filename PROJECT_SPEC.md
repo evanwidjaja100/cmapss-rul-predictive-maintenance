@@ -89,7 +89,7 @@ Methodology V2 (Phases V2-0 … V2-12, 2026-08-15) re-based the project on a **r
 
 | Roadmap phase | V2 execution | Status |
 |---|---|---|
-| 10 error analysis | V2-6 (`reports/v2_error_analysis.md`) | done — short-lifetime engines (lifetime < 128) carry 99.8% of official NASA error |
+| 10 error analysis | V2.1 (`reports/v2_1_error_analysis.md`) | done — supersedes V2-6: observed history vs implied failure cycle; implied-lifetime-<128 group empty on official test; short observed history overpredicted (+17.4 mean, 87.5% NASA) |
 | 11 explainable AI | V2-7 (`reports/v2_explainability.md`) | done — leave-one-sensor-out attribution; sensors 2/4/6/7/8 drive late-miss overprediction |
 | 12 prediction uncertainty | V2-8 (`reports/v2_conformal.md`) | done — split-conformal; 90% interval width 24.10 cycles; OOD coverage degradation quantified |
 | 13 Streamlit dashboard | V2-9 (`app_v2.py`, `reports/v2_serving.md`) | done — serving bit-identical to the freeze |
@@ -103,4 +103,4 @@ Key V2 facts:
 - V2 split: 70 train / 15 validation / 15 calibration engines, seed 42; model selection on the fixed 75-row validation manifest only; calibration engines used only for conformal calibration.
 - Frozen V2 model: GRU w45 huber — validation RMSE 13.74 / NASA 200.01; official FD001 post-hoc RMSE 29.04 / NASA 77,387.53.
 - All official FD001 results are labeled **post-hoc** (labels inspected in the V2-0 audit; see `AUDIT_V2.md` Issues 1 & 7).
-- FD004 official labels were sealed until V2-11 (sha256-pinned, first-ever read at evaluation).
+- FD004 official labels were sealed until V2-11 (sha256-pinned, first-ever read); from V2.1 on, official FD004 is post-hoc by policy (label integrity pin retained).
