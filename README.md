@@ -56,7 +56,7 @@ See [PROJECT_SPEC.md](PROJECT_SPEC.md) for the full specification and [CHANGELOG
 ## Reproduce everything (Windows)
 
 ```bash
-# 0. Environment (Python 3.12 required; TF needs <= 3.12)
+# 0. Environment (Python >= 3.11, tested on 3.12; TensorFlow supports 3.9-3.12)
 py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m pip install -e . --no-deps

@@ -3,12 +3,18 @@
 The serving path (make_predictor + train-only scaler + shared window builder)
 must reproduce the Phase V2-5 freeze predictions exactly, and the conformal
 interval + OOD flag must match the Phase V2-8 / V2-6 results.
+
+Requires gitignored artifacts (models/, data/raw, reports/tables) — excluded
+from CI via the ``needs_artifacts`` marker; run in the full local suite.
 """
 
 import numpy as np
+import pytest
 
 from rul_prediction.data.loader import load_test
 from rul_prediction.serving.v2_predictor import OOD_LIFETIME, V2Predictor
+
+pytestmark = pytest.mark.needs_artifacts
 
 
 def test_predictions_match_freeze_official_test():

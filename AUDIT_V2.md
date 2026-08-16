@@ -100,3 +100,10 @@ Tests skip on missing artifacts:
 - `reports/legacy/README.md` (labels the cap-45 experiment and its artifacts as the legacy maintenance-horizon task)
 
 No code, no methodology, no results were modified.
+
+## 6. Resolutions (Phase V2-10, CI/deps)
+
+- Issue 9 (SHAP/Streamlit declared but missing): both now installed (`shap==0.52.0`, `streamlit==1.61.1`) and implemented (V2-7, V2-9).
+- Issue 11 (Python-version policy): `README.md` now reads "Python >= 3.11, tested on 3.12", consistent with `pyproject.toml requires-python = ">=3.11"` and the documented PROJECT_SPEC deviation (3.12 used).
+- Issue 11 (`requirements-lock.txt` absolute editable path): lock regenerated (2026-08-15 snapshot, includes shap/streamlit); the editable line is replaced by a path-free comment — install the package via `pip install -e . --no-deps`.
+- Issue 10 (clean-checkout test behavior): `tests/test_v2_serving.py` is now marked `needs_artifacts`; the marker is registered in `pyproject.toml`; CI (`.github/workflows/ci.yml`) runs `pytest -m "not needs_artifacts"`. Verified on an artifact-free tree: 78 passed, 10 skipped, 3 deselected.

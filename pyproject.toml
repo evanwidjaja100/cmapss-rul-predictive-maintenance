@@ -32,3 +32,6 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "needs_artifacts: requires gitignored data/model/experiment artifacts (excluded in CI)",
+]
