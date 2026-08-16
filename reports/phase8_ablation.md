@@ -15,7 +15,7 @@ All experiments follow the one-factor-at-a-time protocol around the Phase 7 base
 | **90** | 9222 | **11.17** | 8.37 | 0.921 | 4203 |
 | 120 | 6822 | 11.68 | 8.13 | 0.904 | 3163 |
 
-Longer windows strictly help until ≈90 cycles, then RMSE plateaus/slightly degrades as fewer sequences survive (6918 engines lose 120-cycle windows vs 480 at 90). **Select: window 90.**
+Longer windows strictly help until ≈90 cycles, then RMSE plateaus/slightly degrades as fewer sequences survive (6918 sequences/windows lose 120-cycle windows vs 480 at 90). **Select: window 90.**
 
 ## B — RUL clipping cap (GRU, window 30, MSE, all sensors)
 

@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## Methodology V2 (Phases V2-0 … V2-12) — 2026-08-15
+
+> **Correction (V2-12):** legacy entries below claim the official test set was
+> "evaluated exactly once". The official FD001 labels were re-inspected during
+> the V2 audits, so from V2 onward all official FD001 results are labeled
+> **post-hoc** (see `AUDIT_V2.md` Issues 1 & 7).
+
+### V2-0 — Baseline audit (`c3c8694`)
+
+- `AUDIT_V2.md`: 11 confirmed issues (capped-target headline, "exactly once" claims, missing attribution, absolute lock path, skipped roadmap phases); legacy Phase 1–10 experiment labeled (`configs/legacy_cap45_model.yaml`, `reports/legacy/README.md`); no code or results modified.
+
+### V2-1 — Methodology setup (`2aedc42`)
+
+- V2 plan: primary target = **raw RUL** (no cap); 70/15/15 engine split (seed 42); fixed pseudo-test manifests (75 validation + 75 calibration rows, 5 lifecycle fractions); shared runner `src/rul_prediction/benchmark/v2.py`; consistent padded+masked history for train and inference.
+
+### V2-2 — V2 preprocessing (`2c93185`)
+
+- `src/rul_prediction/data/v2_preprocessing.py` + `scripts/preprocess_v2.py`: raw-RUL targets, scaler fit on train engines only, artifacts under `data/processed/v2/FD001/raw/`.
+
+### V2-3 — Raw-RUL benchmark (`e88388b`)
+
+- mean/linear/rf/xgboost/lstm/gru/tcn on the fixed 75-row validation manifest; recurrent models dominate (gru w30: RMSE 24.66); linear regression unusable on raw RUL.
+
+### V2-4 — Window & hyperparameter ablations (`67664ce`)
+
+- 45 runs (windows 15–90, loss, dropout, depth); **selection: GRU w45 huber — validation RMSE 13.74, MAE 9.69, R² 0.877, NASA 200.01**. `reports/v2_ablation.md`, `reports/tables/v2_ablation_results.csv`.
+
+### V2-5 — Freeze + post-hoc FD001 (`be9252a`)
+
+- `models/v2_frozen_gru_w45_huber.keras`; validation reproduced bit-exact (13.7406); official FD001 post-hoc: RMSE 29.0377, MAE 19.1715, R² 0.5117, NASA 77,387.53; 5 late misses = 96.6% of NASA. `reports/v2_freeze.md`.
+
+### V2-6 — Error analysis (`b3742bc`)
+
+- Training lifetime min 128; official engines below it (44/100) are missed late 80% of the time and carry 99.8% of NASA; in-range engines: mean error −4.3 cycles. `reports/v2_error_analysis.md`.
+
+### V2-7 — Explainability (`74b4ce2`)
+
+- shap 0.52.0 (keras 3.15.1 breaks Deep/Gradient/Kernel explainers — documented); exact leave-one-sensor-out attribution; sensors 2/4/6/7/8 flip sign (late-miss overprediction); constant sensors ≈ 0 attribution; non-additivity disclosed. `reports/v2_explainability.md`.
+
+### V2-8 — Conformal uncertainty (`3d3f644`)
+
+- Split-conformal calibration on the 75 calibration rows; 90% interval width 24.10 cycles; coverage: calibration 92%, validation 88%, official 69% (85.7% in-range vs 47.7% OOD); lower-bound predictor cuts official NASA 3.2× at α=0.2. `reports/v2_conformal.md`.
+
+### V2-9 — Streamlit serving (`815e718`)
+
+- `app_v2.py` + `src/rul_prediction/serving/v2_predictor.py` (predictions bit-identical to the freeze, golden-tested); 90% conformal intervals, alarm lower bound, OOD flag; `reports/v2_serving.md`.
+
+### V2-10 — CI / dependency cleanup (`978b060`)
+
+- `requirements-lock.txt` regenerated (path-free editable line; includes shap/streamlit); Python version policy reconciled (>= 3.11, tested on 3.12); `needs_artifacts` marker registered; GitHub Actions workflow runs the artifact-free subset (78 passed, verified on an artifact-free tree).
+
+### V2-11 — FD004 generalization study (`27a3e64`)
+
+- FD004 acquired (Kaggle mirror; NASA S3 403 for all probed paths); **sealed-labels gate**: repo-wide grep proved no code reads `RUL_FD004.txt`, sha256 pinned at download and re-verified before the first-ever label read. The exact GRU recipe **does not transfer**: collapses to a constant (official RMSE 64.42, R² −0.40, NASA 2,663,846.31; validation R² −2.23) under 6 operating conditions. Condition-aware preprocessing documented as future work. `reports/v2_fd004.md`.
+
+### V2-12 — Final documentation & attribution
+
+- README rewritten: raw-RUL headline with post-hoc labeling, V2 pipeline/reproduction, FD004 verdict, attribution (NASA C-MAPSS + `aun151214/predictive-maintenance-cmapss`).
+- "Exactly once" claims corrected (labeled historical/post-hoc) in `reports/phase9_final_evaluation.md`, `reports/phase10_serving.md`, `configs/final_model.yaml`, `scripts/final_evaluation.py`.
+- Mojibake check on legacy reports: verified clean (valid UTF-8); `reports/phase8_ablation.md` "6918 engines" typo → "sequences/windows"; notebook absolute path made machine-neutral.
+- PROJECT_SPEC.md: V2 status section mapping roadmap phases 10–16.
+
 ## [0.11.0] — Phase 10 — 2026-08-15
 
 ### Added

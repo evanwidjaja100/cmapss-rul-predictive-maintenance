@@ -6,7 +6,8 @@ Date: 2026-08-15
 
 1. `configs/final_model.yaml` frozen **before any test-set contact** — contains the Phase 8 validation-selected configuration and its pre-test validation metrics (RMSE 2.376).
 2. `scripts/final_evaluation.py` committed together with the config (commit `02ccbbd`).
-3. Harness run: reproducibility pass on **validation engines** reproduced the frozen metrics **exactly** (RMSE 2.3760247 vs frozen 2.376, tolerance 1e-3) → gate passed → the official test set was contacted **exactly once**, at this commit, by this script.
+3. Harness run: reproducibility pass on **validation engines** reproduced the frozen metrics **exactly** (RMSE 2.3760247 vs frozen 2.376, tolerance 1e-3) → gate passed → the official test set was contacted at this commit, by this script, for the first time (historically labeled "exactly once" — see correction below).
+   > **Correction (V2-12):** "contacted exactly once" no longer holds — the official RUL labels were re-inspected during the V2 audits (V2-0 inventory, V2-5 post-hoc evaluation) and the frozen predictions were reused by serving verification. All FD001 official results are therefore reported as **post-hoc official benchmark** from Methodology V2 onward; see `AUDIT_V2.md` Issues 1 and 7.
 4. Results written to `experiments/FD001_final_test_results.json` + `data/processed/FD001_w90_c45_all/FD001_test_predictions.csv`.
 
 No test-derived signal fed back into any model, preprocessing choice, or config (all ablations in Phase 8 were validation-only; the config file was committed before the run).

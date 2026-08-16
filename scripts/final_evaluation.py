@@ -3,8 +3,9 @@
 Runs in two stages:
   1. Reproducibility pass on VALIDATION engines (must reproduce the frozen
      config's validation metrics within tolerance, else abort before test).
-  2. ONE-TIME evaluation on the official NASA test set, after the config has
-     been frozen and validated.
+  2. POST-HOC evaluation on the official NASA test set, after the config has
+     been frozen and validated (labels later re-inspected in V2 audits; see
+     AUDIT_V2.md Issue 7 — never described as "exactly once" in V2).
 
 Usage:
     .venv/Scripts/python.exe scripts/final_evaluation.py --config configs/final_model.yaml
@@ -88,7 +89,7 @@ def _test_windows(test_scaled: np.ndarray, unit_ids: np.ndarray, window: int):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Final model freeze + one-time test evaluation")
+    parser = argparse.ArgumentParser(description="Final model freeze + post-hoc official test evaluation")
     parser.add_argument("--config", default=str(ROOT / "configs" / "final_model.yaml"))
     parser.add_argument("--dataset", default="FD001")
     parser.add_argument("--skip-validate", action="store_true",
@@ -141,7 +142,7 @@ def main() -> None:
     model_path = MODELS_DIR / f"{dataset}_final_model.joblib"
     model.save_model(str(model_path))
 
-    # ---- ONE-TIME official test-set evaluation ---------------------------------
+    # ---- official test-set evaluation (post-hoc; see AUDIT_V2.md Issue 7) ----
     test_raw = load_test(dataset)
     features_cols = [c for c in test_raw.columns if c.startswith("sensor_")]
     test_scaled = transform(test_raw, features_cols, scaler)
@@ -176,7 +177,7 @@ def main() -> None:
 
     result = {
         "config": config,
-        "contact": "official test set, evaluated exactly once after config freeze",
+        "contact": "official test set, evaluated post-hoc after config freeze (first contact Phase 9; labels later re-inspected in V2 audits)",
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "n_test_units": int(len(true_rul)),
         "n_units_short_padded": int(padded.sum()),

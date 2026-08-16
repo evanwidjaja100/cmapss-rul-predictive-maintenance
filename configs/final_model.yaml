@@ -27,6 +27,6 @@ validation_metrics:
   r2: 0.969
   nasa_score: 326.486
 
-# Guardrails
-test_usage: OFFICIAL TEST SET CONTACTED EXACTLY ONCE, AFTER THIS CONFIG WAS FROZEN
+# Guardrails (label updated V2-12: "exactly once" no longer holds — see AUDIT_V2.md Issue 7)
+test_usage: POST-HOC OFFICIAL TEST EVALUATION (historical config; first contact was at Phase 9, labels later re-inspected in V2 audits)
 scaler_fit: TRAINING ENGINES ONLY (test never used for fitting or tuning)

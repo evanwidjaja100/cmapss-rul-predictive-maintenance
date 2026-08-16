@@ -82,3 +82,25 @@ Every experiment records: random seed, dataset, train engine IDs, validation eng
 - Phases are completed one at a time; each phase ends with tests, acceptance-criteria verification, a commit, and a STOP.
 - A new phase begins only on explicit instruction.
 - Failed experiments are reported, never hidden. Test performance is reported honestly even when disappointing.
+
+## 10. Methodology V2 — execution status (supersedes roadmap §7 phases 10–16)
+
+Methodology V2 (Phases V2-0 … V2-12, 2026-08-15) re-based the project on a **raw-RUL target (no cap)** and a fixed pseudo-test manifest. It supersedes roadmap phases 10–16 as follows:
+
+| Roadmap phase | V2 execution | Status |
+|---|---|---|
+| 10 error analysis | V2-6 (`reports/v2_error_analysis.md`) | done — short-lifetime engines (lifetime < 128) carry 99.8% of official NASA error |
+| 11 explainable AI | V2-7 (`reports/v2_explainability.md`) | done — leave-one-sensor-out attribution; sensors 2/4/6/7/8 drive late-miss overprediction |
+| 12 prediction uncertainty | V2-8 (`reports/v2_conformal.md`) | done — split-conformal; 90% interval width 24.10 cycles; OOD coverage degradation quantified |
+| 13 Streamlit dashboard | V2-9 (`app_v2.py`, `reports/v2_serving.md`) | done — serving bit-identical to the freeze |
+| 14 testing / CI | V2-10 (`tests/`, `.github/workflows/ci.yml`) | done — 93 tests; artifact-free CI subset (78) |
+| 15 FD004 generalization | V2-11 (`reports/v2_fd004.md`) | done — **negative result**: the recipe does not transfer (GRU collapses to a constant under 6 operating conditions); condition-aware modeling = future work |
+| 16 final docs | V2-12 (`README.md`, `CHANGELOG.md`) | done |
+
+Key V2 facts:
+
+- Primary target = **raw RUL**; the legacy cap-45 XGBoost experiment is preserved as a labeled maintenance-horizon task (`reports/legacy/README.md`).
+- V2 split: 70 train / 15 validation / 15 calibration engines, seed 42; model selection on the fixed 75-row validation manifest only; calibration engines used only for conformal calibration.
+- Frozen V2 model: GRU w45 huber — validation RMSE 13.74 / NASA 200.01; official FD001 post-hoc RMSE 29.04 / NASA 77,387.53.
+- All official FD001 results are labeled **post-hoc** (labels inspected in the V2-0 audit; see `AUDIT_V2.md` Issues 1 & 7).
+- FD004 official labels were sealed until V2-11 (sha256-pinned, first-ever read at evaluation).
