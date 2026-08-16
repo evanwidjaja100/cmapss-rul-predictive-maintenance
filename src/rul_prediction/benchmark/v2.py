@@ -12,9 +12,11 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from joblib import load as load_joblib
 
-from rul_prediction.data.loader import SENSOR_COLUMNS, load_train
+from rul_prediction.data.loader import (EXPECTED_ENGINE_COUNTS, SENSOR_COLUMNS,
+                                        load_rul, load_test, load_train)
 from rul_prediction.data.preprocessing import transform
 from rul_prediction.data.pseudo_test import load_manifest
 from rul_prediction.data.splitting import SEED, read_v2_split_file
@@ -132,6 +134,44 @@ def make_predictor(model_name: str, model, scaler, window: int):
         win, n_obs, _ = build_window(scaled, cutoff, window)
         return float(model.predict([win[None], window_mask(n_obs, window)[None]], verbose=0)[0, 0])
     return predict_sequence
+
+
+def evaluate_official_test(model_name: str, model, scaler, window: int,
+                           dataset: str = "FD001", data_dir: str | Path = "data/raw"):
+    """Post-hoc metrics on the official C-MAPSS test set (labels are loaded).
+
+    NOTE: this is NOT an "exactly once" evaluation — the official RUL labels
+    were inspected during the V2-0 audit. Results must be reported as
+    post-hoc. Uses the same per-engine window/mask representation as training.
+    """
+    test = load_test(dataset, data_dir)
+    rul = load_rul(dataset, data_dir)
+    engines = sorted(test["engine_id"].unique())
+    assert len(engines) == len(rul) == EXPECTED_ENGINE_COUNTS[dataset]["test"], (
+        f"{len(engines)} test engines vs {len(rul)} labels")
+    assert engines == list(range(1, len(engines) + 1)), "engine ids must be 1..N"
+    manifest = pd.DataFrame({
+        "engine_id": engines,
+        "cutoff_cycle": [int(test[test["engine_id"] == e]["cycle"].max()) for e in engines],
+    })
+    trajectories = {int(e): g.sort_values("cycle") for e, g in test.groupby("engine_id")}
+    pred = evaluate_manifest(manifest, trajectories, make_predictor(model_name, model, scaler, window))
+    y_true = rul.astype(float)
+    assert np.isfinite(pred).all(), "non-finite official-test predictions"
+    total = nasa_score(y_true, pred)
+    metrics = {
+        "official_test_engine_count": len(engines),
+        "official_test_RMSE": round(rmse(y_true, pred), 4),
+        "official_test_MAE": round(mae(y_true, pred), 4),
+        "official_test_R2": round(r2(y_true, pred), 4),
+        "official_test_NASA_total": round(total, 2),
+        "official_test_NASA_mean": round(total / len(engines), 4),
+    }
+    prediction_rows = [
+        {"engine_id": int(e), "true_rul_official": float(t), "prediction": float(p)}
+        for e, t, p in zip(engines, rul, pred)
+    ]
+    return metrics, prediction_rows
 
 
 def run_experiment(experiment_id: str, model_name: str, window: int, overrides: dict | None = None,
