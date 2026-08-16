@@ -1,0 +1,4 @@
+alpha,target_coverage,q_cycles,mean_interval_width,calibration_coverage,validation_coverage,official_coverage,validation_lb_RMSE,validation_lb_MAE,validation_lb_NASA_total,official_lb_RMSE,official_lb_MAE,official_lb_NASA_total,validation_plain_RMSE,validation_plain_NASA_total,official_plain_RMSE,official_plain_NASA_total
+0.1,0.9,24.1026,48.2053,0.92,0.88,0.69,29.461,26.295,1075.36,31.5506,27.1018,8184.64,13.7406,200.01,29.0377,77387.53
+0.2,0.8,11.7709,23.5417,0.8133,0.6933,0.52,19.3731,15.8529,388.57,27.7919,21.1803,24225.13,13.7406,200.01,29.0377,77387.53
+0.3,0.7,7.5293,15.0585,0.72,0.5733,0.44,16.6185,12.7591,279.32,27.6761,19.8355,36660.99,13.7406,200.01,29.0377,77387.53
