@@ -71,3 +71,25 @@ The V2 methodology had four critical scientific issues found by audit:
 Every V2 conclusion is preserved and labeled `SUPERSEDED BY METHODOLOGY V2.1`
 in the V2 reports (see `reports/v2_*.md` banners). V2 remains historical
 record; V2.1 is the operative methodology.
+
+## Exit checklist (final, 2026-08-15)
+
+| # | check | result |
+|---|---|---|
+| 1 | Full test suite | 115 passed |
+| 2 | CI subset (`-m "not needs_artifacts"`) | 111 passed, 4 deselected |
+| 3 | App smoke (`python -c "import app_v2"`) | OK |
+| 4 | Falsification: official metrics recomputed from prediction CSVs (FD001 + FD004) | exact match |
+| 5 | Stale-claim grep (OOD/lifetime<128/99.8%/47.7%/85.7%/exactly-once/sealed/SHAP mislabel) | live files clean; historical files bannered |
+| 6 | V2_1_REPAIR_PLAN.md statuses | R1–R20 DONE |
+| 7 | Configs read by scripts, hashes verified | FD001 config integrity checks pass in freeze script |
+| 8 | Git tree | clean (commits `67a0e58`, `3d12bc7`; only session dir `.opencode/` untracked) |
+| 9 | `requires-python` truthful | `>=3.11,<3.13` |
+| 10 | Upstream attribution | README + `THIRD_PARTY_NOTICES.md` |
+
+**CV-READY.** Methodology V2.1's model selection (FD001), uncertainty
+calibration, corrected error analysis, and FD004 condition-aware modeling are
+complete, reproducible from committed code/configs/artifacts, and verified by
+the exit checklist above. Official-test numbers are labeled post-hoc
+throughout. V2.1 supersedes Methodology V2, which remains as historical
+record.
