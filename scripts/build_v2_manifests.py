@@ -58,8 +58,10 @@ def main() -> None:
     validation_manifest = build_pseudo_test_manifest(val_lifetimes)
     calibration_manifest = build_pseudo_test_manifest(cal_lifetimes)
 
-    val_path = save_manifest(validation_manifest, out_dir / "fd001_v2_validation_cutoffs.csv")
-    cal_path = save_manifest(calibration_manifest, out_dir / "fd001_v2_calibration_cutoffs.csv")
+    val_path = save_manifest(
+        validation_manifest, out_dir / f"{args.dataset.lower()}_v2_validation_cutoffs.csv")
+    cal_path = save_manifest(
+        calibration_manifest, out_dir / f"{args.dataset.lower()}_v2_calibration_cutoffs.csv")
 
     val_summary = manifest_summary(validation_manifest)
     cal_summary = manifest_summary(calibration_manifest)

@@ -53,6 +53,22 @@ def test_v2_split_write_roundtrip(tmp_path):
     assert train | validation | calibration == ENGINES
 
 
+def test_v2_split_fd004_magnitudes():
+    """Phase V2-11: FD004 split magnitudes on the 249-engine cardinality."""
+    engines = set(range(1, 250))
+    train, validation, calibration = split_engine_ids_v2(engines, seed=SEED)
+    assert len(train) == 175 and len(validation) == 37 and len(calibration) == 37
+    assert train | validation | calibration == engines
+
+
+def test_v2_manifest_fd004_count():
+    """Phase V2-11: FD004 manifest = 5 lifecycle fractions per engine."""
+    lifetimes = {e: 128 + (e % 50) for e in range(1, 250)}
+    manifest = build_pseudo_test_manifest(lifetimes)
+    assert len(manifest) == 249 * len(LIFECYCLE_FRACTIONS)
+    assert manifest.groupby("engine_id").size().eq(len(LIFECYCLE_FRACTIONS)).all()
+
+
 # ---- pseudo-test manifests --------------------------------------------------
 
 def test_manifest_deterministic():

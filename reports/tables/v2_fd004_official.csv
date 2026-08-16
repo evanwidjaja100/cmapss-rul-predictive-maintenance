@@ -1,0 +1,2 @@
+experiment_id,model,target_mode,window,parameters,training_time,train_engine_count,validation_sample_count,validation_RMSE,validation_MAE,validation_R2,validation_NASA_total,official_test_engine_count,official_test_RMSE,official_test_MAE,official_test_R2,official_test_NASA_total,official_test_NASA_mean
+v2_fd004_gru_w45_huber,gru,raw,45,v2_gru;loss=huber;bs=256;es_patience=8,2066.72,175,185,77.2262,68.9845,-2.2274,2951471.82,248,64.4158,54.0058,-0.3958,2663846.31,10741.3158

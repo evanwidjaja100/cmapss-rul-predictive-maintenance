@@ -41,8 +41,9 @@ def load_v2_artifacts(dataset: str = "FD001", data_dir: str | Path = "data/raw",
     train_ids, validation_ids, calibration_ids = read_v2_split_file(split_path)
     v2_dir = ROOT / "data" / "processed" / "v2" / dataset / "raw"
     scaler = load_joblib(v2_dir / f"{dataset}_scaler.joblib")
-    manifest = load_manifest(Path(splits_dir) / "fd001_v2_validation_cutoffs.csv")
-    assert len(manifest) == 75
+    manifest = load_manifest(Path(splits_dir) / f"{dataset.lower()}_v2_validation_cutoffs.csv")
+    from rul_prediction.data.pseudo_test import LIFECYCLE_FRACTIONS
+    assert len(manifest) == len(validation_ids) * len(LIFECYCLE_FRACTIONS)
     trajectories = {
         int(e): g for e, g in frame[frame["engine_id"].isin(validation_ids)].groupby("engine_id")
     }
