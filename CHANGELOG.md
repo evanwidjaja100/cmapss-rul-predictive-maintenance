@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## V2.2 final cleanup — 2026-08-17
+
+> Final reproducibility / auditability pass
+> (`C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md`,
+> `V2_2_FINAL_CLEANUP_PLAN.md`). No full CV rerun; all headline numbers were
+> recomputed from saved artifacts and reproduced unchanged (FD001 post-hoc
+> RMSE 26.2526 / NASA 60,963.79; FD004 post-hoc RMSE 33.6579; deployment
+> `xgb_w90_d6`).
+
+- **Selection wording corrected:** "pre-registered" claims in earlier entries
+  were replaced by "pre-specified" (the rule is specified in the recorded
+  development session; Git cannot prove formal pre-registration).
+- **Config truthfulness:** `configs/final_model_v2_2_fd001.yaml` regenerated
+  as a model-type-specific XGBoost config (max_depth 6, learning_rate 0.05,
+  subsample 0.8, colsample_bytree 0.8, n_estimators 92, random_state 42);
+  FD001/FD004 freeze and post-hoc scripts now consume the YAML (no hidden
+  window/loss/epochs constants).
+- **Serving cleaned:** empirical `RISK_OBSERVED_CYCLES` / short-history risk
+  flag removed; uncertainty `q` read from tracked
+  `configs/deployment_v2_2_fd001.yaml`; only objective `history_is_padded`
+  remains; broken `v2_2_methodology.md` report link fixed.
+- **Sensitivity corrected:** prefix-only occlusion baseline (no future sensor
+  leakage), deterministic (engine_id, cutoff_cycle) alignment; corrected
+  ranking: sensors 4, 11, 3, 9, 12, 7, 20 (earlier order 4/11/12/9/3/20/7
+  was based on the leaking baseline and is superseded).
+- **Conformal wording:** calibration engines were held out from V2.2 fitting
+  and model selection but inspected in earlier iterations → the interval is
+  empirically calibrated, not a pristine one-shot external guarantee
+  (`historical_caveat` in `fd001_conformal_calibration.json`).
+- **Provenance:** freeze metadata now records `git_commit`, `git_is_dirty`
+  (historical V2.2 runs were executed from a dirty worktree), `git_diff_hash`
+  and `source_tree_hash`.
+- **Metric falsification tests:** saved official predictions recompute the
+  headline FD001/FD004 metrics; CV summaries re-derived from fold rows;
+  selection policy (incl. |bias| tie-break) re-applied.
+- **Test counts (real measurements):** full local artifact-rich suite
+  **154 passed**; clean public checkout (no data/, models/, experiments
+  artifacts, CI command `-m "not needs_artifacts"`) **134 passed, 11 skipped,
+  9 deselected**. Earlier "134 / 130" counts in the V2.2 entry below are
+  superseded.
+- **Tracking:** `experiments/v2_2` audit artifacts (CV matrix, selection,
+  conformal, post-hoc) are committed (`.gitignore` exception added).
+
 ## Methodology V2.2 (repair) — 2026-08-17
 
 > V2.2 repairs the V2.1 audit findings (`V2_2_REPAIR_PLAN.md`, V2.2-1 …
@@ -26,13 +69,13 @@
   hashes) and a protocol test rejects partial matrices.
 - **Model-selection claims fixed (V2.2-4):** V2.1 named one winner
   (gru_w45_huber) that was neither lowest-RMSE nor lowest-NASA. V2.2
-  pre-registered the rule (PRIMARY lowest mean NASA/engine; GUARDRAIL
+  pre-specified the rule (PRIMARY lowest mean NASA/engine; GUARDRAIL
   pooled-SE RMSE; TIE |bias|) and reports roles separately: accuracy champion
   `lstm_w60_huber` (RMSE 26.19±3.44), NASA-risk champion + deployment
   **`xgb_w90_d6`** (NASA/engine 368.02±160.40, RMSE 28.35±2.69).
   `selection_decision.json`, `configs/final_model_v2_2_fd001.yaml`.
 - **Conformal rebuilt (V2.2-5):** recalibrated on the clean final model with
-  15 untouched calibration engines (one max-|error| score per engine over the
+  15 held-out calibration engines (one max-|error| score per engine over the
   predefined checkpoints); q(0.1)=66.21, q(0.2)=44.80, q(0.3)=41.42; formal
   coverage wording limited (exchangeability + predefined checkpoints);
   arbitrary-trajectory use labeled engineering extrapolation; post-hoc
@@ -50,7 +93,7 @@
   control. Freeze on 212 (175+37); official post-hoc FD004: RMSE 33.66,
   R² 0.619, NASA 1,545,798.5.
 - **Sensitivity rerun (V2.2-8):** `explain_v2_2_sensitivity.py` occludes on
-  the frozen V2.2 model; sensors 4/11/12/9/3/20/7 most influential; constant
+  the frozen V2.2 model; sensors 4/11/3/9/12/7/20 most influential; constant
   sensors (1/5/10/16/18/19) contribute zero; sensor 6 (V2's flag) nearly
   inert now — reported as measured, not forced. `reports/v2_2_sensitivity.md`.
 - **Docs live (V2.2-9):** README/PROJECT_SPEC/CHANGELOG updated to V2.2-first
@@ -63,7 +106,9 @@
   recalibrated quantiles; app shows model version / observed cycles /
   `history_is_padded`+count / interval / calibration method / disclosure.
 - Tests: 115 → **134 passing** (19 protocol + 4 rewritten serving + others);
-  artifact-free CI subset re-verified.
+  artifact-free CI subset re-verified. *(counts superseded by the V2.2 final
+  cleanup entry: 154 full local / clean checkout 134 passed, 11 skipped,
+  9 deselected.)*
 - Artifacts under `experiments/v2_2/`, `models/v2_2/`, `reports/v2_2_*.md`,
   `reports/tables/v2_2_*`; commit `v2.2` tag target.
 

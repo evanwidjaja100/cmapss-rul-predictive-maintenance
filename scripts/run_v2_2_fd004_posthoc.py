@@ -40,9 +40,10 @@ def main() -> None:
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
     variant = cfg["preprocessing"]["variant"]
     window = cfg["model"]["window"]
+    loss = cfg["model"]["loss"]
 
     model = keras.models.load_model(ROOT / "models" / "v2_2" /
-                                    f"fd004_gru_w45_huber_cond{variant}.keras")
+                                    f"fd004_gru_w{window}_{loss}_cond{variant}.keras")
     cond = load_joblib(ROOT / "models" / "v2_2" / f"fd004_condition{variant}.joblib")
     global_scaler = None
 

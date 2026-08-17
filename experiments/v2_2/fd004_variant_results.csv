@@ -1,0 +1,5 @@
+variant,inputs,train_engine_count,validation_engine_count,inner_fit_engine_count,inner_stop_engine_count,best_epoch,validation_sample_count,RMSE,MAE,R2,NASA_total,NASA_mean_per_engine,signed_bias_mean,prediction_std,training_time
+A,21,175,37,150,25,36,185,72.4102,61.7085,-0.2459,2787695.91,75343.1327,32.1684,0.0,2210.01
+B,24,175,37,150,25,36,185,72.4095,61.7079,-0.2459,2787332.75,75333.3175,32.1668,0.0,2281.56
+C,21,175,37,150,25,8,185,29.8278,20.5145,0.7886,53599.63,1448.6388,8.9281,70.5777,688.83
+D,30,175,37,150,25,11,185,33.9679,21.5739,0.7258,3032644.35,81963.3608,11.8719,75.8972,895.94

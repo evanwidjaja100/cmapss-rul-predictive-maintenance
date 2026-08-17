@@ -1,13 +1,14 @@
 """Tests for the V2.2 serving core (Methodology V2.2).
 
 The serving path (make_predictor + dev-engine scaler + shared window builder)
-must reproduce the V2.2 freeze predictions exactly, and the recalibrated
-engine-cluster conformal interval + history flags must match the V2.2
-calibration/error analysis.
+must reproduce the V2.2 freeze predictions exactly, and the engine-cluster
+conformal interval + objective history fields must match the V2.2
+calibration.
 
-Terminology: observed cycles are an observed history length, never a lifetime;
-there is no OOD classification - only the objective `history_is_padded` flag
-and the empirical `short_history_risk_flag`.
+Terminology: observed cycles are an observed history length, never a lifetime.
+Serving exposes only OBJECTIVE facts: `history_is_padded` and
+`n_padded_timesteps`. No OOD classification and NO empirical risk threshold
+(a post-hoc official-test-derived threshold must not drive serving).
 
 Requires gitignored artifacts (models/, data/raw, experiments/v2_2) — excluded
 from CI via the ``needs_artifacts`` marker; run in the full local suite.
@@ -18,9 +19,9 @@ import pytest
 
 from rul_prediction.data.loader import load_test
 from rul_prediction.serving.v2_predictor import (
-    RISK_OBSERVED_CYCLES,
     V2Predictor,
     limited_history_warning,
+    load_deployment_q,
 )
 
 pytestmark = pytest.mark.needs_artifacts
@@ -38,7 +39,7 @@ def test_predictions_match_freeze_official_test():
     assert np.isfinite(table["prediction_raw_rul"]).all()
 
 
-def test_engine_cluster_conformal_interval_and_flags():
+def test_engine_cluster_conformal_interval_and_padding_fields():
     predictor = V2Predictor()
     table = predictor.predict_frame(load_test("FD001"))
     got = table.set_index("engine_id")
@@ -54,11 +55,14 @@ def test_engine_cluster_conformal_interval_and_flags():
     assert (got.loc[got["history_is_padded"], "n_cycles_observed"] < 90).all()
     assert (got.loc[~got["history_is_padded"], "n_cycles_observed"] >= 90).all()
     assert (got.loc[got["history_is_padded"], "n_padded_timesteps"] > 0).all()
-    # empirical risk flag: observed < 90 (no OOD claim)
-    n_risk = int(got["short_history_risk_flag"].sum())
-    assert n_risk == 26
-    assert (got.loc[got["short_history_risk_flag"], "n_cycles_observed"] < RISK_OBSERVED_CYCLES).all()
-    assert "ood" not in table.columns.str.lower().tolist()
+    assert (got.loc[got["history_is_padded"], "n_padded_timesteps"] ==
+            90 - got.loc[got["history_is_padded"], "n_cycles_observed"]).all()
+    # no OOD, no lifetime-risk, no empirical risk flag
+    cols = table.columns.str.lower().tolist()
+    assert "ood" not in cols
+    assert "out_of_distribution" not in cols
+    assert "lifetime_risk" not in cols
+    assert "risk" not in cols
     assert "model_version" in table.columns
     assert "calibration_method" in table.columns
     assert "predefined lifecycle checkpoints" in predictor.calibration_method
@@ -72,10 +76,16 @@ def test_limited_history_warning_text():
         "Limited observed history: only 31 cycles observed; window 90 -> 59 timesteps padded.")
 
 
+def test_q_comes_from_tracked_deployment_config():
+    predictor = V2Predictor()
+    assert abs(load_deployment_q(0.1) - 66.2097) < 1e-4
+    assert abs(load_deployment_q(0.2) - 44.7955) < 1e-4
+    assert predictor.q_cycles == load_deployment_q(0.1)
+
+
 def test_padded_engines_flagged_in_upload_mode_semantics():
     predictor = V2Predictor()
     table = predictor.predict_frame(load_test("FD001"))
     got = table.set_index("engine_id")
     padded = got.loc[got["history_is_padded"]]
     assert len(padded) == 26
-    assert (padded["short_history_risk_flag"]).all()

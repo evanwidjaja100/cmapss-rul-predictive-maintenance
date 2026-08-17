@@ -13,4 +13,4 @@ Overall: mean signed error +19.63 cycles; overprediction share 0.91.
 | [128,200) | 48 | +15.286 | 0.896 | 16.883 |
 | [200,10000) | 8 | +15.426 | 0.750 | 21.692 |
 
-EMPIRICAL short-history risk threshold: observed < 90 cycles (risk flag threshold derived from this post-hoc profile; it is NOT an OOD classification).
+Descriptive observation: among observed-history buckets below 200 cycles, signed errors and absolute errors are larger. This is a post-hoc descriptive finding; it does NOT drive serving behavior (the app exposes only objective padding/history facts).

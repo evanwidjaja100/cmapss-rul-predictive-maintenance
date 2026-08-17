@@ -1,9 +1,10 @@
 """Methodology V2.2: error analysis of the frozen V2.2 FD001 model (post-hoc).
 
 Descriptive analysis on the POST-HOC official predictions only — never used
-for model selection or training control. Reports the signed-bias profile by
-observed-history length and derives the EMPIRICAL short-history risk flag
-threshold served by the Streamlit app.
+for model selection, training control, or SERVING behavior. Reports the
+signed-bias profile by observed-history length. No threshold from this
+analysis is used by the Streamlit app: serving exposes only objective
+padding/history facts.
 
 Outputs:
     reports/v2_2_error_analysis.md
@@ -20,6 +21,12 @@ import pandas as pd
 from rul_prediction.data.loader import load_test
 
 OUT_DIR = Path("reports/tables")
+
+
+def history_bucket_upper(observed_bucket: str) -> int:
+    """Numeric upper bound of an observed bucket label like '[0,45)' (never lexicographic)."""
+    lo, hi = observed_bucket.strip("[]()").split(",")
+    return int(hi)
 
 
 def main() -> None:
@@ -65,15 +72,16 @@ def main() -> None:
                   f"{r['mean_signed_error']:+.3f} | {r['overprediction_share']:.3f} | "
                   f"{r['mean_abs_error']:.3f} |")
     short = profile[profile["observed_bucket"] != "[200,10000)"]
-    threshold = int(short["observed_bucket"].str.extract(r"\[(\d+)")[0].max())
+    threshold = max(history_bucket_upper(b) for b in short["observed_bucket"])
     md += [
         "",
-        f"EMPIRICAL short-history risk threshold: observed < {threshold} cycles (risk "
-        "flag threshold derived from this post-hoc profile; it is NOT an OOD "
-        "classification).",
+        f"Descriptive observation: among observed-history buckets below "
+        f"{threshold} cycles, signed errors and absolute errors are larger. "
+        "This is a post-hoc descriptive finding; it does NOT drive serving "
+        "behavior (the app exposes only objective padding/history facts).",
     ]
     Path("reports/v2_2_error_analysis.md").write_text("\n".join(md) + "\n", encoding="utf-8")
-    print(f"empirical risk threshold: observed < {threshold}")
+    print(f"descriptive short-history observation: observed < {threshold} cycles")
 
 
 if __name__ == "__main__":

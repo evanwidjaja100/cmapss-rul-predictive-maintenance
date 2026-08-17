@@ -1,24 +1,28 @@
 """Serving core for the frozen V2.2 model (Methodology V2.2).
 
-Wraps the deployment model chosen by the pre-registered V2.2 selection policy
+Wraps the deployment model chosen by the pre-specified V2.2 selection policy
 (configs/final_model_v2_2_fd001.yaml) with the identical inference path used
 by the freeze (scaler fit on the 85 development engines + shared window
-builder) and the recalibrated engine-cluster conformal interval (15
-calibration engines, alpha=0.1, q from experiments/v2_2/fd001_conformal_quantiles.csv).
+builder) and the engine-cluster conformal interval. The interval ``q`` is read
+from the TRACKED deployment config (configs/deployment_v2_2_fd001.yaml); the
+experiment CSV (experiments/v2_2/fd001_conformal_quantiles.csv) remains the
+audit source and is cross-checked when present.
 
 Terminology (V2_2_REPAIR_PLAN.md): official C-MAPSS test trajectories are
 truncated before failure; the number of observed cycles is an observed history
-length, never a lifetime. There is no OOD classification:
+length, never a lifetime. There is no OOD classification and no empirical
+risk threshold in serving (a threshold derived from post-hoc official-test
+error analysis is NOT used to drive prospective serving behavior):
 
 - ``history_is_padded``: objective — observed cycles < model window, the window
   is left-padded in the shared representation;
-- ``short_history_risk_flag``: EMPIRICAL flag (observed < 90) derived from the
-  V2.2 post-hoc error analysis (overprediction concentrates there); it is not
-  a distribution-shift (OOD) claim.
+- ``n_padded_timesteps``: max(model_window - observed_cycles, 0).
 
 The conformal interval on arbitrary uploaded trajectories is an ENGINEERING
-EXTRAPOLATION (formal guarantee only under exchangeable engines with the
-predefined checkpoint scheme).
+EXTRAPOLATION. The calibration engines were held out from V2.2 fitting and
+model selection, but were inspected during earlier project iterations, so the
+interval is an empirically calibrated uncertainty interval rather than a
+pristine one-shot external conformal guarantee.
 """
 
 from __future__ import annotations
@@ -31,14 +35,38 @@ import yaml
 
 from rul_prediction.benchmark.v2 import ROOT, make_predictor
 
-RISK_OBSERVED_CYCLES = 90  # empirical threshold from reports/v2_2_error_analysis.md
 ALPHA = 0.1
 CALIBRATION_METHOD = ("Engine-cluster split-conformal: one maximum-error score per "
                       "held-out calibration engine across five predefined lifecycle "
-                      "checkpoints (0.25/0.45/0.65/0.80/0.95), 15 engines.")
+                      "checkpoints (0.25/0.45/0.65/0.80/0.95), 15 engines. Calibration "
+                      "engines were inspected during earlier project iterations, so the "
+                      "interval is empirically calibrated, not a pristine one-shot "
+                      "external guarantee.")
 UNCERTAINTY_DISCLOSURE = ("Prediction interval calibrated on held-out engines at five "
-                          "predefined lifecycle checkpoints. Use on arbitrary uploaded "
+                          "predefined lifecycle checkpoints (empirical V2.2 calibration, "
+                          "not a pristine one-shot guarantee). Use on arbitrary uploaded "
                           "trajectories is an engineering extrapolation.")
+
+
+def load_deployment_q(alpha: float = ALPHA) -> float:
+    """Final serving ``q`` from the TRACKED deployment config.
+
+    Cross-checks against the experiment quantiles CSV when it exists locally
+    (the CSV is the audit source; the config is the serving source).
+    """
+    cfg = yaml.safe_load((ROOT / "configs" / "deployment_v2_2_fd001.yaml")
+                         .read_text(encoding="utf-8"))
+    assert cfg["methodology_version"] == "2.2"
+    u = cfg["uncertainty"]
+    assert u["method"] == "engine_cluster_conformal"
+    q = float(u["q_by_alpha"][str(alpha)])
+    csv_path = ROOT / "experiments" / "v2_2" / "fd001_conformal_quantiles.csv"
+    if csv_path.exists():
+        table = pd.read_csv(csv_path)
+        csv_q = float(table.set_index("alpha").loc[float(alpha), "q"])
+        assert abs(q - csv_q) < 1e-4, (
+            f"deployment config q={q} disagrees with audit CSV q={csv_q}")
+    return q
 
 
 class V2Predictor:
@@ -65,10 +93,7 @@ class V2Predictor:
         self.scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")
         self._predict_one = make_predictor(self._model_name, self.model, self.scaler,
                                            self.window)
-        if q_cycles is None:
-            table = pd.read_csv(ROOT / "experiments" / "v2_2" / "fd001_conformal_quantiles.csv")
-            q_cycles = float(table.set_index("alpha").loc[float(alpha), "q"])
-        self.q_cycles = float(q_cycles)
+        self.q_cycles = load_deployment_q(alpha) if q_cycles is None else float(q_cycles)
         self.alpha = alpha
         self.calibration_method = CALIBRATION_METHOD
         self.uncertainty_disclosure = UNCERTAINTY_DISCLOSURE
@@ -77,8 +102,9 @@ class V2Predictor:
         """Per-engine terminal prediction on a C-MAPSS frame.
 
         Returns one row per engine with the raw-RUL prediction, the 90%
-        engine-cluster conformal interval, objective/empirical history flags,
-        the model version and the calibration method.
+        engine-cluster conformal interval, the objective padding/history
+        fields, the model version and the calibration method. No OOD
+        classification; no empirical risk flag.
         """
         if not {"engine_id", "cycle"}.issubset(frame.columns):
             raise ValueError("frame must contain 'engine_id' and 'cycle' columns")
@@ -95,7 +121,6 @@ class V2Predictor:
                 "n_cycles_observed": n,
                 "history_is_padded": bool(n < self.window),
                 "n_padded_timesteps": n_padded,
-                "short_history_risk_flag": bool(n < RISK_OBSERVED_CYCLES),
                 "prediction_raw_rul": round(pred, 2),
                 "lo_90": round(pred - self.q_cycles, 2),
                 "hi_90": round(pred + self.q_cycles, 2),

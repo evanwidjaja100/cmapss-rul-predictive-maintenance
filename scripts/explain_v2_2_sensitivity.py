@@ -5,10 +5,12 @@ targeted the old V2 model; V2.2-9). Terminology: sensor sensitivity, sensor
 occlusion, counterfactual attribution. These are NOT SHAP values.
 
 Method (descriptive, post-freeze analysis on development engines only):
-    For each sensor s: occlude the sensor's observed values with that engine's
-    own per-engine mean (neutral in-range counterfactual) and measure the
-    prediction change across the 5 fixed lifecycle checkpoints of the outer
-    pseudo-test manifests.
+    For each sensor s and each fixed lifecycle checkpoint of the outer
+    pseudo-test manifests: occlude the sensor with the engine's PREFIX-ONLY
+    observed mean (mean over cycles <= cutoff; never future rows) and measure
+    the prediction change. All rows are keyed by (engine_id, cutoff_cycle);
+    RMSE deltas are computed from exactly aligned rows, never from accidental
+    groupby ordering.
 
 Answers:
     - Which sensors most affect V2.2 predictions?  (mean |delta prediction|)
@@ -54,6 +56,33 @@ def load_dev_manifest(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return pd.concat(manifests, ignore_index=True), trajectories
 
 
+def prefix_replacement_value(history: pd.DataFrame, sensor: str, cutoff: int) -> float:
+    """Prefix-only sensor baseline: mean over cycles <= cutoff (never future rows)."""
+    observed = history[history["cycle"] <= cutoff]
+    assert len(observed) > 0, f"no observed rows at cutoff {cutoff}"
+    return float(observed[sensor].mean())
+
+
+def sensor_occlusion_deltas(manifest: pd.DataFrame, trajectories: dict,
+                            predict_one, sensor: str) -> pd.DataFrame:
+    """Keyed (engine_id, cutoff_cycle) occlusion deltas for one sensor.
+
+    The replacement value uses only cycles <= cutoff; row alignment is
+    explicit via the key columns, never positional/groupby order.
+    """
+    rows = []
+    for e, g in manifest.groupby("engine_id", sort=False):
+        history = trajectories[int(e)]
+        for _, r in g.iterrows():
+            cutoff = int(r["cutoff_cycle"])
+            occluded = history.copy()
+            occluded[sensor] = prefix_replacement_value(history, sensor, cutoff)
+            p_occ = predict_one(occluded[occluded["cycle"] <= cutoff], cutoff)
+            rows.append({"engine_id": int(r.engine_id), "cutoff_cycle": cutoff,
+                         "prediction_occluded": float(p_occ)})
+    return pd.DataFrame(rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="V2.2 sensor sensitivity")
     parser.add_argument("--data-dir", default="data/raw")
@@ -75,40 +104,33 @@ def main() -> None:
 
     frame = load_train("FD001", args.data_dir)
     manifest, trajectories = load_dev_manifest(frame)
-    engine_means = frame.groupby("engine_id")[SENSOR_COLUMNS].mean()
 
     baseline = evaluate_manifest(manifest, trajectories, predict_one)
-    err_base = baseline - manifest["true_raw_rul"].to_numpy()
-    baseline_by_key = {(int(r.engine_id), int(r.cutoff_cycle)): float(b)
-                       for r, b in zip(manifest.itertuples(index=False), baseline)}
+    base = manifest[["engine_id", "cutoff_cycle", "fraction", "true_raw_rul"]].copy()
+    base["prediction_baseline"] = baseline
+    base["baseline_error"] = base["prediction_baseline"] - base["true_raw_rul"]
 
     rows, temporal_rows = [], []
     for sensor in SENSOR_COLUMNS:
-        deltas = []
-        for e, g in manifest.groupby("engine_id"):
-            history = trajectories[int(e)].copy()
-            history[sensor] = float(engine_means.loc[e, sensor])
-            for _, r in g.iterrows():
-                cutoff = int(r["cutoff_cycle"])
-                p_occ = predict_one(history[history["cycle"] <= cutoff], cutoff)
-                deltas.append({"engine_id": int(r.engine_id), "fraction": r["fraction"],
-                               "true_raw_rul": r["true_raw_rul"],
-                               "prediction_baseline": baseline_by_key[(int(r.engine_id), cutoff)],
-                               "prediction_occluded": float(p_occ)})
-        d = pd.DataFrame(deltas)
-        delta = d["prediction_occluded"] - d["prediction_baseline"]
-        d["delta"] = delta
+        d = sensor_occlusion_deltas(manifest, trajectories, predict_one, sensor)
+        merged = base.merge(d, on=["engine_id", "cutoff_cycle"], how="inner",
+                            validate="one_to_one")
+        assert len(merged) == len(base), f"alignment lost for {sensor}"
+        merged["delta"] = merged["prediction_occluded"] - merged["prediction_baseline"]
+        merged["occluded_error"] = merged["prediction_occluded"] - merged["true_raw_rul"]
+        rmse_base = float(np.sqrt(np.mean(merged["baseline_error"] ** 2)))
+        rmse_occ = float(np.sqrt(np.mean(merged["occluded_error"] ** 2)))
         rows.append({
             "sensor": sensor,
-            "mean_abs_delta": round(float(np.abs(delta).mean()), 4),
-            "rmse_delta": round(float(np.sqrt(np.mean((err_base + delta) ** 2)) -
-                                      np.sqrt(np.mean(err_base ** 2))), 4),
+            "mean_abs_delta": round(float(np.abs(merged["delta"]).mean()), 4),
+            "rmse_delta": round(rmse_occ - rmse_base, 4),
             "overprediction_worsened_share": round(
-                float(np.mean(delta > 0)), 4),
+                float(np.mean(merged["delta"] > 0)), 4),
             "overprediction_share_among_dangerous": round(float(np.mean(
-                (d["prediction_baseline"] > d["true_raw_rul"]) & (delta > 0))), 4),
+                (merged["prediction_baseline"] > merged["true_raw_rul"]) &
+                (merged["delta"] > 0))), 4),
         })
-        for frac, g in d.groupby("fraction"):
+        for frac, g in merged.groupby("fraction"):
             temporal_rows.append({
                 "sensor": sensor, "fraction": float(frac),
                 "mean_abs_delta": round(float(np.abs(g["delta"]).mean()), 4),
@@ -125,9 +147,11 @@ def main() -> None:
     md_lines = [
         f"# V2.2 sensor sensitivity (final model: {candidate})",
         "",
-        "Method: per-sensor occlusion (sensor values replaced by the engine's own",
-        "mean over its observed history) on the fixed outer pseudo-test manifests",
+        "Method: per-sensor occlusion on the fixed outer pseudo-test manifests",
         f"of the 85 development engines ({len(manifest)} checkpoints, 5 fractions).",
+        "The replacement value is the engine's PREFIX-ONLY observed mean (cycles",
+        "<= cutoff; never future rows). Rows are aligned by (engine_id,",
+        "cutoff_cycle); RMSE deltas use exactly aligned rows.",
         "Descriptive post-freeze analysis; NOT SHAP values; not used for selection.",
         "",
         "| Sensor | mean |delta| | RMSE delta | overprediction-worsened share |",

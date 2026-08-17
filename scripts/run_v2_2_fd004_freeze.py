@@ -32,9 +32,26 @@ from rul_prediction.data.v2_preprocessing import add_raw_rul, build_v2_train_seq
 from rul_prediction.models.v2_models import v2_gru
 from rul_prediction.training.trainer import set_seed
 
-from run_v2_2_fd004 import build_matrix, fit_preprocessing
+try:
+    from run_v2_2_fd004 import build_matrix, fit_preprocessing
+except ImportError:  # package invocation from the repo root
+    from scripts.run_v2_2_fd004 import build_matrix, fit_preprocessing
 
-WINDOW = 45
+
+def resolve_model_config(cfg: dict) -> dict:
+    """Resolve every final-fit parameter from the YAML (tested; no hidden constants)."""
+    assert cfg["methodology_version"] == "2.2" and cfg["dataset"] == "FD004"
+    assert cfg["training_control"]["validation_data_in_final_fit"] is False
+    model_cfg = cfg["model"]
+    return {
+        "variant": cfg["preprocessing"]["variant"],
+        "best_epoch": int(cfg["training_control"]["best_epoch"]),
+        "window": int(model_cfg["window"]),
+        "loss": model_cfg["loss"],
+        "batch_size": int(model_cfg["batch_size"]),
+        "learning_rate": float(model_cfg["learning_rate"]),
+        "seed": int(model_cfg["seed"]),
+    }
 
 
 def main() -> None:
@@ -44,10 +61,14 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
-    assert cfg["methodology_version"] == "2.2" and cfg["dataset"] == "FD004"
-    variant = cfg["preprocessing"]["variant"]
-    best_epoch = int(cfg["training_control"]["best_epoch"])
-    assert cfg["training_control"]["validation_data_in_final_fit"] is False
+    resolved = resolve_model_config(cfg)
+    variant = resolved["variant"]
+    best_epoch = resolved["best_epoch"]
+    window = resolved["window"]
+    loss = resolved["loss"]
+    batch_size = resolved["batch_size"]
+    learning_rate = resolved["learning_rate"]
+    seed = resolved["seed"]
 
     frame = load_train("FD004", args.data_dir)
     split = json.loads((Path("experiments/splits") / "fd004_v2_seed42.json").read_text(encoding="utf-8"))
@@ -63,32 +84,42 @@ def main() -> None:
                      pre["settings_scaler"], pre["global_scaler"])
     rul = add_raw_rul(rows)["rul"].to_numpy(dtype=np.float32)
     X_seq, y_seq, _, _, masks = build_v2_train_sequences(
-        X, rows["engine_id"].to_numpy(), rul, WINDOW)
+        X, rows["engine_id"].to_numpy(), rul, window)
 
     start = time.perf_counter()
-    set_seed(cfg["model"]["seed"])
-    model = v2_gru(WINDOW, X.shape[1], loss="huber", seed=cfg["model"]["seed"])
-    model.fit([X_seq, masks], y_seq, batch_size=cfg["model"]["batch_size"],
+    set_seed(seed)
+    model = v2_gru(window, X.shape[1], loss=loss, seed=seed,
+                   learning_rate=learning_rate)
+    model.fit([X_seq, masks], y_seq, batch_size=batch_size,
               epochs=best_epoch, verbose=0)
     training_time = round(time.perf_counter() - start, 2)
 
     out_dir = ROOT / "models" / "v2_2"
     out_dir.mkdir(parents=True, exist_ok=True)
-    model.save(out_dir / f"fd004_gru_w45_huber_cond{variant}.keras")
+    model_name = f"fd004_gru_w{window}_{loss}_cond{variant}.keras"
+    model.save(out_dir / model_name)
     dump_joblib({"kmeans": pre["kmeans"], "cluster_scalers": pre["cluster_scalers"],
                  "settings_scaler": pre["settings_scaler"]},
                 out_dir / f"fd004_condition{variant}.joblib")
+    from rul_prediction.benchmark.v2_2 import git_provenance
     meta = {
         "methodology_version": "2.2",
         "dataset": "FD004",
         "variant": variant,
         "best_epoch": best_epoch,
+        "window": window,
+        "loss": loss,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "seed": seed,
         "training_engine_count": len(final_ids),
         "train_ids": sorted(final_ids),
         "reserved_calibration_engine_count": len(cal_ids),
         "reserved_calibration_engine_ids": sorted(cal_ids),
         "official_labels_used_in_fitting": False,
         "training_time": training_time,
+        "model_path": str((out_dir / model_name).relative_to(ROOT)),
+        "provenance": git_provenance(),
     }
     Path("experiments/v2_2/fd004_final_fit_metadata.json").write_text(
         json.dumps(meta, indent=2), encoding="utf-8")

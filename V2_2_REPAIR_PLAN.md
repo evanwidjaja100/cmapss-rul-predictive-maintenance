@@ -1,5 +1,14 @@
 # V2_2_REPAIR_PLAN.md
 
+> **SUPERSEDED NOTE (2026-08-17, V2.2 final cleanup):** "pre-registered" in
+> this historical document means the policy was specified in the recorded
+> development session before V2.2 results were inspected. Git cannot prove a
+> formal pre-registration, so the cleanup pass
+> (`V2_2_FINAL_CLEANUP_PLAN.md`, CHANGELOG "V2.2 final cleanup") uses
+> "pre-specified". Test counts stated here (134/130) are superseded by the
+> cleanup measurements (154 full local / clean checkout 134 passed,
+> 11 skipped, 9 deselected).
+
 Methodology V2.2 — final scientific repair of the cmapss-rul-predictive-maintenance repository.
 Supersedes the V2.1 "CV-READY" declaration (git 0251dca). No V1/V2/V2.1 history is deleted;
 superseded conclusions are labeled `SUPERSEDED BY METHODOLOGY V2.2`.

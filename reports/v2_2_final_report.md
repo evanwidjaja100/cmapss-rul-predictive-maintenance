@@ -10,8 +10,10 @@ Methodology V2.2 repaired the two scientific leaks that invalidated V2.1's
 headline numbers: calibration engines had been used as `validation_data` in
 the final FD001 fit (V2.2-1), and outer-fold engines were inside training
 control during CV (V2.2-2). Under the corrected nested protocol — 40/40
-candidate-fold runs, a hard completeness gate, a pre-registered selection
-policy, and a clean conformal recalibration on untouched engines — the V2.2
+candidate-fold runs, a hard completeness gate, a pre-specified selection
+policy, and a clean conformal recalibration on 15 held-out engines (held out
+from V2.2 fitting and model selection; inspected during earlier project
+iterations, so the interval is empirically calibrated, not pristine) — the V2.2
 deployment model is **xgb_w90_d6** (NASA-risk champion; accuracy champion
 lstm_w60_huber). Official post-hoc FD001: RMSE 26.25, NASA 60,963.8. FD004
 condition-aware variant C remains the fix for the regime collapse under the
@@ -113,13 +115,14 @@ trajectories is an engineering extrapolation, disclosed in the app.
 Post-hoc descriptive: official trajectories are truncated before failure —
 `cycle.max()` is observed history, never lifetime. The frozen model
 overpredicts (+19.6 cycles mean, 91% of engines), strongest on short observed
-histories (< 90: +29.0…+49.4). The app's short-history risk flag is an
-empirical threshold, not an OOD claim.
+histories (< 90: +29.0…+49.4). Serving exposes only the objective
+`history_is_padded` flag; no empirical risk threshold is applied (these
+patterns are descriptive, not serving triggers).
 
 ## 9. Sensitivity analysis
 
 Sensor occlusion on the FINAL V2.2 model (not SHAP): most influential —
-sensors 4, 11, 12, 9, 3, 20, 7. Constant sensors (1, 5, 10, 16, 18, 19)
+sensors 4, 11, 3, 9, 12, 7, 20. Constant sensors (1, 5, 10, 16, 18, 19)
 contribute zero (consistency check). Sensor 6 (V2's earlier flag) is nearly
 inert for the V2.2 model. Conclusions differ from V2 by measurement, not by
 forcing.
@@ -141,10 +144,11 @@ Official FD004 (post-hoc): RMSE 33.6579, MAE 22.0687, R² 0.6189, NASA
 
 ## 11. Verification
 
-- Full test suite: **134 passed** (incl. 19 V2.2 protocol tests A–H + duration
+- Full test suite: **154 passed** (incl. 19 V2.2 protocol tests A–H + duration
   rules; 4 rewritten serving tests; legacy golden test passes).
-- Artifact-free CI subset: **130 passed** (4 `needs_artifacts` deselected) —
-  verified locally, same command as CI.
+- Clean public checkout (no data/, models/, experiments artifacts): **134
+  passed, 11 skipped, 9 deselected** — same command as CI
+  (`-m "not needs_artifacts"`), verified locally on a simulated clean tree.
 - Falsification: selection re-derived from fold CSVs (Test D); official
   metrics recomputed from saved prediction CSVs; config drift asserted; CV
   numbers re-verified.

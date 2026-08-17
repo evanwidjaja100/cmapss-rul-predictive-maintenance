@@ -6,18 +6,13 @@ model:
   architecture: xgboost
   window: 90
   features: 90-cycle windows of 21 sensors (padded+masked, shared history builder)
-  architecture_sizes:
-    units:
-    - 128
-    - 64
-    dense: 32
-  loss: mse
-  optimizer: Adam(clipnorm=1.0)
-  learning_rate: 0.001
-  dropout: 0.3
-  batch_size: 256
-  seed: 42
+  max_depth: 6
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
   n_estimators: 92
+  random_state: 42
+  early_stopping_rounds: null
 preprocessing:
   mode: StandardScaler fit on permitted training rows only
 splits:

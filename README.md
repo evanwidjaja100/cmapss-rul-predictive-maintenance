@@ -19,13 +19,14 @@ declaration (`SUPERSEDED BY METHODOLOGY V2.2`, see `V2_2_REPAIR_PLAN.md`):
   outer-evaluation engines;
 - the complete 8-candidate × 5-fold = **40/40** matrix is enforced by a hard
   completeness gate;
-- the model-selection policy was **pre-registered** (NASA-primary with a
-  pooled-SE RMSE guardrail) before any V2.2 result was inspected;
+- the model-selection policy was **pre-specified** (NASA-primary with a
+  pooled-SE RMSE guardrail) in the recorded development session, before any
+  V2.2 result was inspected;
 - all training values derive from YAML configs; manifest hashes are canonical
   (platform-independent);
 - FD004 variant comparison uses the same clean training-control separation.
 
-## 2. Model-selection design (pre-registered, V2.2)
+## 2. Model-selection design (pre-specified, V2.2)
 
 Rule locked in `V2_2_REPAIR_PLAN.md` before the V2.2 CV ran:
 
@@ -88,6 +89,11 @@ calibration engine across five predefined lifecycle checkpoints
 (0.25/0.45/0.65/0.80/0.95) → exactly **15 engine scores**; k = ceil((n+1)(1−α))
 clamped; α=0.1 → q = 66.21, α=0.2 → q = 44.80, α=0.3 → q = 41.42.
 
+The interval uses engine-level split-conformal mechanics on 15 engines held
+out from V2.2 fitting and model selection. These engines were inspected during
+earlier project iterations, so the interval is an **empirically calibrated
+uncertainty interval**, not a pristine one-shot external conformal guarantee.
+
 Formal wording is limited: simultaneous coverage ≥ 1−α holds only under
 exchangeability of engines with the predefined checkpoint scheme. Use on
 arbitrary uploaded trajectories is an **engineering extrapolation** (labeled
@@ -99,14 +105,15 @@ engines 100%, short-history 96%).
 `reports/v2_2_error_analysis.md`: official trajectories are truncated before
 failure — `cycle.max()` is observed history, never lifetime. The frozen model
 overpredicts systematically (+19.6 cycles mean; 91% of engines), strongest on
-short observed histories (< 90 cycles: +29.0 to +49.4). The app's
-`short_history_risk_flag` uses this empirical threshold (not an OOD claim).
+short observed histories (< 90 cycles: +29.0 to +49.4). Serving exposes only
+the objective `history_is_padded` flag; no empirical risk threshold is applied
+(these error patterns are descriptive, not serving triggers).
 
 ## 7. Sensitivity analysis (V2.2 model)
 
 `reports/v2_2_sensitivity.md` + `reports/tables/v2_2_*` — sensor occlusion /
 counterfactual attribution on the FINAL V2.2 model (NOT SHAP values):
-sensors 4, 11, 12, 9, 3, 20, 7 are the most influential; constant sensors
+sensors 4, 11, 3, 9, 12, 7, 20 are the most influential; constant sensors
 (1, 5, 10, 16, 18, 19) contribute zero (consistency check); sensor 6, which
 V2 flagged, is nearly inert for the V2.2 model. Conclusions therefore differ
 from V2 — reported as measured, no sensor is forced.
@@ -143,8 +150,18 @@ classification anywhere.
 ## 10. Testing / CI
 
 ```bash
-.venv\Scripts\python.exe -m pytest          # full suite (134 tests)
+.venv\Scripts\python.exe -m pytest          # full local artifact-rich suite
 .venv\Scripts\python.exe -m pytest -m "not needs_artifacts"   # CI artifact-free subset
+```
+
+Measured:
+
+```text
+Local development tree:
+154 passed (16 warnings), 35.4s
+
+Clean public checkout (no data/, models/, experiments artifacts):
+134 passed, 11 skipped, 9 deselected
 ```
 
 `tests/test_v2_2_protocol.py` (artifact-free) adds the V2.2 protocol gates:
@@ -162,13 +179,14 @@ artifact-free subset on Python 3.12 (`.github/workflows/ci.yml`).
 # nested CV: 8 candidates x 5 folds (40 runs; completeness gate before summary)
 .venv\Scripts\python.exe scripts\run_v2_2_cv.py
 
-# pre-registered selection -> selection_decision.json + final YAML
+# pre-specified selection -> selection_decision.json + final YAML
 .venv\Scripts\python.exe scripts\select_v2_2_model.py
 
 # clean final fit (85 dev engines, fixed duration, NO validation data)
 .venv\Scripts\python.exe scripts\run_v2_2_freeze.py
 
-# conformal recalibration on 15 untouched calibration engines
+# conformal recalibration on 15 held-out calibration engines
+# (held out from fitting/selection; inspected in earlier iterations)
 .venv\Scripts\python.exe scripts\run_v2_2_conformal.py
 
 # post-hoc official evaluation (strictly after calibration; falsifies summaries)
@@ -197,7 +215,8 @@ artifact-free subset on Python 3.12 (`.github/workflows/ci.yml`).
   error analysis); the NASA score is sensitive to tail errors.
 - FD004 official NASA (1.55M) is much worse than validation NASA — regime
   transfer to the official test remains a limitation.
-- No validated OOD detector; short-history flags are empirical, not formal.
+- No validated OOD detector; serving flags only objective padding
+  (`history_is_padded`), no empirical risk flags.
 
 ## 13. Historical methodology V2.1 (superseded)
 

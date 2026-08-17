@@ -18,6 +18,7 @@ models/checkpoints/
 experiments/*
 !experiments/splits/
 !experiments/v2_1/
+!experiments/v2_2/
 reports/figures/
 data/raw/
 data/interim/

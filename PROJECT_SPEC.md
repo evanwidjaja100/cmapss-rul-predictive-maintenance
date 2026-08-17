@@ -136,12 +136,12 @@ Repairs `SUPERSEDED BY METHODOLOGY V2.2` (see `V2_2_REPAIR_PLAN.md`):
 | final FD001 fit | 85 dev engines only, fixed duration, no calibration contact (`run_v2_2_freeze.py`) |
 | outer folds | genuinely held out (inner 58/10 splits control duration; 17-eval engines untouched) |
 | CV matrix | complete **40/40** (8 candidates × 5 folds; hard completeness gate) |
-| selection policy | pre-registered (NASA per engine primary; pooled-SE RMSE guardrail); `selection_decision.json`; accuracy champion `lstm_w60_huber`, NASA-risk champion + deployment `xgb_w90_d6` |
-| conformal | recalibrated on 15 untouched calibration engines; q(0.1)=66.21; formal wording limited; engineering extrapolation labeled |
+| selection policy | pre-specified (NASA per engine primary; pooled-SE RMSE guardrail); `selection_decision.json`; accuracy champion `lstm_w60_huber`, NASA-risk champion + deployment `xgb_w90_d6` |
+| conformal | recalibrated on 15 held-out calibration engines (inspected in earlier iterations → empirically calibrated, not pristine); q(0.1)=66.21; formal wording limited; engineering extrapolation labeled |
 | FD004 | clean two-stage A/B/C/D comparison; variant C selected (NASA 1,449/engine, RMSE 29.83); collapse still fixed; post-hoc official RMSE 33.66 |
-| sensitivity | rerun on the V2.2 model (occlusion; sensors 4/11/12/9/3/20/7 most influential) |
+| sensitivity | rerun on the V2.2 model (occlusion; sensors 4/11/3/9/12/7/20 most influential) |
 | configs | `configs/final_model_v2_2_fd001.yaml`, `configs/final_model_v2_2_fd004.yaml` drive the freeze scripts |
-| tests | 134 full / artifact-free subset; `tests/test_v2_2_protocol.py` (Tests A–H) |
+| tests | 154 full local / 134+11 skipped+9 deselected clean checkout; `tests/test_v2_2_protocol.py` (Tests A–H) |
 | Streamlit | serves V2.2 model + recalibrated interval + disclosure (`app_v2.py`) |
 
 ## 11. Methodology V2.1 — historical (superseded)
@@ -165,7 +165,7 @@ and a fixed pseudo-test manifest, with a 70/15/15 engine split and a single
 | 11 explainable AI | V2-7 (`reports/v2_explainability.md`) | done (historical; SHAP-free leave-one-sensor-out) |
 | 12 prediction uncertainty | V2-8 (`reports/v2_conformal.md`) | done (historical; q = 24.10 superseded) |
 | 13 Streamlit dashboard | V2-9 (`app_v2.py`, `reports/v2_serving.md`) | done (serves V2.2 now) |
-| 14 testing / CI | V2-10 (`tests/`, `.github/workflows/ci.yml`) | done (historical counts; current: 134) |
+| 14 testing / CI | V2-10 (`tests/`, `.github/workflows/ci.yml`) | done (historical counts; current: 154 full local / 134+11 skipped+9 deselected clean checkout) |
 | 15 FD004 generalization | V2-11 (`reports/v2_fd004.md`) | done — negative result: recipe collapsed under 6 operating conditions; condition-aware modeling implemented in V2.1/V2.2 |
 | 16 final docs | V2-12 (`README.md`, `CHANGELOG.md`) | done (historical) |
 

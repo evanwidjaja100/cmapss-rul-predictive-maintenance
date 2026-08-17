@@ -246,8 +246,10 @@ def main() -> None:
     assert set(results["variant"]) == VARIANTS or set(results["variant"]) == set(args.variants)
     print("\nFD004 variant results (37 held-out validation engines):")
     print(results.sort_values("NASA_mean_per_engine").to_string(index=False))
-    winner = results.sort_values(["NASA_mean_per_engine", "RMSE",
-                                  "signed_bias_mean"]).iloc[0]
+    ranked = results.copy()
+    ranked["abs_signed_bias_mean"] = ranked["signed_bias_mean"].abs()
+    winner = ranked.sort_values(["NASA_mean_per_engine", "RMSE",
+                                 "abs_signed_bias_mean"]).iloc[0]
     print(f"\npre-declared rule (NASA per engine, then RMSE, then |bias|) selects: {winner['variant']}")
     best_rows = pd.read_csv(OUT_DIR / "fd004_best_epochs.csv") \
         if (OUT_DIR / "fd004_best_epochs.csv").exists() else pd.DataFrame()

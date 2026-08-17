@@ -201,17 +201,80 @@ def _stage2_fit(candidate, frame, outer_train, control: dict, fold: int, *,
     return model, scaler, f"{builder.__name__};loss={loss};bs={batch_size};fixed_epochs={control['best_epoch']}", X.shape[2]
 
 
+def git_provenance(root: str | Path | None = None) -> dict:
+    """Honest source-tree provenance for run metadata (V2.2 cleanup, issue I-4).
+
+    Reports the Git HEAD, whether the working tree was dirty at run time, a
+    hash of the dirty-state diff + status, a source-tree content hash, and the
+    UTC timestamp. `git_is_dirty=True` means the recorded `git_commit` does NOT
+    exactly represent the tree used; do not claim bit-exact reproducibility.
+    """
+    import datetime
+    import hashlib
+    import subprocess
+
+    cwd = Path(root) if root else None
+
+    def _git(*args: str) -> str | None:
+        try:
+            out = subprocess.run(["git", *args], capture_output=True, text=True,
+                                 check=False, cwd=cwd)
+            return out.stdout.strip() or None
+        except Exception:
+            return None
+
+    commit = _git("rev-parse", "HEAD")
+    status = _git("status", "--porcelain")
+    diff = _git("diff")
+    dirty = bool(status)
+    diff_hash = None
+    if dirty:
+        payload = f"status:\n{status}\ndiff:\n{diff or ''}"
+        diff_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return {
+        "git_commit": commit,
+        "git_is_dirty": dirty,
+        "git_diff_hash": diff_hash,
+        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+    }
+
+
+def source_tree_hash(root: str | Path | None = None) -> str | None:
+    """Content hash of the tracked source/config tree (reproducibility metadata).
+
+    Hashes every file under src/, scripts/, configs/ plus app_v2.py and
+    pyproject.toml; None if the root is missing. Used to fingerprint the exact
+    source state of a run, independent of Git bookkeeping.
+    """
+    import hashlib
+
+    root = Path(root) if root else None
+    base = root or ROOT
+    dirs = [base / "src", base / "scripts", base / "configs"]
+    extras = [base / "app_v2.py", base / "pyproject.toml"]
+    files: list[Path] = []
+    for d in dirs:
+        files.extend(sorted(p for p in d.rglob("*") if p.is_file()))
+    files.extend(p for p in extras if p.is_file())
+    files = sorted(set(files))
+    if not files:
+        return None
+    h = hashlib.sha256()
+    for p in files:
+        rel = p.relative_to(base).as_posix()
+        h.update(rel.encode("utf-8"))
+        try:
+            h.update(p.read_bytes())
+        except OSError:
+            continue
+    return h.hexdigest()
+
+
 def run_metadata(dataset: str, candidate: str, fold: int, control: dict,
                  dev_ids, cal_ids, window: int, extra: dict | None = None) -> dict:
     """Reproducibility metadata for one candidate-fold run (V2.2-14)."""
     import importlib.metadata as md
 
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True,
-            check=False).stdout.strip()
-    except Exception:
-        commit = "unknown"
     versions = {}
     for pkg in ("tensorflow", "numpy", "pandas", "scikit-learn", "xgboost", "joblib"):
         try:
@@ -220,7 +283,8 @@ def run_metadata(dataset: str, candidate: str, fold: int, control: dict,
             versions[pkg] = "unknown"
     from rul_prediction.data.canonical_hash import canonical_sha256_json
     meta = {
-        "git_commit": commit,
+        **git_provenance(),
+        "source_tree_hash": source_tree_hash(),
         "methodology": "v2.2",
         "dataset": dataset,
         "candidate": candidate,
@@ -394,8 +458,9 @@ def apply_selection_policy(summary: list[dict], n_folds: int = 5) -> dict:
                             cand["NASA_mean_per_engine_std"] ** 2) / n_folds))
         if abs(best["NASA_mean_per_engine_mean"] - cand["NASA_mean_per_engine_mean"]) < se:
             tied.append(cand)
-    tie_df = pd.DataFrame(tied)
-    winner = tie_df.sort_values(["RMSE_mean", "signed_bias_mean_mean"]).iloc[0]
+    tie_df = pd.DataFrame(tied).copy()
+    tie_df["abs_signed_bias_mean_mean"] = tie_df["signed_bias_mean_mean"].abs()
+    winner = tie_df.sort_values(["RMSE_mean", "abs_signed_bias_mean_mean"]).iloc[0]
     accuracy = df.sort_values("RMSE_mean").iloc[0]
     return {
         "methodology": "v2.2",

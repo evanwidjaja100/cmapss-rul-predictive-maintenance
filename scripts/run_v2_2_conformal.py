@@ -1,8 +1,12 @@
 """Methodology V2.2: engine-cluster conformal calibration on the CLEAN final model.
 
-Runs only after the V2.2 final fit (scripts/run_v2_2_freeze.py) — the first
-time the 15 calibration engines' labels are touched is HERE, after fitting is
-complete (V2_2_REPAIR_PLAN.md V2.2-1/V2.2-5).
+Runs only after the V2.2 final fit (scripts/run_v2_2_freeze.py) — the 15
+calibration engines' labels are touched HERE, after fitting is complete
+(V2_2_REPAIR_PLAN.md V2.2-1/V2.2-5). The V2.2 model fit and model selection
+never used these engines. IMPORTANT historical caveat: these calibration
+engines were inspected during EARLIER project iterations, so the resulting
+interval is an empirically calibrated uncertainty interval rather than a
+pristine one-shot external conformal guarantee.
 
 Protocol:
     - 15 calibration engines, 5 fixed lifecycle checkpoints
@@ -151,6 +155,10 @@ def main() -> None:
                            "score per held-out calibration engine across five predefined lifecycle "
                            "checkpoints; simultaneous coverage >= 1-alpha holds under exchangeability "
                            "of engines with the predefined checkpoint scheme."),
+        "historical_caveat": ("The calibration engines were held out from V2.2 fitting and model "
+                              "selection but were inspected during earlier project iterations; the "
+                              "interval is an empirically calibrated uncertainty interval, not a "
+                              "pristine one-shot external conformal guarantee."),
         "engineering_extrapolation": ("Use on arbitrary uploaded trajectories is an engineering "
                                       "extrapolation, not a formal guarantee."),
         "post_hoc_official_coverage": coverage_rows,

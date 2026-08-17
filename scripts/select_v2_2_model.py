@@ -1,16 +1,20 @@
-"""Methodology V2.2: apply the pre-registered selection policy to the CV results.
+"""Methodology V2.2: apply the pre-specified selection policy to the CV results.
 
-Mechanical application of the rule locked in V2_2_REPAIR_PLAN.md BEFORE any
-V2.2 CV results were inspected:
+Mechanical application of the rule locked in V2_2_REPAIR_PLAN.md in the
+recorded development session BEFORE the V2.2 CV comparison results were
+inspected (the plan file itself was uncommitted at run time, so Git cannot
+prove a formal pre-registration; the policy is pre-specified, not
+pre-registered):
 
     PRIMARY: lowest mean NASA per engine
     GUARDRAIL: within one pooled standard error of the best -> prefer lower RMSE
-    TIE: smaller |signed bias|
+    TIE: smaller |signed bias|  (implemented as abs(signed_bias_mean))
 
 Reports accuracy champion, NASA-risk champion and deployment selection
 separately, writes selection_decision.json, and generates
-configs/final_model_v2_2_fd001.yaml (all training values derived from the
-selection + manifest, nothing hardcoded in the freeze script).
+configs/final_model_v2_2_fd001.yaml (model-type-specific: XGBoost candidates
+carry XGBoost hyperparameters; deep candidates carry deep-model fields; all
+values derived from the selection + manifest + the shared model factories).
 
 Usage: python scripts/select_v2_2_model.py
 """
@@ -34,6 +38,46 @@ from rul_prediction.benchmark.v2_2 import (
 from rul_prediction.data.canonical_hash import canonical_sha256_json, canonical_sha256_csv
 
 OUT_DIR = Path("experiments/v2_2")
+
+XGB_PARAM_NAMES = ("max_depth", "learning_rate", "subsample", "colsample_bytree",
+                   "n_estimators", "random_state", "early_stopping_rounds")
+
+
+def _xgb_factory_params(seed: int) -> dict:
+    """Current XGBoost factory defaults (single source: xgboost_model.py)."""
+    from rul_prediction.models.xgboost_model import xgboost_regressor
+    model = xgboost_regressor(seed)
+    return {k: getattr(model, k) for k in XGB_PARAM_NAMES}
+
+
+def _model_config(candidate: dict, duration: dict) -> dict:
+    """Model-type-specific YAML block: XGBoost fields or deep-model fields."""
+    arch = candidate["model"]
+    base = {
+        "candidate_name": candidate["id"],
+        "architecture": arch,
+        "window": candidate["window"],
+        "features": f"{candidate['window']}-cycle windows of 21 sensors "
+                    "(padded+masked, shared history builder)",
+    }
+    if arch == "xgboost":
+        params = _xgb_factory_params(42)
+        params["max_depth"] = (candidate["overrides"] or {}).get(
+            "max_depth", params["max_depth"])
+        params["n_estimators"] = duration["n_estimators"]
+        params["early_stopping_rounds"] = None  # final fit: fixed duration, no stopping
+        return {**base, **params}
+    return {
+        **base,
+        "units": [128, 64],
+        "dropout": 0.3,
+        "loss": (candidate["overrides"] or {}).get("loss", "mse"),
+        "optimizer": "Adam(clipnorm=1.0)",
+        "learning_rate": 0.001,
+        "batch_size": 256,
+        "seed": 42,
+        "epochs": duration["epochs"],
+    }
 
 
 def main() -> None:
@@ -75,24 +119,12 @@ def main() -> None:
 
     summary_df = pd.DataFrame(summary)
     sel_row = summary_df[summary_df.candidate_id == selected].iloc[0]
+    model_cfg = _model_config(candidate, duration)
     cfg = {
         "methodology_version": "2.2",
         "dataset": "FD001",
         "target": "raw RUL regression",
-        "model": {
-            "candidate_name": selected,
-            "architecture": candidate["model"],
-            "window": candidate["window"],
-            "features": f"{candidate['window']}-cycle windows of 21 sensors "
-                        "(padded+masked, shared history builder)",
-            "architecture_sizes": {"units": [128, 64], "dense": 32},
-            "loss": (candidate["overrides"] or {}).get("loss", "mse"),
-            "optimizer": "Adam(clipnorm=1.0)",
-            "learning_rate": 0.001,
-            "dropout": 0.3,
-            "batch_size": 256,
-            "seed": 42,
-        },
+        "model": model_cfg,
         "preprocessing": {"mode": "StandardScaler fit on permitted training rows only"},
         "splits": {
             "development_engine_count": 85,
@@ -131,10 +163,6 @@ def main() -> None:
         },
         "software_versions": versions,
     }
-    if duration.get("n_estimators") is not None:
-        cfg["model"]["n_estimators"] = duration["n_estimators"]
-    else:
-        cfg["model"]["epochs"] = duration["epochs"]
 
     out = Path(args.config_out)
     out.write_text(yaml.safe_dump(cfg, sort_keys=False, default_flow_style=False),

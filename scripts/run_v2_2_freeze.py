@@ -35,6 +35,7 @@ from joblib import dump as dump_joblib
 from sklearn.preprocessing import StandardScaler
 
 from rul_prediction.benchmark.v2 import ROOT
+from rul_prediction.benchmark.v2_2 import git_provenance
 from rul_prediction.data.canonical_hash import canonical_sha256_json
 from rul_prediction.data.loader import SENSOR_COLUMNS, load_train
 from rul_prediction.data.preprocessing import transform
@@ -67,10 +68,24 @@ def final_fit_plan(cfg: dict, frame: pd.DataFrame) -> dict:
     epochs = control.get("fixed_epoch_count")
     n_estimators = control.get("fixed_n_estimators")
     assert (epochs is None) != (n_estimators is None), "exactly one duration mechanism"
+    if model_cfg["architecture"] == "xgboost":
+        assert int(n_estimators) == int(model_cfg["n_estimators"]), (
+            "training_control.fixed_n_estimators must match model.n_estimators")
+        return {
+            "dev_ids": dev_ids, "cal_ids": cal_ids, "window": int(model_cfg["window"]),
+            "candidate": model_cfg["candidate_name"], "architecture": model_cfg["architecture"],
+            "n_estimators": int(n_estimators),
+            "max_depth": int(model_cfg["max_depth"]),
+            "learning_rate": float(model_cfg["learning_rate"]),
+            "subsample": float(model_cfg["subsample"]),
+            "colsample_bytree": float(model_cfg["colsample_bytree"]),
+            "seed": int(model_cfg.get("random_state", model_cfg.get("seed"))),
+            "early_stopping_rounds": model_cfg.get("early_stopping_rounds"),
+        }
     return {
         "dev_ids": dev_ids, "cal_ids": cal_ids, "window": int(model_cfg["window"]),
         "epochs": int(epochs) if epochs else None,
-        "n_estimators": int(n_estimators) if n_estimators else None,
+        "n_estimators": None,
         "seed": int(model_cfg["seed"]), "loss": model_cfg["loss"],
         "batch_size": int(model_cfg["batch_size"]),
         "learning_rate": float(model_cfg["learning_rate"]),
@@ -102,8 +117,15 @@ def fit_final_model(plan: dict, frame: pd.DataFrame, data_dir: str | Path):
         model = random_forest(plan["seed"]).fit(F, y)
     elif arch == "xgboost":
         model = xgboost_regressor(plan["seed"])
-        model.set_params(max_depth=6, n_estimators=plan["n_estimators"],
-                         early_stopping_rounds=None)
+        model.set_params(
+            max_depth=plan["max_depth"],
+            learning_rate=plan["learning_rate"],
+            subsample=plan["subsample"],
+            colsample_bytree=plan["colsample_bytree"],
+            n_estimators=plan["n_estimators"],
+            random_state=plan["seed"],
+            early_stopping_rounds=plan["early_stopping_rounds"],
+        )
         model.fit(F, y, verbose=False)
     else:
         set_seed(plan["seed"])
@@ -149,8 +171,8 @@ def main() -> None:
         "candidate": plan["candidate"],
         "architecture": plan["architecture"],
         "window": plan["window"],
-        "fixed_epoch_count": plan["epochs"],
-        "fixed_n_estimators": plan["n_estimators"],
+        "fixed_epoch_count": plan.get("epochs"),
+        "fixed_n_estimators": plan.get("n_estimators"),
         "training_engine_count": len(plan["dev_ids"]),
         "calibration_engine_count": len(plan["cal_ids"]),
         "calibration_contact_in_fitting": False,
@@ -160,7 +182,15 @@ def main() -> None:
         "cal_ids_sha256": canonical_sha256_json(sorted(plan["cal_ids"])),
         "model_path": str(model_path.relative_to(ROOT)),
         "scaler_path": str(scaler_path.relative_to(ROOT)),
+        "provenance": git_provenance(),
     }
+    if plan["architecture"] == "xgboost":
+        meta["model_params"] = {k: plan[k] for k in (
+            "max_depth", "learning_rate", "subsample", "colsample_bytree",
+            "n_estimators", "early_stopping_rounds")}
+    else:
+        meta["model_params"] = {"loss": plan["loss"], "batch_size": plan["batch_size"],
+                                "learning_rate": plan["learning_rate"], "seed": plan["seed"]}
     Path("experiments/v2_2/fd001_final_fit_metadata.json").write_text(
         json.dumps(meta, indent=2), encoding="utf-8")
     print(json.dumps(meta, indent=2))

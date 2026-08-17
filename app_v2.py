@@ -2,12 +2,14 @@
 
 Run:  .venv\\Scripts\\python.exe -m streamlit run app_v2.py
 
-Serves the deployment model selected by the pre-registered V2.2 policy
-(configs/final_model_v2_2_fd001.yaml) with the recalibrated engine-cluster
-conformal interval. Shows model version, predicted raw RUL, observed cycles,
-history_is_padded + padded timestep count, the conformal interval and the
-calibration method. No OOD classification: `history_is_padded` is objective,
-`short_history_risk_flag` is an empirical flag (reports/v2_2_error_analysis.md).
+Serves the deployment model selected by the pre-specified V2.2 policy
+(configs/final_model_v2_2_fd001.yaml) with the engine-cluster conformal
+interval (q from the tracked deployment config
+configs/deployment_v2_2_fd001.yaml). Shows model version, predicted raw RUL,
+observed cycles, the objective padding/history fields (history_is_padded +
+n_padded_timesteps), the conformal interval and the calibration method. No OOD
+classification and no empirical risk threshold: `history_is_padded` is an
+objective input-representation fact.
 """
 
 from __future__ import annotations
@@ -17,7 +19,6 @@ import streamlit as st
 
 from rul_prediction.data.loader import DATA_COLUMNS, load_test
 from rul_prediction.serving.v2_predictor import (
-    RISK_OBSERVED_CYCLES,
     V2Predictor,
     limited_history_warning,
 )
@@ -46,22 +47,20 @@ with st.sidebar:
     st.header("Method notes (V2.2)")
     st.write(
         f"- Target: **raw RUL** (cycles to failure, uncapped).\n"
-        f"- 90% interval: engine-cluster finite-sample conformal guarantee "
+        f"- 90% interval: engine-cluster finite-sample conformal interval "
         f"(k = ceil((n+1)(1-alpha)) with n = 15 calibration engines; one "
         "maximum-error score per engine across five predefined lifecycle "
-        "checkpoints). Formal guarantee only under exchangeability of engines "
-        "with the predefined checkpoint scheme.\n"
+        "checkpoints). Calibration engines were inspected during earlier "
+        "project iterations, so the interval is empirically calibrated, not "
+        "a pristine one-shot external guarantee.\n"
         f"- {predictor.calibration_method}\n"
         f"- Test trajectories are truncated before failure: `cycle.max()` is the "
         "observed history length, NOT a lifetime.\n"
         f"- `history_is_padded` = observed cycles < window ({predictor.window}); "
         "the window is left-padded in the shared representation - expected "
         "input, not OOD.\n"
-        f"- `short_history_risk_flag` (observed < {RISK_OBSERVED_CYCLES}) is an "
-        "EMPIRICAL risk flag from the V2.2 error analysis "
-        "(reports/v2_2_error_analysis.md), not an OOD classification.\n"
         f"- Model: `models/v2_2/fd001_{predictor.candidate}.{'joblib' if predictor._model_name in ('rf','xgboost') else 'keras'}`; "
-        "CV + selection + freeze in reports/v2_2_methodology.md."
+        "CV + selection + freeze in reports/v2_2_final_report.md."
     )
 
 mode = st.radio("Input", ["Demo engine (official FD001 test)", "Upload C-MAPSS file"])
@@ -81,12 +80,10 @@ if mode.startswith("Demo"):
     if warning:
         st.warning(warning)
     if result["history_is_padded"]:
-        st.info(f"Padded window: {int(result['n_padded_timesteps'])} of "
-                f"{predictor.window} timesteps padded (expected input, not OOD).")
-    if result["short_history_risk_flag"]:
-        st.info(f"Empirical risk flag: {int(result['n_cycles_observed'])} observed cycles "
-                f"< {RISK_OBSERVED_CYCLES}; overprediction concentrates in this group "
-                "(reports/v2_2_error_analysis.md).")
+        st.info(f"{int(result['n_cycles_observed'])} cycles are observed while the "
+                f"model window is {predictor.window}; "
+                f"{int(result['n_padded_timesteps'])} leading timesteps were padded "
+                "(expected input, not OOD).")
     st.subheader("Top V2.2 sensitivity sensors")
     st.line_chart(history[["cycle", *RISK_SENSORS]].set_index("cycle"))
 else:
@@ -97,13 +94,9 @@ else:
         frame.columns = DATA_COLUMNS[: frame.shape[1]]
         table = predictor.predict_frame(frame)
         n_padded = int(table["history_is_padded"].sum())
-        n_risk = int(table["short_history_risk_flag"].sum())
         st.dataframe(table)
         if n_padded:
             st.warning(f"{n_padded} of {len(table)} engines have padded windows "
                        f"(observed < {predictor.window} cycles); windows are left-padded.")
-        if n_risk:
-            st.info(f"{n_risk} of {len(table)} engines carry the empirical short-history "
-                    f"risk flag (observed < {RISK_OBSERVED_CYCLES} cycles).")
         csv = table.to_csv(index=False).encode("utf-8")
         st.download_button("Download predictions CSV", csv, "v2_2_predictions.csv", "text/csv")
