@@ -1,0 +1,2 @@
+methodology_version,dataset,variant,official_status,official_test_engine_count,official_test_RMSE,official_test_MAE,official_test_R2,official_test_NASA_total,official_test_NASA_mean,official_test_prediction_std
+2.2,FD004,C,post-hoc (FD004 official labels permanently post-hoc; never select or tune V2.2),248,33.6579,22.0687,0.6189,1545798.52,6233.0586,66.8366

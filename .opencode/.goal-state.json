@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "id": "c8aaf49e-ed29-4650-aeb4-6531155448c1",
+  "condition": "Methodology V2.1 complete: V2_1_REPAIR_PLAN.md created with all issues resolved (or documented BLOCKED); lifetime semantics corrected (observed_cycles vs implied_failure_cycle, no false OOD); 5-fold engine group CV on 85 dev engines with balanced cutoffs; bounded model selection; final FD001 config as YAML retrained on dev engines only; engine-level conformal (15 scores, finite-sample quantile); Streamlit uses corrected model/uncertainty, no OOD; FD004 condition-aware experiment (A/B/C/D) with honest result + config YAML; sensitivity rename; pyproject Python policy honest; attribution notice; tests for all repairs; CI valid; all docs updated and stale claims removed; full suite passes; artifact-free subset passes; app import smoke OK; git tree clean.",
+  "command": null,
+  "verification": null,
+  "status": "cleared",
+  "createdAt": 1786859621840,
+  "startedAt": 1786859621840,
+  "completedAt": 1786905064478,
+  "pausedAt": null,
+  "resumedAt": null,
+  "turnsEvaluated": 2,
+  "tokensUsed": 0,
+  "lastEvaluation": {
+    "met": false,
+    "reason": "Time limit reached: 757/600 minutes",
+    "confidence": 1,
+    "timestamp": 1786905064478,
+    "evaluatorType": "deterministic"
+  },
+  "evaluationHistory": [
+    {
+      "met": false,
+      "reason": "No GOAL_COMPLETE signal in latest output yet",
+      "confidence": 0.5,
+      "timestamp": 1786875839981,
+      "evaluatorType": "heuristic"
+    },
+    {
+      "met": false,
+      "reason": "Time limit reached: 757/600 minutes",
+      "confidence": 1,
+      "timestamp": 1786905064478,
+      "evaluatorType": "deterministic"
+    }
+  ],
+  "constraints": {
+    "maxTurns": 200,
+    "maxTimeMinutes": 600,
+    "maxTokens": 100000
+  },
+  "metadata": {
+    "setBy": "user"
+  }
+}

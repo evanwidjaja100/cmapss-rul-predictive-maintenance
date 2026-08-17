@@ -1,0 +1,2 @@
+methodology_version,dataset,candidate,official_status,official_test_engine_count,official_test_RMSE,official_test_MAE,official_test_R2,official_test_NASA_total,official_test_NASA_mean,cv_RMSE_mean_std
+2.2,FD001,xgb_w90_d6,post-hoc (FD001 official labels permanently post-hoc; never select or tune V2.2),100,26.2526,21.2347,0.6009,60963.79,609.6379,28.3529 +- 2.6856

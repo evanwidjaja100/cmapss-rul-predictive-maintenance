@@ -1,5 +1,72 @@
 # CHANGELOG
 
+## Methodology V2.2 (repair) — 2026-08-17
+
+> V2.2 repairs the V2.1 audit findings (`V2_2_REPAIR_PLAN.md`, V2.2-1 …
+> V2.2-16). V2 and V2.1 remain historical record, labeled
+> `SUPERSEDED BY METHODOLOGY V2.2` where they conflict with current numbers.
+
+- **Calibration leakage in final FD001 fit fixed (V2.2-1):** the V2.1 freeze
+  passed the 15 calibration engines as `validation_data` to `model.fit()`
+  (training control = weights/epochs touched by calibration labels). V2.2
+  final fit runs on the 85 development engines only, fixed duration
+  (XGBoost `n_estimators = round(median(best_iteration)) + 1 = 92`), zero
+  calibration contact (`run_v2_2_freeze.py`; `final_fit_metadata.json`).
+- **Outer-fold isolation fixed (V2.2-2):** V2.1 ran outer-fold early stopping
+  with the 17 outer-evaluation engines inside the training loop. V2.2 nested
+  CV: per fold 68 outer-train / 17 untouched outer-eval; inner 58/10 splits
+  (seeds 4201–4205, `random.Random(4200+fold)` on sorted IDs, documented
+  pre-run) control duration only; stage-2 retrains fixed-duration with NO
+  validation data. `src/rul_prediction/benchmark/v2_2.py`,
+  `experiments/v2_2/fd001_outer_fold_results.csv`.
+- **Complete CV matrix (V2.2-3):** V2.1's claimed 8×5 matrix had only 40/40
+  requested but rf_w60 delivered fold 1 only (39/40) and was presented
+  complete. V2.2 runs all 8 candidates × 5 folds = **40/40**; summaries are
+  gated by `assert_cv_complete` (exact row count + fold coverage + manifest
+  hashes) and a protocol test rejects partial matrices.
+- **Model-selection claims fixed (V2.2-4):** V2.1 named one winner
+  (gru_w45_huber) that was neither lowest-RMSE nor lowest-NASA. V2.2
+  pre-registered the rule (PRIMARY lowest mean NASA/engine; GUARDRAIL
+  pooled-SE RMSE; TIE |bias|) and reports roles separately: accuracy champion
+  `lstm_w60_huber` (RMSE 26.19±3.44), NASA-risk champion + deployment
+  **`xgb_w90_d6`** (NASA/engine 368.02±160.40, RMSE 28.35±2.69).
+  `selection_decision.json`, `configs/final_model_v2_2_fd001.yaml`.
+- **Conformal rebuilt (V2.2-5):** recalibrated on the clean final model with
+  15 untouched calibration engines (one max-|error| score per engine over the
+  predefined checkpoints); q(0.1)=66.21, q(0.2)=44.80, q(0.3)=41.42; formal
+  coverage wording limited (exchangeability + predefined checkpoints);
+  arbitrary-trajectory use labeled engineering extrapolation; post-hoc
+  official coverage 99% at α=0.1.
+- **Configs drive training (V2.2-6):** freeze scripts consume
+  `configs/final_model_v2_2_fd001.yaml` / `_fd004.yaml`; protocol test E
+  rejects any seed not derivable from config; F verifies canonical manifest
+  hashes. `canonical_hash.py` (platform-independent canonical JSON/CSV).
+- **FD004 clean protocol (V2.2-7):** V2.1's variant comparison used
+  validation engines for early stopping (calibration contact). V2.2 runs
+  A/B/C/D under the two-stage protocol (150/25 inner split, seed 4201, eval
+  on 37 untouched engines): A/B collapse (pred_std 0.0), C RMSE 29.83 /
+  R² 0.789 / NASA 1,449 per engine, D RMSE 33.97 / NASA 81,963 per engine —
+  C selected (per NASA, then RMSE); D's V2.1 RMSE edge is gone under clean
+  control. Freeze on 212 (175+37); official post-hoc FD004: RMSE 33.66,
+  R² 0.619, NASA 1,545,798.5.
+- **Sensitivity rerun (V2.2-8):** `explain_v2_2_sensitivity.py` occludes on
+  the frozen V2.2 model; sensors 4/11/12/9/3/20/7 most influential; constant
+  sensors (1/5/10/16/18/19) contribute zero; sensor 6 (V2's flag) nearly
+  inert now — reported as measured, not forced. `reports/v2_2_sensitivity.md`.
+- **Docs live (V2.2-9):** README/PROJECT_SPEC/CHANGELOG updated to V2.2-first
+  with stale V2.1 claims (winner, q=70.34, coverage 98%, "8 candidates x 5
+  folds", test counts) annotated; `app_v2.py` labels
+  "SUPERSEDED BY METHODOLOGY V2.2".
+- **Protocol tests (V2.2-10):** `tests/test_v2_2_protocol.py` (artifact-free,
+  19 tests) — Tests A–H + duration rules.
+- **Serving (V2.2-11):** `v2_predictor.py` reads the V2.2 config YAML +
+  recalibrated quantiles; app shows model version / observed cycles /
+  `history_is_padded`+count / interval / calibration method / disclosure.
+- Tests: 115 → **134 passing** (19 protocol + 4 rewritten serving + others);
+  artifact-free CI subset re-verified.
+- Artifacts under `experiments/v2_2/`, `models/v2_2/`, `reports/v2_2_*.md`,
+  `reports/tables/v2_2_*`; commit `v2.2` tag target.
+
 ## Methodology V2.1 (repair) — 2026-08-15 (`67a0e58` + follow-ups)
 
 > V2.1 repairs four audit findings (`V2_1_REPAIR_PLAN.md`, R1–R20). V2

@@ -2,214 +2,236 @@
 
 **Leakage-Safe Remaining Useful Life Prediction for Predictive Maintenance Using NASA C-MAPSS**
 
-A reproducible RUL prediction system for turbofan-engine prognostics built phase-by-phase with strict leakage safety: engine-level validation splits, training-engine-only preprocessing fitting, a fixed pseudo-test manifest for model selection, and post-hoc evaluation on the official test sets.
-
-**Primary methodology (V2) targets raw RUL (no cap)** on FD001 and was stress-tested for generalization on FD004. The original Phase 1–10 experiment (XGBoost @ w90, cap 45) is preserved, labeled, and demoted to a **legacy maintenance-horizon task** (`reports/legacy/README.md`).
-
-**V2 frozen model (FD001):** GRU, window 45, huber loss, batch 256, patience 8, seed 42 — selected on a 75-row validation pseudo-test manifest only.
-
-| | Validation (75 rows) | Official FD001 test (post-hoc) |
-|---|---|---|
-| RMSE | **13.74** | **29.04** |
-| MAE | 9.69 | 19.17 |
-| R² | 0.877 | 0.512 |
-| NASA total | 200.01 | 77,387.53 |
-
-> **Post-hoc status:** the official FD001 labels were inspected during the V2-0 audit, so official-test numbers are labeled **post-hoc**, never "exactly once" (see `AUDIT_V2.md` Issues 1 & 7). The frozen FD001 model is served by a Streamlit app (`app_v2.py`) with conformal intervals.
+A reproducible RUL prediction system for turbofan-engine prognostics built with strict leakage safety: engine-level validation splits, training-engine-only preprocessing fitting, fixed pseudo-test manifests for model selection, nested cross-validation with genuinely held-out evaluation engines, and post-hoc evaluation on the official test sets.
 
 ---
 
-## Methodology V2.1 (current, replaces V2)
+## 1. Current methodology — V2.2
 
-V2.1 repaired four audit findings (`V2_1_REPAIR_PLAN.md`): test trajectories
-are truncated before failure, so `cycle.max()` is an **observed history
-length**, never a lifetime; model selection now uses **5-fold engine-group CV**
-(85 dev / 15 calibration engines) instead of one 15-engine validation set;
-conformal calibration is **engine-level** (15 calibration engines, one score
-per engine); FD004 is modeled **per operating regime** (KMeans k=6).
+Methodology V2.2 is the operative protocol (this section). It repairs the V2.1
+declaration (`SUPERSEDED BY METHODOLOGY V2.2`, see `V2_2_REPAIR_PLAN.md`):
 
-| | CV (5-fold, mean±std) | Official FD001 test (post-hoc) |
+- the 15 FD001 calibration engines never touch training control — their labels
+  are used only AFTER the final model fit, for conformal calibration;
+- outer CV folds are genuinely held out: inner early-stop splits
+  (58 inner-fit / 10 inner-stop, seeds 4201–4205) control training duration,
+  then the model is retrained fixed-duration and evaluated on 17 untouched
+  outer-evaluation engines;
+- the complete 8-candidate × 5-fold = **40/40** matrix is enforced by a hard
+  completeness gate;
+- the model-selection policy was **pre-registered** (NASA-primary with a
+  pooled-SE RMSE guardrail) before any V2.2 result was inspected;
+- all training values derive from YAML configs; manifest hashes are canonical
+  (platform-independent);
+- FD004 variant comparison uses the same clean training-control separation.
+
+## 2. Model-selection design (pre-registered, V2.2)
+
+Rule locked in `V2_2_REPAIR_PLAN.md` before the V2.2 CV ran:
+
+```
+PRIMARY : lowest mean NASA per engine (macro over 5 outer folds)
+GUARDRAIL: if NASA means differ by less than one pooled standard error
+           SE = sqrt((s1^2 + s2^2) / n_folds), prefer lower RMSE
+TIE     : smaller |signed bias|
+```
+
+Roles are reported separately (they may differ; none is called "best" wholesale):
+
+| role | candidate |
+|---|---|
+| accuracy champion (lowest CV RMSE) | `lstm_w60_huber` (RMSE 26.19 ± 3.44) |
+| NASA-risk champion + **deployment selection** | `xgb_w90_d6` (NASA/engine 368.02 ± 160.40; RMSE 28.35 ± 2.69) |
+
+`experiments/v2_2/selection_decision.json` holds the full decision; a test
+re-derives the selection from the CV summary (no report/config drift).
+
+## 3. Nested engine-level cross-validation
+
+85 development engines, 5 outer engine folds (seed 42): per fold
+**68 outer-training / 17 untouched outer-evaluation** engines. Inside the 68,
+a deterministic inner split (58 inner-fit / 10 inner-stop, seeds 4201–4205)
+controls training duration:
+
+- Stage 1: preprocessing fit on inner-fit only; early stopping monitored on
+  inner-stop only → `best_epoch` / `best_iteration`.
+- Stage 2: preprocessing refit on all 68 outer-training engines; fresh
+  fixed-duration retrain with NO validation data; evaluate the 17 untouched
+  outer-evaluation engines on the fixed pseudo-test manifest.
+
+The 17 outer-evaluation engines never influence weights, epochs, iteration
+count, early stopping, callbacks, feature fitting or preprocessing.
+
+## 4. Current final FD001 model
+
+Deployment candidate **xgb_w90_d6** (`configs/final_model_v2_2_fd001.yaml`):
+
+- final `n_estimators = round(median(best_iteration per fold)) + 1 = 92`
+  (development-only rule; best iterations 100/91/69/97/53);
+- final fit on the **85 development engines only**, no validation data, no
+  calibration contact (`scripts/run_v2_2_freeze.py`);
+- canonical engine-ID hashes verified against the split manifest.
+
+| | CV (5 outer folds, mean ± std) | Official FD001 (post-hoc) |
 |---|---|---|
-| RMSE | **24.45 ± 3.62** | **23.04** |
-| MAE | 16.00 | 15.61 |
-| R² | 0.805 | 0.693 |
-| NASA total | 5,827.8 ± 4,451.0 | 6,700.59 (V2: 77,387.53) |
-| 90% interval | — | engine-cluster q = 70.34; coverage 98% |
+| RMSE | 28.35 ± 2.69 | 26.25 |
+| MAE | 22.68 | 21.23 |
+| R² | 0.735 | 0.601 |
+| NASA total | 6,256.4 ± 2,726.8 | 60,963.8 |
+| NASA per engine | 368.02 ± 160.40 | 609.64 |
 
-Key corrections (details in `reports/v2_1_methodology.md`, `v2_1_cross_validation.md`,
-`v2_1_error_analysis.md`, `v2_1_conformal.md`, `v2_1_fd004.md`):
+## 5. Uncertainty calibration
 
-- The V2 claim "44 engines with **lifetime < 128** carry 99.8% of NASA" has no
-  lifetime-based counterpart: the implied-lifetime-<128 group is **empty** on
-  the official test. The V2 finding was about observed-history length
-  (trajectory truncation), re-analyzed in `reports/v2_1_error_analysis.md`.
-- **FD004 collapse fixed**: per-regime scaling restores prediction variance
-  (RMSE 71.9 → 29.4, R² −0.23 → 0.795, NASA 55× better vs the global-scaler
-  baseline; official post-hoc RMSE 33.83). Configs:
-  `configs/final_model_v2_1_fd001.yaml`, `configs/final_model_v2_1_fd004.yaml`.
+Engine-cluster split-conformal, recalibrated on the clean final model
+(`scripts/run_v2_2_conformal.py`): one maximum-error score per held-out
+calibration engine across five predefined lifecycle checkpoints
+(0.25/0.45/0.65/0.80/0.95) → exactly **15 engine scores**; k = ceil((n+1)(1−α))
+clamped; α=0.1 → q = 66.21, α=0.2 → q = 44.80, α=0.3 → q = 41.42.
 
----
+Formal wording is limited: simultaneous coverage ≥ 1−α holds only under
+exchangeability of engines with the predefined checkpoint scheme. Use on
+arbitrary uploaded trajectories is an **engineering extrapolation** (labeled
+in the app). Post-hoc empirical official coverage at α=0.1: 99% (full-history
+engines 100%, short-history 96%).
 
-## The V2 story in five lines
+## 6. Error analysis (post-hoc, descriptive)
 
-1. 100 FD001 engines × 21 sensors → padded+masked sliding windows → raw-RUL targets (no cap).
-2. Every modeling decision (window, loss, dropout, depth, architecture) was made on a fixed **75-row validation manifest** over a 70/15/15 engine split (seed 42); 45 controlled ablation runs; calibration engines were never used for selection.
-3. Winner — **GRU w45 huber** (validation RMSE 13.74, NASA 200.01) — was retrained identically and frozen (`models/v2_frozen_gru_w45_huber.keras`).
-4. Error analysis (V2-6) isolated the dominant failure mode, later re-interpreted under V2.1 as an observed-history effect (short observed history overpredicted; "lifetime < 128" was a misnomer — see `reports/v2_1_error_analysis.md`); explainability (V2-7) found late-miss overprediction driven by recent-cycle sensors 2/4/6/7/8; conformal calibration (V2-8) was superseded by engine-level calibration in V2.1 (q = 70.34, official coverage 98%).
-5. FD004 generalization (V2-11): the recipe did **not** transfer — the GRU collapsed to a constant under 6 operating conditions. **V2.1 fixed it**: per-regime scaling (variant C) restores variance and cuts NASA 55× (`reports/v2_1_fd004.md`).
+`reports/v2_2_error_analysis.md`: official trajectories are truncated before
+failure — `cycle.max()` is observed history, never lifetime. The frozen model
+overpredicts systematically (+19.6 cycles mean; 91% of engines), strongest on
+short observed histories (< 90 cycles: +29.0 to +49.4). The app's
+`short_history_risk_flag` uses this empirical threshold (not an OOD claim).
 
-## Pipeline (V2)
+## 7. Sensitivity analysis (V2.2 model)
 
-```
-data/raw (NASA txt; FD001 + FD004) ── downloaded once, never modified
-   │  scripts/build_v2_manifests.py --dataset FD001      (70/15/15 split, seed 42)
-   ▼
-experiments/splits/<ds>_v2_seed42.json  +  75/75 pseudo-test cutoffs (validation/calibration)
-   │  scripts/preprocess_v2.py --dataset FD001 --window 45   (scaler fit on TRAIN engines only)
-   ▼
-data/processed/v2/FD001/raw/  scaled padded windows (float32) + scaler + metadata
-   │  scripts/run_v2_benchmark.py / run_v2_ablation.py  (same 75 validation rows for every model)
-   ▼
-reports/tables/v2_ablation_results.csv    (validation-only; 45 runs)
-   │  scripts/run_v2_freeze.py             (retrain + freeze GRU w45 huber)
-   ▼
-models/v2_frozen_gru_w45_huber.keras ── post-hoc official FD001 evaluation
-   │  scripts/analyze_v2_errors.py / explain_v2_sensitivity.py / calibrate_v2_conformal.py
-   ▼
-reports/v2_error_analysis.md · v2_explainability.md · v2_conformal.md
-   │  streamlit run app_v2.py             (serving + intervals + history flags)
-   ▼
-src/rul_prediction/serving/v2_predictor.py   (golden-tested vs the freeze)
-```
+`reports/v2_2_sensitivity.md` + `reports/tables/v2_2_*` — sensor occlusion /
+counterfactual attribution on the FINAL V2.2 model (NOT SHAP values):
+sensors 4, 11, 12, 9, 3, 20, 7 are the most influential; constant sensors
+(1, 5, 10, 16, 18, 19) contribute zero (consistency check); sensor 6, which
+V2 flagged, is nearly inert for the V2.2 model. Conclusions therefore differ
+from V2 — reported as measured, no sensor is forced.
 
-## Scientific guardrails (the non-negotiables)
+## 8. FD004 condition-aware experiment
 
-1. Official test data never influences model configuration.
-2. Test data never used as `validation_data`.
-3. Scalers fitted on training engines only.
-4. Windows from one engine never split across partitions.
-5. Model selection happens on the fixed validation manifest only; calibration engines are used only for uncertainty calibration (V2-8).
-6. Test evaluation happens only after the configuration is frozen; FD001 results are labeled **post-hoc** (labels were inspected in the V2-0 audit).
-7. Reproducible seeds (42); metrics always computed programmatically.
-8. No fabricated results; failed experiments (e.g., FD004 transfer) are reported, never hidden.
-9. Methodology changes documented in `CHANGELOG.md`; per-phase records in `reports/v2_*.md`.
+`scripts/run_v2_2_fd004.py` — variants A (global scaler), B (global + settings),
+C (KMeans k=6 per-regime scalers), D (C + settings + one-hot). Both stages use
+the clean protocol: preprocessing fit on inner-fit (150 of 175 training
+engines), early stopping on inner-stop (25), stage-2 refit on all 175,
+evaluation on the 37 untouched validation engines.
 
-## Reproduce everything (Windows)
+| variant | RMSE | R² | NASA/engine | prediction std |
+|---|---|---|---|---|
+| A | 72.41 | −0.246 | 75,343 | 0.0 (collapse) |
+| B | 72.41 | −0.246 | 75,333 | 0.0 (collapse) |
+| **C (selected)** | **29.83** | **0.789** | **1,449** | 70.6 |
+| D | 33.97 | 0.726 | 81,963 | 75.9 |
+
+Selection by the same pre-declared principle (NASA per engine, then RMSE):
+variant C. Condition-aware normalization still solves the collapse under the
+clean validation protocol — and, unlike V2.1's leaky result, D no longer beats
+C on RMSE either. Official FD004 remains **post-hoc** (RMSE 33.66, R² 0.619,
+NASA 1,545,798.5). Final FD004 model: `models/v2_2/fd004_gru_w45_huber_condC.keras`.
+
+## 9. Streamlit demo
+
+`app_v2.py` serves the V2.2 deployment model (`xgb_w90_d6`) with the
+recalibrated interval. Displays model version, predicted raw RUL, observed
+cycles, `history_is_padded` + padded timestep count, conformal interval and
+calibration method. Includes the engineering-extrapolation disclosure. No OOD
+classification anywhere.
+
+## 10. Testing / CI
 
 ```bash
-# 0. Environment (Python >= 3.11, tested on 3.12; TensorFlow supports 3.9-3.12)
-py -3.12 -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m pip install -e . --no-deps
+.venv\Scripts\python.exe -m pytest          # full suite (134 tests)
+.venv\Scripts\python.exe -m pytest -m "not needs_artifacts"   # CI artifact-free subset
+```
 
-# 1. FD001: V2 split + pseudo-test manifests (idempotent, seed 42)
-.venv\Scripts\python.exe scripts\build_v2_manifests.py --dataset FD001
+`tests/test_v2_2_protocol.py` (artifact-free) adds the V2.2 protocol gates:
+calibration isolation (A), outer-fold isolation (B), CV completeness (C),
+selection-policy consistency (D), config-driven training (E), canonical
+hashing (F), conformal isolation (G), FD004 condition fit-IDs (H). CI runs the
+artifact-free subset on Python 3.12 (`.github/workflows/ci.yml`).
 
-# 2. FD001: V2 preprocessing (raw RUL, w45; scaler on train engines only)
-.venv\Scripts\python.exe scripts\preprocess_v2.py --dataset FD001 --window 45
+## 11. Reproduction (V2.2)
 
-# 3. Benchmark & ablations (validation-only; 45-run matrix)
-.venv\Scripts\python.exe scripts\run_v2_benchmark.py
-.venv\Scripts\python.exe scripts\run_v2_ablation.py     # -> reports/tables/v2_ablation_results.csv
+```bash
+# manifests + fixed outer/calibration cutoffs + canonical hashes
+.venv\Scripts\python.exe scripts\build_v2_2_manifests.py
 
-# 4. Freeze selected model + post-hoc official evaluation
-.venv\Scripts\python.exe scripts\run_v2_freeze.py       # -> models/v2_frozen_gru_w45_huber.keras
+# nested CV: 8 candidates x 5 folds (40 runs; completeness gate before summary)
+.venv\Scripts\python.exe scripts\run_v2_2_cv.py
 
-# 5. Error analysis / explainability / conformal calibration
-.venv\Scripts\python.exe scripts\analyze_v2_errors.py
-.venv\Scripts\python.exe scripts\explain_v2_sensitivity.py
-.venv\Scripts\python.exe scripts\calibrate_v2_conformal.py
+# pre-registered selection -> selection_decision.json + final YAML
+.venv\Scripts\python.exe scripts\select_v2_2_model.py
 
-# 6. Serving (Streamlit) — predictions bit-identical to the freeze
+# clean final fit (85 dev engines, fixed duration, NO validation data)
+.venv\Scripts\python.exe scripts\run_v2_2_freeze.py
+
+# conformal recalibration on 15 untouched calibration engines
+.venv\Scripts\python.exe scripts\run_v2_2_conformal.py
+
+# post-hoc official evaluation (strictly after calibration; falsifies summaries)
+.venv\Scripts\python.exe scripts\run_v2_2_posthoc.py
+
+# FD004: clean A/B/C/D comparison -> config; freeze; post-hoc
+.venv\Scripts\python.exe scripts\run_v2_2_fd004.py
+.venv\Scripts\python.exe scripts\run_v2_2_fd004_freeze.py
+.venv\Scripts\python.exe scripts\run_v2_2_fd004_posthoc.py
+
+# descriptive analyses on the frozen model
+.venv\Scripts\python.exe scripts\analyze_v2_2_errors.py
+.venv\Scripts\python.exe scripts\explain_v2_2_sensitivity.py
+
+# app
 .venv\Scripts\python.exe -m streamlit run app_v2.py
-
-# 7. FD004 generalization study (requires FD004 files in data/raw)
-.venv\Scripts\python.exe scripts\build_v2_manifests.py --dataset FD004
-.venv\Scripts\python.exe scripts\preprocess_v2.py --dataset FD004 --window 45
-.venv\Scripts\python.exe scripts\run_v2_fd004.py
-
-# 8. Methodology V2.1: engine-group CV selection, freeze, conformal, errors, FD004 conditions
-.venv\Scripts\python.exe scripts\build_v2_1_manifests.py
-.venv\Scripts\python.exe scripts\run_v2_1_cv.py            # 8 candidates x 5 folds
-.venv\Scripts\python.exe scripts\run_v2_1_freeze.py        # -> models/v2_1/fd001_gru_w45_huber.keras
-.venv\Scripts\python.exe scripts\calibrate_v2_1_conformal.py
-.venv\Scripts\python.exe scripts\analyze_v2_1_errors.py
-.venv\Scripts\python.exe scripts\run_v2_1_fd004.py --variants A B C D
-.venv\Scripts\python.exe scripts\run_v2_1_fd004_freeze.py  # -> models/v2_1/fd004_gru_w45_huber_condC.keras
 ```
 
-The legacy Phase 1–10 pipeline (cap-45 XGBoost) is preserved and documented in `reports/legacy/README.md`; its reproduction commands remain in the original `README` history and `CHANGELOG.md` (Phases 0–10).
+## 12. Limitations
 
-## Results summary
+- Official FD001/FD004 labels are permanently **post-hoc** (inspected in the
+  V2-0 audit); no claim of a sealed evaluation.
+- Conformal guarantee is limited to exchangeable engines under the predefined
+  checkpoint scheme; arbitrary trajectories are an engineering extrapolation.
+- The frozen model systematically overpredicts on official engines (post-hoc
+  error analysis); the NASA score is sensitive to tail errors.
+- FD004 official NASA (1.55M) is much worse than validation NASA — regime
+  transfer to the official test remains a limitation.
+- No validated OOD detector; short-history flags are empirical, not formal.
 
-### V2 — raw RUL, FD001 (validation manifest: 75 fixed rows, seed 42; selected runs)
+## 13. Historical methodology V2.1 (superseded)
 
-| model / config | RMSE | MAE | R² | NASA |
-|---|---|---|---|---|
-| mean baseline (constant) | 66.45 | — | — | — |
-| rf (w90) | 18.55 | 16.71 | 0.776 | 455.70 |
-| xgboost (w90, depth 6) | 19.81 | 17.30 | 0.744 | 531.59 |
-| lstm (w60) | 13.98 | 9.98 | 0.873 | 240.21 |
-| gru (w60) | 13.89 | 10.97 | 0.874 | 269.34 |
-| **gru w45 huber (frozen)** | **13.74** | **9.69** | **0.877** | **200.01** |
+`SUPERSEDED BY METHODOLOGY V2.2`. V2.1 introduced engine-group CV, engine-level
+conformal and FD004 condition-aware modeling, but its final FD001 fit used the
+15 calibration engines as `validation_data`, its outer folds were not held out
+of training control, and its claimed 8×5 matrix was incomplete (rf_w60 had only
+fold 1). V2.1 numbers (e.g. official RMSE 23.04, q = 70.34, official coverage
+98%) are historical; see `V2_1_REPAIR_PLAN.md` and `reports/v2_1_*.md`.
 
-Full matrix (45 runs): `reports/tables/v2_ablation_results.csv`.
+## 14. Historical methodology V2 (superseded)
 
-### V2.1 — official test sets (post-hoc, current)
+`SUPERSEDED BY METHODOLOGY V2.2`. V2 targeted raw RUL with a single 15-engine
+validation set (GRU w45 huber frozen model; official post-hoc RMSE 29.04).
+Claims such as "44 engines with lifetime < 128 carry 99.8% of NASA" were
+re-interpreted under V2.1 as observed-history effects. See `AUDIT_V2.md` and
+`reports/v2_*.md`.
 
-| dataset | model | engines | RMSE | MAE | R² | NASA | notes |
-|---|---|---|---|---|---|---|---|
-| FD001 | gru_w45_huber (85 dev, CV-selected) | 100 | 23.04 | 15.61 | 0.693 | 6,700.59 | engine-cluster interval q=70.34 (α=0.1), official coverage 98% |
-| FD004 | gru_w45_huber + per-regime scaling (variant C) | 248 | 33.83 | 22.62 | 0.615 | 1,345,518.43 | fixed the collapse: A baseline RMSE 71.93/R² −0.23/NASA 2.55M |
+## 15. Legacy cap-45 experiment (Phase 1–10)
 
-### V2 — official test sets (post-hoc, historical — superseded by V2.1)
+The original experiment (XGBoost @ w90, RUL cap 45) is preserved and labeled a
+legacy maintenance-horizon task: `reports/legacy/README.md`,
+`configs/legacy_cap45_model.yaml`, `CHANGELOG.md` (Phases 0–10).
 
-| dataset | engines | RMSE | MAE | R² | NASA | status |
-|---|---|---|---|---|---|---|
-| FD001 (frozen GRU w45 huber) | 100 | 29.04 | 19.17 | 0.512 | 77,387.53 | post-hoc; "99.8% of NASA from 44 short engines" — superseded: observed-history artifact (see v2_1_error_analysis.md) |
-| FD004 (same recipe) | 248 | 64.42 | 54.01 | −0.40 | 2,663,846.31 | **did not transfer** — collapsed to a constant (6 conditions); fixed in V2.1 (variant C) |
+## 16. Attribution
 
-### Legacy (Phase 1–10, labeled maintenance-horizon task — RUL cap 45)
+- **Dataset:** NASA C-MAPSS Turbofan Engine Degradation Simulation Data Set
+  (NASA Ames Prognostics Data Repository, public domain).
+- **Origin project:** maintained continuation of the methodology and structure
+  of [`aun151214/predictive-maintenance-cmapss`](https://github.com/aun151214/predictive-maintenance-cmapss);
+  its cap-45 experiment is preserved as a legacy task; all raw-RUL methodology
+  (V2/V2.1/V2.2), uncertainty, serving, FD004 work is new. Third-party notices:
+  `THIRD_PARTY_NOTICES.md`.
 
-| config | RMSE | MAE | R² | NASA |
-|---|---|---|---|---|
-| **xgboost @ w90 cap45 (frozen)** | **2.376** | **1.258** | **0.969** | **326** |
-| official FD001 test (post-hoc) | 2.402 | 1.455 | 0.962 | 14.8 |
-
-Raw-RUL transparency metric of the legacy model: RMSE 50.37, R² −0.47 (predictions capped at 45 by design).
-
-## Uncertainty, explainability, serving (V2-6…V2-9, superseded where noted)
-
-- **Error profile** (`reports/v2_1_error_analysis.md`, supersedes `reports/v2_error_analysis.md`): official test trajectories are truncated before failure — `cycle.max()` is observed history, never lifetime. The implied-lifetime-<128 group is **empty** on the official test. Overprediction concentrates in short observed history (observed 45–127: mean err +17.4, 87.5% of NASA; observed ≥ 128: mean err −4.0, 1.7%).
-- **Attribution** (`reports/v2_explainability.md`): exact leave-one-sensor-out attribution (sensitivity/occlusion, not SHAP); sensors 2/4/6/7/8 flip sign (drive late-miss overprediction by +11…+22 cycles); constant sensors contribute zero (consistency check); non-additivity disclosed.
-- **Conformal** (`reports/v2_1_conformal.md`, supersedes `reports/v2_conformal.md`): engine-cluster calibration — 15 calibration engines, one max-|error| score per engine, k = ceil((n+1)(1−α)) clamped; α=0.1 → q = 70.34; official coverage 98% (n=100).
-- **Serving** (`app_v2.py`): predictions bit-identical to the freeze (golden-tested), 90% intervals, alarm lower bound, OOD flag.
-
-## Tests
-
-```bash
-.venv\Scripts\python.exe -m pytest        # 93 tests (49 legacy + 44 V2: manifests,
-                                          # preprocessing, features, conformal, serving)
-.venv\Scripts\python.exe -m pytest -m "not needs_artifacts"   # CI subset: 78 tests,
-                                          # no data/model artifacts required
-```
-
-CI (GitHub Actions, `.github/workflows/ci.yml`) runs the artifact-free subset on Python 3.12.
-
-## Repository layout
-
-- `src/rul_prediction/` — package: `data/` (loader, splitting, V2 manifests, windows, v2 preprocessing), `benchmark/v2.py` (shared runner), `evaluation/` (metrics, NASA score, conformal), `models/`, `features/`, `training/`, `serving/` (legacy + `v2_predictor.py`)
-- `scripts/` — V2: build_v2_manifests, preprocess_v2, run_v2_benchmark/ablation/freeze/fd004, analyze_v2_errors, explain_v2_sensitivity, calibrate_v2_conformal; legacy: preprocess, run_experiment, final_evaluation, serve
-- `app_v2.py` — Streamlit serving app
-- `configs/` — `final_model.yaml` (legacy frozen config), `legacy_cap45_model.yaml`
-- `reports/` — legacy phase reports (labeled), `v2_*.md` phase records, `legacy/README.md`
-- `AUDIT_V2.md` — baseline audit (issues + resolutions), `PROJECT_SPEC.md`, `CHANGELOG.md`, `LICENSE` (MIT)
-
-## Acknowledgements
-
-- **Dataset:** NASA C-MAPSS Turbofan Engine Degradation Simulation Data Set (NASA Ames Prognostics Data Repository, public domain).
-- **Origin project:** this repository is a maintained continuation of the methodology and structure of [`aun151214/predictive-maintenance-cmapss`](https://github.com/aun151214/predictive-maintenance-cmapss). Its cap-45 Phase 1–10 experiment is preserved and explicitly labeled as a legacy maintenance-horizon task; all V2 phases (raw-RUL methodology, uncertainty, serving, FD004) are new work by this project.
-
-## License
+## 17. License
 
 MIT — see [LICENSE](LICENSE).

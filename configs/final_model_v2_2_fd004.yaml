@@ -1,0 +1,73 @@
+methodology_version: '2.2'
+dataset: FD004
+target: raw RUL regression under multiple operating regimes
+model:
+  architecture: gru
+  window: 45
+  units:
+  - 128
+  - 64
+  dropout: 0.3
+  loss: huber
+  optimizer: Adam(clipnorm=1.0)
+  learning_rate: 0.001
+  batch_size: 256
+  seed: 42
+preprocessing:
+  variant: C
+  regime_clustering: KMeans(k=6) on (setting_1, setting_2, setting_3), n_init=10,
+    random_state=42
+  fit_ids_stage2: 175 development/training engines only; validation and calibration
+    rows transform-only
+  official_test_rows: transform-only (never fit/refit/update)
+splits:
+  provenance: experiments/splits/fd004_v2_seed42.json
+  development_engine_count: 175
+  validation_engine_count: 37
+  calibration_engine_count: 37
+  inner_split: 150 inner-fit / 25 inner-stop, seed 4201
+  development_engine_ids_sha256: 42b25262c1ca39865b680ea86bc7fec7ed8351c8d49e33897b1bb0379a03c5b0
+  validation_engine_ids_sha256: ab78e219698ce277da836eab80081514b516c3cc8dc1c8f248e6b6567acf0912
+  calibration_engine_ids_sha256: 9269bffcd698f07a9603b33f9cde1669d081de49a2010de3feeed58130a567d9
+  validation_manifest: experiments/splits/fd004_v2_1_validation_cutoffs.csv
+training_control:
+  rule: final_epoch_count = best epoch from inner-fit/inner-stop (development engines
+    only)
+  best_epoch: 8
+  validation_data_in_final_fit: false
+selection_policy: PRIMARY lowest NASA per engine; SECONDARY lower RMSE; then smaller
+  |signed bias| (validation engines only; official FD004 labels are POST-HOC and never
+  select)
+variant_results:
+  A:
+    RMSE: 72.4102
+    R2: -0.2459
+    NASA_mean_per_engine: 75343.1327
+    signed_bias_mean: 32.1684
+    best_epoch: 36
+  B:
+    RMSE: 72.4095
+    R2: -0.2459
+    NASA_mean_per_engine: 75333.3175
+    signed_bias_mean: 32.1668
+    best_epoch: 36
+  C:
+    RMSE: 29.8278
+    R2: 0.7886
+    NASA_mean_per_engine: 1448.6388
+    signed_bias_mean: 8.9281
+    best_epoch: 8
+  D:
+    RMSE: 33.9679
+    R2: 0.7258
+    NASA_mean_per_engine: 81963.3608
+    signed_bias_mean: 11.8719
+    best_epoch: 11
+software_versions:
+  tensorflow: 2.21.0
+  numpy: 2.5.2
+  pandas: 3.0.5
+  scikit-learn: 1.9.0
+  xgboost: 3.4.0
+  joblib: 1.5.3
+  python: 3.12.10
