@@ -158,10 +158,10 @@ Measured:
 
 ```text
 Local development tree:
-154 passed (16 warnings), 35.4s
+155 passed (16 warnings)
 
 Clean public checkout (no data/, models/, experiments artifacts):
-134 passed, 11 skipped, 9 deselected
+135 passed, 11 skipped, 9 deselected
 ```
 
 `tests/test_v2_2_protocol.py` (artifact-free) adds the V2.2 protocol gates:

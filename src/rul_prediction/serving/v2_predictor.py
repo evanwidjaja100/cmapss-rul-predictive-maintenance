@@ -87,10 +87,19 @@ class V2Predictor:
         model_file = ROOT / "models" / "v2_2" / f"fd001_{self.candidate}.keras"
         if self._model_name in ("rf", "xgboost"):
             model_file = ROOT / "models" / "v2_2" / f"fd001_{self.candidate}.joblib"
-            self.model = load_joblib(model_file)
+            loader = load_joblib
         else:
-            self.model = keras.models.load_model(model_file)
-        self.scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")
+            loader = keras.models.load_model
+        try:
+            self.model = loader(model_file)
+            self.scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"frozen V2.2 artifacts not found (missing {model_file} or "
+                f"{ROOT / 'models' / 'v2_2' / 'fd001_scaler.joblib'}). "
+                f"Generate them with: .venv\\Scripts\\python.exe "
+                f"scripts\\run_v2_2_freeze.py (needs data/raw; see README "
+                f"'Reproduction (V2.2)').") from None
         self._predict_one = make_predictor(self._model_name, self.model, self.scaler,
                                            self.window)
         self.q_cycles = load_deployment_q(alpha) if q_cycles is None else float(q_cycles)

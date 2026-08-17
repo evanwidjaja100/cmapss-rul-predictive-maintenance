@@ -144,9 +144,9 @@ Official FD004 (post-hoc): RMSE 33.6579, MAE 22.0687, R² 0.6189, NASA
 
 ## 11. Verification
 
-- Full test suite: **154 passed** (incl. 19 V2.2 protocol tests A–H + duration
+- Full test suite: **155 passed** (incl. 19 V2.2 protocol tests A–H + duration
   rules; 4 rewritten serving tests; legacy golden test passes).
-- Clean public checkout (no data/, models/, experiments artifacts): **134
+- Clean public checkout (no data/, models/, experiments artifacts): **135
   passed, 11 skipped, 9 deselected** — same command as CI
   (`-m "not needs_artifacts"`), verified locally on a simulated clean tree.
 - Falsification: selection re-derived from fold CSVs (Test D); official
@@ -156,3 +156,199 @@ Official FD004 (post-hoc): RMSE 33.6579, MAE 22.0687, R² 0.6189, NASA
 - Self-audit rounds 1 & 2 (artifacts + live-doc grep): PASS (see
   `V2_2_REPAIR_PLAN.md`).
 - Exit checklist (20 criteria): all DONE.
+
+---
+
+# Final Cleanup Report (C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md §27) — 2026-08-17
+
+Implementing agent: opencode. Tracker: `V2_2_FINAL_CLEANUP_PLAN.md` (I-1..I-17,
+all DONE). Commit: `ad2ab8b` (cleanup), follow-up commit for this report.
+
+## 27.1 Cleanup Summary
+
+What remained wrong and what changed:
+
+- **Config truthfulness (I-6/I-7/I-8):** `configs/final_model_v2_2_fd001.yaml`
+  carried deep-model fields (Adam, GRU 128/64, dropout 0.3, lr 0.001) while the
+  deployed model is XGBoost. Regenerated as model-type-specific XGBoost config;
+  freeze scripts (`run_v2_2_freeze.py`, `run_v2_2_fd004_freeze.py`) and the
+  FD004 post-hoc script now resolve ALL hyperparameters from YAML (no hidden
+  `max_depth`, `window`, `loss`, `epochs` constants).
+- **Serving (I-9/I-15):** the empirical `RISK_OBSERVED_CYCLES=90`
+  short-history risk flag (derived from post-hoc official labels) was removed;
+  serving exposes only objective `history_is_padded` / `n_padded_timesteps`;
+  uncertainty `q` moved to tracked `configs/deployment_v2_2_fd001.yaml`;
+  broken `v2_2_methodology.md` report link fixed.
+- **Sensitivity (I-11):** the occlusion baseline used full run-to-failure
+  sensor means (future leakage) and positional groupby alignment; replaced with
+  prefix-only replacement values and (engine_id, cutoff_cycle)-keyed alignment.
+- **Selection (I-12):** the |bias| tie-break sorted by signed bias; fixed to
+  `abs(signed_bias_mean_mean)`. Deployment candidate unchanged.
+- **Conformal wording (I-13):** "first label contact" claim replaced by the
+  empirical-not-pristine disclosure (engines held out from V2.2 fitting and
+  selection, inspected in earlier iterations).
+- **Provenance (I-4):** freeze metadata now records `git_commit`,
+  `git_is_dirty` (historical V2.2 runs ran from a dirty worktree), `git_diff_hash`
+  and `source_tree_hash`; historical dirty-run provenance disclosed.
+- **Tracking (I-1/I-2/I-3):** `experiments/v2_2` committed (`.gitignore`
+  exception); structural + metric-falsification tests added.
+- **Docs (I-5/I-16):** "pre-registered" → "pre-specified"; real test counts;
+  no stale risk-flag/OOD-adjacent claims; historical documents marked.
+
+## 27.2 Experiment Artifact Recovery
+
+`experiments/v2_2` was recovered **without rerunning the CV**: all 22 audit
+files existed locally and were verified by `test_v2_2_experiment_dir_structurally_complete`
+(40 candidate-fold rows, folds 1–5 per candidate, 15 conformal engine scores,
+100 official predictions, 4 FD004 variants × 5 checkpoints, selection =
+`xgb_w90_d6`, quantile alphas [0.1, 0.2, 0.3]).
+
+```text
+40/40 status: verified from fd001_outer_fold_results.csv (40 rows, 8 candidates x 5 folds)
+files committed: 22 (ad2ab8b): fold results, engine-level, predictions, cv_summary,
+  best_epochs, split manifest, metadata jsonl, selection_decision.json, conformal
+  engine scores/quantiles/calibration json, official predictions, final metrics,
+  final-fit metadata (FD001+FD004), FD004 variant results/predictions
+hash/integrity checks: train/cal IDs sha256 in fd001_final_fit_metadata.json;
+  structural test asserts row counts, fold coverage, selection and q alphas
+```
+
+## 27.3 Configuration Truthfulness
+
+FD001 (`configs/final_model_v2_2_fd001.yaml`): `max_depth: 6`,
+`learning_rate: 0.05`, `subsample: 0.8`, `colsample_bytree: 0.8`,
+`n_estimators: 92`, `random_state: 42`, `early_stopping_rounds: null`,
+`window: 90`, candidate `xgb_w90_d6`. No deep-model fields remain. The freeze
+asserts `training_control.fixed_n_estimators == model.n_estimators` and applies
+`set_params` from YAML (tests monkeypatch the model to capture them).
+
+FD004 (`configs/final_model_v2_2_fd004.yaml`): GRU, `window: 45`,
+`loss: huber`, variant C (KMeans k=6 per-regime scalers). `run_v2_2_fd004_freeze.py`
+`resolve_model_config()` reads window/loss/batch_size/learning_rate/seed from
+YAML and names the artifact `fd004_gru_w{window}_{loss}_cond{variant}.keras`;
+post-hoc reads window/loss from YAML too. FD004 re-freeze was NOT rerun: the
+existing frozen model matches the config exactly and headline metrics are
+falsified from saved predictions; a re-freeze could perturb them without
+evidence (allowed by §18).
+
+## 27.4 Serving Cleanup
+
+- **Padding behavior:** `history_is_padded = observed_cycles < window` (objective);
+  `n_padded_timesteps = max(window − observed, 0)`; left-padding is the shared
+  representation — never called OOD.
+- **Test-derived threshold:** `RISK_OBSERVED_CYCLES` and
+  `short_history_risk_flag` removed from `v2_predictor.py`/`app_v2.py`
+  (grep + source test enforce absence).
+- **Tracked conformal q source:** `configs/deployment_v2_2_fd001.yaml`
+  (q 66.2097 at α=0.1, q_by_alpha 0.2→44.7955, 0.3→41.4224, 15 calibration
+  engines, checkpoint fractions, `interpretation: empirical_v2_2_calibration`);
+  `load_deployment_q()` cross-checks against the audit CSV when present.
+- **Missing artifacts:** absent frozen models now raise a FileNotFoundError
+  explaining how to generate them (`scripts/run_v2_2_freeze.py`, needs data/raw).
+
+## 27.5 Sensitivity Correction
+
+- **Old defect:** `engine_means = groupby("engine_id")[...].mean()` was a full
+  run-to-failure mean → occlusion baseline contained future sensor values;
+  delta alignment relied on positional groupby order.
+- **Prefix-only replacement:** `prefix_replacement_value()` = mean over cycles
+  ≤ cutoff only; `sensor_occlusion_deltas()` keyed by (engine_id, cutoff_cycle)
+  — order-independent (tested with scrambled rows).
+- **Corrected ranking** (`reports/tables/v2_2_sensor_sensitivity.csv`,
+  `reports/v2_2_sensitivity.md`): sensor_4 16.98, sensor_11 14.18, sensor_3
+  10.46, sensor_9 10.35, sensor_12 10.29, sensor_7 9.23, sensor_20 7.49, then
+  21/15/2/14/17/8/13/6; constant sensors 1/5/10/16 ≈ 0 (consistency check).
+
+## 27.6 Selection Policy
+
+- NASA-risk champion + deployment: **xgb_w90_d6** (NASA/engine 368.02 ± 160.40).
+- Accuracy champion: **lstm_w60_huber** (RMSE 26.19 ± 3.44).
+- **Bias tie-break fix:** `apply_selection_policy` sorts by
+  `abs(signed_bias_mean_mean)`; synthetic test (A bias −20 vs B bias +1 → B
+  wins). Real deployment decision unchanged: xgb_w90_d6 vs xgb_w60_d6 NASA gap
+  181 ≫ pooled SE ~118.6 → no tie engaged.
+
+## 27.7 Conformal Interpretation
+
+- **Mechanics:** engine-cluster split-conformal, one max-|error| score per
+  held-out engine over five predefined checkpoints → 15 scores,
+  k = ceil((n+1)(1−α)); q(0.1)=66.2097, q(0.2)=44.7955, q(0.3)=41.4224.
+- **Historical caveat:** the 15 engines were held out from V2.2 fitting and
+  model selection but inspected in earlier iterations → empirically calibrated
+  interval, NOT a pristine one-shot external guarantee (`historical_caveat` in
+  `fd001_conformal_calibration.json`; disclosure in app and README §5).
+- **Formal limitations:** simultaneous coverage ≥ 1−α requires exchangeability
+  under the predefined checkpoint scheme; arbitrary uploaded trajectories are an
+  engineering extrapolation (labeled).
+- **Post-hoc empirical coverage** (α=0.1, q=66.21): official 99%, full-history
+  100%, short-history 96%.
+
+## 27.8 Reproducibility
+
+- **Dirty historical provenance:** historical V2.2 runs recorded
+  `git_commit=0251dca` (pre-V2.2 HEAD) with no dirty flag; the V2.2
+  implementation files were uncommitted during those runs. This is disclosed in
+  the CHANGELOG cleanup entry; `fd001_outer_metadata.jsonl` remains as the
+  honest historical record.
+- **New metadata behavior:** re-frozen FD001 metadata carries provenance
+  (`git_commit 53e50d8`, `git_is_dirty: true`, `git_diff_hash`,
+  `timestamp_utc`) + `model_params` from YAML.
+- **Git commits:** `ad2ab8b` (cleanup: configs, scripts, serving, tests,
+  experiments/v2_2, docs) + follow-up (this report + .opencode hygiene).
+- **Artifact tracking:** 22 files under `experiments/v2_2` are now public
+  (`.gitignore` `!experiments/v2_2/`).
+
+## 27.9 Testing
+
+- **Full local artifact-rich suite:** **155 passed** (16 warnings).
+- **True clean-checkout suite** (temp tree without data/, models/,
+  experiments/, CI command `-m "not needs_artifacts"`): **135 passed,
+  11 skipped, 9 deselected, 0 failed**.
+- **Skips/deselections:** 11 clean skips (raw data / processed artifacts /
+  legacy golden / experiments), 9 `needs_artifacts` deselections.
+- **CI command:** `.github/workflows/ci.yml` runs exactly
+  `python -m pytest -m "not needs_artifacts"` — matches README/PROJECT_SPEC.
+- **App smoke:** `python -c "import app_v2"` passes in the artifact-rich tree;
+  in a clean tree it raises the explicit generate-artifacts message (§27.4).
+
+## 27.10 Metric Falsification
+
+Recomputed by `tests/test_v2_2_cleanup.py` from saved prediction CSVs
+(marked `needs_artifacts`; tolerances 1e-3 / NASA 0.05):
+
+- FD001 (100 official predictions): RMSE **26.2526**, MAE **21.2347**,
+  R² **0.6009**, NASA **60,963.79** — matches `fd001_final_metrics.json`.
+- FD004 variant C (248 official predictions): RMSE **33.6579**, MAE **22.0687**,
+  R² **0.6189**, NASA **1,545,798.5** — matches `fd004_final_metrics.json`.
+- CV summary re-derived from fold rows (`cv_summary(fold_rows, CV_CANDIDATES)`)
+  matches `fd001_cv_summary.csv` for RMSE/MAE/R²/NASA_mean_per_engine/signed_bias.
+
+## 27.11 Remaining Limitations
+
+- Official FD001/FD004 labels are permanently post-hoc (inspected in the V2-0
+  audit); no sealed-evaluation claim.
+- The conformal interval is empirically calibrated, not a pristine external
+  guarantee (see 27.7); arbitrary trajectories are an engineering extrapolation.
+- FD004 official NASA (1.55M) ≫ validation NASA — regime transfer to the
+  official test remains a limitation; the frozen model overpredicts (+19.6
+  cycles mean on official FD001, 91% of engines).
+- Historical V2.2 runs were executed from a dirty worktree (provenance
+  disclosed, not reversible); the FD004 freeze metadata predates the
+  provenance fields and was intentionally not re-run.
+- TF/Keras training is not bit-deterministic across environments; exact metric
+  reproduction relies on saved artifacts (which are now committed).
+- `experiments/v2_2/cv_run.log` / `cv_run.err.log` are committed run logs;
+  `data/raw`, `models/` and `data/processed` remain untracked by design.
+
+## 27.12 CV Readiness
+
+```text
+CV-READY
+```
+
+Evidence: 40/40 CV matrix present and committed with folds 1–5 per candidate;
+selection policy mechanically re-applied from artifacts (deployment
+`xgb_w90_d6`); configs authoritative and falsified against freeze metadata;
+headline metrics recomputed from saved predictions; 155 local / clean-checkout
+135 passed, 11 skipped, 9 deselected; app smoke passes; exit checklist (40/40
+items, §26) complete; working tree clean except `.opencode/` session state.

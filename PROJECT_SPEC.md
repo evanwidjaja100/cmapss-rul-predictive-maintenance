@@ -141,7 +141,7 @@ Repairs `SUPERSEDED BY METHODOLOGY V2.2` (see `V2_2_REPAIR_PLAN.md`):
 | FD004 | clean two-stage A/B/C/D comparison; variant C selected (NASA 1,449/engine, RMSE 29.83); collapse still fixed; post-hoc official RMSE 33.66 |
 | sensitivity | rerun on the V2.2 model (occlusion; sensors 4/11/3/9/12/7/20 most influential) |
 | configs | `configs/final_model_v2_2_fd001.yaml`, `configs/final_model_v2_2_fd004.yaml` drive the freeze scripts |
-| tests | 154 full local / 134+11 skipped+9 deselected clean checkout; `tests/test_v2_2_protocol.py` (Tests A–H) |
+| tests | 155 full local / 135+11 skipped+9 deselected clean checkout; `tests/test_v2_2_protocol.py` (Tests A–H) |
 | Streamlit | serves V2.2 model + recalibrated interval + disclosure (`app_v2.py`) |
 
 ## 11. Methodology V2.1 — historical (superseded)
@@ -165,7 +165,7 @@ and a fixed pseudo-test manifest, with a 70/15/15 engine split and a single
 | 11 explainable AI | V2-7 (`reports/v2_explainability.md`) | done (historical; SHAP-free leave-one-sensor-out) |
 | 12 prediction uncertainty | V2-8 (`reports/v2_conformal.md`) | done (historical; q = 24.10 superseded) |
 | 13 Streamlit dashboard | V2-9 (`app_v2.py`, `reports/v2_serving.md`) | done (serves V2.2 now) |
-| 14 testing / CI | V2-10 (`tests/`, `.github/workflows/ci.yml`) | done (historical counts; current: 154 full local / 134+11 skipped+9 deselected clean checkout) |
+| 14 testing / CI | V2-10 (`tests/`, `.github/workflows/ci.yml`) | done (historical counts; current: 155 full local / 135+11 skipped+9 deselected clean checkout) |
 | 15 FD004 generalization | V2-11 (`reports/v2_fd004.md`) | done — negative result: recipe collapsed under 6 operating conditions; condition-aware modeling implemented in V2.1/V2.2 |
 | 16 final docs | V2-12 (`README.md`, `CHANGELOG.md`) | done (historical) |
 

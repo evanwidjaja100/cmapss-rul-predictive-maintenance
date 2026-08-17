@@ -372,6 +372,16 @@ def test_artifact_gated_tests_carry_marker():
         assert "needs_artifacts" in src, f"{rel} must be marked needs_artifacts"
 
 
+def test_serving_missing_artifacts_error_message_explains_generation():
+    """§25: when frozen artifacts are absent, the serving error must say how to
+    generate them (checked statically; the runtime path needs no artifacts)."""
+    src = (ROOT / "src" / "rul_prediction" / "serving" / "v2_predictor.py") \
+        .read_text(encoding="utf-8")
+    assert "FileNotFoundError" in src
+    assert "run_v2_2_freeze.py" in src
+    assert "scripts" in src and "models" in src
+
+
 # ---- Metric falsification from saved predictions (needs artifacts) ----------
 
 def _rmse(a, b):
