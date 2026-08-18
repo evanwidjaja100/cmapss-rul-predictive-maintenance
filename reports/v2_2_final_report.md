@@ -42,8 +42,9 @@ tests.
    duration; stage-2 refits fixed-duration with NO validation data.
 2. **Complete 40/40 matrix** gated by `assert_cv_complete`; summaries and
    selection blocked on partial matrices (protocol Test C).
-3. **Pre-registered selection policy** (locked in `V2_2_REPAIR_PLAN.md`
-   before any V2.2 CV result): PRIMARY lowest mean NASA per engine; GUARDRAIL
+3. **Pre-specified selection policy** (specified in the recorded development
+   session before the final V2.2 model comparison; Git cannot prove formal
+   pre-registration — see §5): PRIMARY lowest mean NASA per engine; GUARDRAIL
    pooled-SE RMSE; TIE |bias|. Applied mechanically by
    `scripts/select_v2_2_model.py` → `selection_decision.json` →
    `configs/final_model_v2_2_fd001.yaml`.
@@ -159,7 +160,7 @@ Official FD004 (post-hoc): RMSE 33.6579, MAE 22.0687, R² 0.6189, NASA
 
 ---
 
-# Final Cleanup Report (C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md §27) — 2026-08-17
+# Final Cleanup Report (V2_2_FINAL_CLEANUP_PLAN.md §27) — 2026-08-17
 
 Implementing agent: opencode. Tracker: `V2_2_FINAL_CLEANUP_PLAN.md` (I-1..I-17,
 all DONE). Commit: `ad2ab8b` (cleanup), follow-up commit for this report.
@@ -172,8 +173,10 @@ What remained wrong and what changed:
   carried deep-model fields (Adam, GRU 128/64, dropout 0.3, lr 0.001) while the
   deployed model is XGBoost. Regenerated as model-type-specific XGBoost config;
   freeze scripts (`run_v2_2_freeze.py`, `run_v2_2_fd004_freeze.py`) and the
-  FD004 post-hoc script now resolve ALL hyperparameters from YAML (no hidden
-  `max_depth`, `window`, `loss`, `epochs` constants).
+  FD004 post-hoc script now resolve all deployment-critical hyperparameters
+  from YAML (no hidden `max_depth`, `window`, `loss`, `epochs` constants;
+  the remaining FD004 defaults — units, dropout, KMeans n_init — were
+  eliminated in the repository freeze, §28).
 - **Serving (I-9/I-15):** the empirical `RISK_OBSERVED_CYCLES=90`
   short-history risk flag (derived from post-hoc official labels) was removed;
   serving exposes only objective `history_is_padded` / `n_padded_timesteps`;
@@ -189,7 +192,9 @@ What remained wrong and what changed:
   selection, inspected in earlier iterations).
 - **Provenance (I-4):** freeze metadata now records `git_commit`,
   `git_is_dirty` (historical V2.2 runs ran from a dirty worktree), `git_diff_hash`
-  and `source_tree_hash`; historical dirty-run provenance disclosed.
+  and `timestamp_utc`; the shared `run_metadata()` helper additionally supports
+  `source_tree_hash` for future runs (the committed freeze metadata does not
+  contain that field); historical dirty-run provenance disclosed.
 - **Tracking (I-1/I-2/I-3):** `experiments/v2_2` committed (`.gitignore`
   exception); structural + metric-falsification tests added.
 - **Docs (I-5/I-16):** "pre-registered" → "pre-specified"; real test counts;
@@ -300,10 +305,14 @@ evidence (allowed by §18).
 
 ## 27.9 Testing
 
+*(Cleanup-session measurements, 2026-08-17; current measurements after the
+repository freeze are in §28.)*
+
 - **Full local artifact-rich suite:** **155 passed** (16 warnings).
 - **True clean-checkout suite** (temp tree without data/, models/,
   experiments/, CI command `-m "not needs_artifacts"`): **135 passed,
-  11 skipped, 9 deselected, 0 failed**.
+  11 skipped, 9 deselected, 0 failed**. *(Historical: this was a simulated
+  tree; §28 replaces it with a real `git clone .` measurement.)*
 - **Skips/deselections:** 11 clean skips (raw data / processed artifacts /
   legacy golden / experiments), 9 `needs_artifacts` deselections.
 - **CI command:** `.github/workflows/ci.yml` runs exactly
@@ -349,6 +358,83 @@ CV-READY
 Evidence: 40/40 CV matrix present and committed with folds 1–5 per candidate;
 selection policy mechanically re-applied from artifacts (deployment
 `xgb_w90_d6`); configs authoritative and falsified against freeze metadata;
-headline metrics recomputed from saved predictions; 155 local / clean-checkout
-135 passed, 11 skipped, 9 deselected; app smoke passes; exit checklist (40/40
-items, §26) complete; working tree clean except `.opencode/` session state.
+headline metrics recomputed from saved predictions; app smoke passes; exit
+checklist (40/40 items, §26) complete; working tree clean except `.opencode/`
+session state. *(Test counts for this report: 155 full local / clean-checkout
+135 passed, 11 skipped, 9 deselected — simulated tree; superseded by the real
+`git clone .` QA in §28.)*
+
+# 28. Repository Freeze — 2026-08-18
+
+Implementing agent: opencode. Tracker: `V2_2_FINAL_FREEZE_PLAN.md`.
+Master instruction (session-only, not committed). No retraining: FD004
+YAML values verified equal to the historical effective runtime values
+(§28.2); no FD001 CV rerun, no FD004 A/B/C/D rerun, no FD004 refit.
+
+## 28.1 Freeze Summary
+
+- **FD004 config authority (freeze-1):** `resolve_model_config` now resolves
+  architecture, units, dropout, loss, window, learning rate, batch size, seed,
+  fixed epochs, variant, n_clusters, cluster_seed and n_init — all from YAML.
+  `fit_preprocessing` threads `k/seed/n_init`; `fit_condition_models` gained an
+  `n_init` parameter (was hardcoded 10). `configs/final_model_v2_2_fd004.yaml`
+  restructured: `model.units` / `model.dropout` / `model.fixed_epochs` explicit,
+  `condition_preprocessing.clustering{method,n_clusters,random_state,n_init}`,
+  `training` section. `write_fd004_config` emits the same structure.
+- **FD001 feature metadata (freeze-2):** `configs/final_model_v2_2_fd001.yaml`
+  now documents the real XGBoost feature path (engineered variable history via
+  `extract_v2_features`, `sequence_padding_consumed_by_model: false`);
+  `select_v2_2_model.py` parity. Tests prove the estimator receives a 2D
+  engineered matrix, never `[X, mask]`.
+- **Real clean-clone QA (freeze-3):** the fake simulated-checkout QA is
+  replaced by a real `git clone .` of the committed repository; artifact-free
+  suite run from the clone (tracked `experiments/v2_2` present). Counts in
+  §28.3. Four tests reading tracked audit tables were unmarked from
+  `needs_artifacts` so CI exercises them.
+- **Wording (freeze-4/5):** "pre-registered" → "pre-specified" everywhere
+  live; `source_tree_hash` claims made exact (committed metadata has
+  git_commit/git_is_dirty/git_diff_hash/timestamp_utc; the helper supports
+  source_tree_hash for future runs); references to the untracked master
+  cleanup-plan filename replaced with the tracked `V2_2_FINAL_CLEANUP_PLAN.md`;
+  PROJECT_SPEC calibration-label-contact wording reconciled (labels first
+  touched after the final V2.2 fit during calibration; engines inspected in
+  earlier iterations).
+- **New tests (freeze-7):** config-authority (units/dropout/n_clusters/
+  random_state/n_init/…), hidden-constant scan, `fit_preprocessing` threading,
+  FD001 feature metadata + 2D-matrix feature path, conformal q falsification,
+  provenance schema (current metadata vs helper), required tracked
+  references, no broken master-plan references.
+
+## 28.2 FD004 Old-Effective vs New YAML Values
+
+| Parameter | Old effective runtime | New YAML-resolved | Match? |
+|---|---|---|---|
+| window | 45 (`WINDOW = 45`) | 45 | YES |
+| units | (128, 64) (`v2_gru` default) | [128, 64] | YES |
+| dropout | 0.3 (`v2_gru` default) | 0.3 | YES |
+| loss | huber (`loss="huber"`) | huber | YES |
+| learning_rate | 0.001 (`v2_gru` default) | 0.001 | YES |
+| batch_size | 256 (`BATCH_SIZE = 256`) | 256 | YES |
+| seed | 42 (`SEED = 42`) | 42 | YES |
+| fixed_epochs | 8 (winner best_epoch) | 8 | YES |
+| variant | C (selection) | C | YES |
+| n_clusters | 6 (helper default) | 6 | YES |
+| cluster_seed | 42 (helper default) | 42 | YES |
+| n_init | 10 (hardcoded) | 10 | YES |
+
+Verdict: every YAML-resolved value equals the old effective value → **no FD004
+retrain required**.
+
+## 28.3 Test Measurements (2026-08-18)
+
+```text
+Full local artifact-rich suite:
+163 passed (16 warnings)
+
+Artifact-free subset (-m "not needs_artifacts", local):
+158 passed, 5 deselected (4 warnings)
+
+Real clean Git clone (git clone . of the committed repo; PYTHONPATH=<clone>\src;
+same CI command -m "not needs_artifacts"):
+<counts inserted after run>
+```

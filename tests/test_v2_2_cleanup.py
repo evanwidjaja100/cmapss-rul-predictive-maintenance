@@ -1,4 +1,4 @@
-﻿"""V2.2 final-cleanup regression tests (C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md).
+﻿"""V2.2 final-cleanup regression tests (V2_2_FINAL_CLEANUP_PLAN.md).
 
 Covers the cleanup-pass requirements (Â§21):
 
@@ -11,10 +11,12 @@ Covers the cleanup-pass requirements (Â§21):
     7. Sensitivity row alignment deterministic under scrambled ordering.
     8. Deployment config contains uncertainty q.
     9. Streamlit referenced report paths exist.
-    10. experiments/v2_2 structural completeness (needs_artifacts).
+    10. experiments/v2_2 structural completeness (tracked audit tables).
     11. Clean-checkout marker gating (artifact-free collection).
 
-Artifact-free tests run in CI; the structural test is marked needs_artifacts.
+Artifact-free tests run in CI; tests reading untracked models/ or data/raw
+stay marked needs_artifacts. Tests reading TRACKED experiments/v2_2 audit
+tables run everywhere (a real Git clone contains them).
 """
 
 from __future__ import annotations
@@ -146,26 +148,39 @@ def test_fd004_config_controls_freeze_parameters(tmp_path):
     cfg = {
         "methodology_version": "2.2",
         "dataset": "FD004",
-        "model": {"architecture": "gru", "window": 47, "units": [128, 64],
-                  "dropout": 0.4, "loss": "huber", "learning_rate": 0.002,
-                  "batch_size": 128, "seed": 7},
-        "preprocessing": {"variant": "C", "regime_clustering": "KMeans(k=6)"},
-        "training_control": {"best_epoch": 13, "validation_data_in_final_fit": False},
+        "model": {"candidate_name": "gru_w47_huber_condC", "architecture": "gru",
+                  "window": 47, "units": [128, 64], "dropout": 0.4, "loss": "huber",
+                  "learning_rate": 0.002, "batch_size": 128, "seed": 7,
+                  "fixed_epochs": 13},
+        "condition_preprocessing": {
+            "variant": "C",
+            "clustering": {"method": "kmeans", "n_clusters": 6,
+                           "random_state": 42, "n_init": 10},
+        },
+        "training": {"validation_data_in_final_fit": False},
     }
     r = resolve_model_config(cfg)
     assert r["window"] == 47
+    assert r["units"] == (128, 64)
+    assert r["dropout"] == 0.4
     assert r["loss"] == "huber"
     assert r["batch_size"] == 128
     assert r["learning_rate"] == 0.002
     assert r["seed"] == 7
     assert r["variant"] == "C"
-    assert r["best_epoch"] == 13
+    assert r["fixed_epochs"] == 13
+    assert r["n_clusters"] == 6
+    assert r["cluster_seed"] == 42
+    assert r["n_init"] == 10
 
 
-def test_fd004_freeze_has_no_hidden_window_or_loss_constant():
+def test_fd004_freeze_has_no_hidden_deployment_constants():
+    """The final FD004 freeze path must not supply deployment values via
+    hardcoded literals; changing the YAML must change the resolved plan."""
     src = (ROOT / "scripts" / "run_v2_2_fd004_freeze.py").read_text(encoding="utf-8")
-    assert "WINDOW = 45" not in src
-    assert 'loss="huber"' not in src
+    for token in ("WINDOW = 45", 'loss="huber"', "k=6", "n_init=10", "units=(128, 64)",
+                  "dropout=0.3"):
+        assert token not in src, f"hidden constant in freeze path: {token}"
 
 
 # ---- 3. Absolute-bias tie-break ---------------------------------------------
@@ -321,10 +336,8 @@ def test_streamlit_report_references_exist():
     assert "v2_2_methodology.md" not in app
 
 
-# ---- 10. experiments/v2_2 structural completeness (needs artifacts) ---------
+# ---- 10. experiments/v2_2 structural completeness (tracked audit tables) ----
 
-
-@pytest.mark.needs_artifacts
 def test_v2_2_experiment_dir_structurally_complete():
     out = ROOT / "experiments" / "v2_2"
     if not out.exists():
@@ -355,14 +368,10 @@ def test_artifact_free_collection_excludes_needs_artifacts_tests():
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "-m", "not needs_artifacts",
          "--collect-only", "-q", "-p", "no:cacheprovider"],
-        capture_output=True, text=True, cwd=ROOT, timeout=300)
-    collected = result.stdout
+        capture_output=True, cwd=ROOT, timeout=300)
+    collected = result.stdout.decode("utf-8", errors="replace")
     assert result.returncode == 0, collected[-3000:]
-    for bad in ("test_v2_serving",
-                "test_v2_2_experiment_dir_structurally_complete",
-                "test_fd001_saved_official_predictions_recompute_headline_metrics",
-                "test_fd004_saved_official_predictions_recompute_headline_metrics",
-                "test_cv_summary_falsified_from_fold_result_rows"):
+    for bad in ("test_v2_serving",):
         assert bad not in collected, f"artifact-gated test leaked into collection: {bad}"
 
 
@@ -382,7 +391,7 @@ def test_serving_missing_artifacts_error_message_explains_generation():
     assert "scripts" in src and "models" in src
 
 
-# ---- Metric falsification from saved predictions (needs artifacts) ----------
+# ---- Metric falsification from saved predictions (tracked audit tables) -----
 
 def _rmse(a, b):
     return float(np.sqrt(np.mean((np.asarray(a, float) - np.asarray(b, float)) ** 2)))
@@ -402,7 +411,6 @@ def _nasa(a, b):
     return float(nasa_score(np.asarray(a, float), np.asarray(b, float)))
 
 
-@pytest.mark.needs_artifacts
 def test_fd001_saved_official_predictions_recompute_headline_metrics():
     out = ROOT / "experiments" / "v2_2"
     if not out.exists():
@@ -416,7 +424,6 @@ def test_fd001_saved_official_predictions_recompute_headline_metrics():
     assert abs(_nasa(df["true_rul_official"], df["prediction"]) - recorded["official_test_NASA_total"]) < 0.05
 
 
-@pytest.mark.needs_artifacts
 def test_fd004_saved_official_predictions_recompute_headline_metrics():
     out = ROOT / "experiments" / "v2_2"
     table = ROOT / "reports" / "tables" / "v2_2_fd004_predictions.csv"
@@ -431,7 +438,6 @@ def test_fd004_saved_official_predictions_recompute_headline_metrics():
     assert abs(_nasa(df["true_rul_official"], df["prediction"]) - recorded["official_test_NASA_total"]) < 0.05
 
 
-@pytest.mark.needs_artifacts
 def test_cv_summary_falsified_from_fold_result_rows():
     out = ROOT / "experiments" / "v2_2"
     if not out.exists():
@@ -444,3 +450,142 @@ def test_cv_summary_falsified_from_fold_result_rows():
     for metric in ("RMSE", "MAE", "R2", "NASA_mean_per_engine", "signed_bias_mean"):
         diff = (merged[f"{metric}_mean_re"] - merged[f"{metric}_mean_st"]).abs()
         assert (diff < 1e-3).all(), f"{metric} drift: {diff.max()}"
+
+
+# ---- FD001 feature metadata + feature-path (XGBoost consumes 2D matrix) -----
+
+def test_fd001_config_features_block_describes_engineered_path():
+    cfg = yaml.safe_load((ROOT / "configs" / "final_model_v2_2_fd001.yaml")
+                         .read_text(encoding="utf-8"))
+    f = cfg["model"]["features"]
+    assert cfg["model"]["architecture"] == "xgboost"
+    assert f["representation"] == "engineered_variable_history"
+    assert f["source_sensor_count"] == 21
+    assert f["max_history_cycles"] == cfg["model"]["window"] == 90
+    assert f["feature_extractor"] == "rul_prediction.features.v2_features.extract_v2_features"
+    assert f["sequence_padding_consumed_by_model"] is False
+    from scripts.select_v2_2_model import _model_config
+    gen = _model_config({"id": "xgb_w90_d6", "model": "xgboost", "window": 90,
+                         "overrides": {"max_depth": 6}},
+                        {"n_estimators": 500})
+    assert gen["features"]["representation"] == "engineered_variable_history"
+    assert gen["features"]["sequence_padding_consumed_by_model"] is False
+    assert gen["features"]["feature_extractor"] == f["feature_extractor"]
+
+
+def test_xgboost_freeze_estimator_receives_2d_matrix_not_masked_sequence(tmp_path, monkeypatch):
+    from scripts.run_v2_2_freeze import final_fit_plan, fit_final_model
+    m_path = _manifest_payload(tmp_path)
+    cfg = _xgb_cfg(tmp_path, m_path)
+
+    seen = {}
+    class _Stub:
+        def __init__(self, seed):
+            seen["seed"] = seed
+        def set_params(self, **kw):
+            return self
+        def fit(self, X, y, **kw):
+            seen["fit_args"] = (X, y)
+            return self
+
+    monkeypatch.setattr("rul_prediction.models.xgboost_model.xgboost_regressor",
+                        lambda seed: _Stub(seed))
+    plan = final_fit_plan(cfg, _synthetic_frame())
+    fit_final_model(plan, _synthetic_frame(), "data/raw")
+    X, y = seen["fit_args"]
+    assert X.ndim == 2, f"XGBoost must get a 2D engineered matrix, got ndim={X.ndim}"
+    assert X.shape[0] == len(y)
+    assert not isinstance(X, list), "estimator must not be called with [X, mask]"
+
+
+# ---- FD004 KMeans n_init / seed threading ------------------------------------
+
+def test_fd004_fit_preprocessing_threads_kmeans_hyperparameters(monkeypatch):
+    from scripts import run_v2_2_fd004 as runner
+    captured = {}
+    def fake_fit_condition_models(frame, engine_ids, k=6, seed=42, n_init=10):
+        captured.update(k=k, seed=seed, n_init=n_init)
+        return None, {"c": "scaler"}, {"s": "scaler"}
+    monkeypatch.setattr(runner, "fit_condition_models", fake_fit_condition_models)
+    runner.fit_preprocessing("C", _synthetic_frame(), {1}, k=4, seed=123, n_init=7)
+    assert captured == {"k": 4, "seed": 123, "n_init": 7}
+
+
+def test_fd004_variant_results_select_variant_c_without_official_labels():
+    """Variant C must win under the development/validation selection rule
+    (lowest NASA per engine) computed purely from fd004_variant_results.csv —
+    no official FD004 test labels involved."""
+    out = ROOT / "experiments" / "v2_2"
+    if not out.exists():
+        pytest.skip("experiments/v2_2 not present")
+    results = pd.read_csv(out / "fd004_variant_results.csv")
+    assert len(results) == 4 and set(results["variant"]) == {"A", "B", "C", "D"}
+    best = results.sort_values(["NASA_mean_per_engine", "RMSE"]).iloc[0]
+    assert best["variant"] == "C"
+
+
+# ---- Conformal q falsification -----------------------------------------------
+
+def test_conformal_quantiles_recomputed_from_engine_scores():
+    out = ROOT / "experiments" / "v2_2"
+    if not out.exists():
+        pytest.skip("experiments/v2_2 not present")
+    from rul_prediction.evaluation.conformal import conformal_quantile
+    scores = pd.read_csv(out / "fd001_conformal_engine_scores.csv")
+    assert len(scores) == 15
+    stored = pd.read_csv(out / "fd001_conformal_quantiles.csv").set_index("alpha")["q"]
+    deployment = yaml.safe_load((ROOT / "configs" / "deployment_v2_2_fd001.yaml")
+                                .read_text(encoding="utf-8"))
+    for alpha in (0.1, 0.2, 0.3):
+        q = conformal_quantile(scores["max_abs_error"].to_numpy(), alpha)
+        assert abs(q - stored[alpha]) < 1e-3
+        assert abs(q - deployment["uncertainty"]["q_by_alpha"][str(alpha)]) < 1e-3
+
+
+# ---- Provenance schema matches documentation ---------------------------------
+
+def test_fd001_final_fit_metadata_provenance_fields_match_docs():
+    out = ROOT / "experiments" / "v2_2"
+    if not out.exists():
+        pytest.skip("experiments/v2_2 not present")
+    meta = json.loads((out / "fd001_final_fit_metadata.json").read_text(encoding="utf-8"))
+    prov = meta["provenance"]
+    assert "git_commit" in prov
+    assert "git_is_dirty" in prov
+    assert "git_diff_hash" in prov
+    assert "timestamp_utc" in prov
+    assert "source_tree_hash" not in prov  # not written by current freeze; docs must not claim it
+
+
+def test_run_metadata_helper_supports_source_tree_hash():
+    from rul_prediction.benchmark.v2_2 import run_metadata
+    meta = run_metadata("FD001", "xgb_w90_d6", 1, {"inner_seed": 1, "best_epoch": 1},
+                        [1, 2], [3], 90)
+    assert meta["source_tree_hash"] is not None
+
+
+# ---- Required tracked local references exist ---------------------------------
+
+def test_required_tracked_local_references_exist():
+    required = [
+        "V2_2_FINAL_CLEANUP_PLAN.md",
+        "V2_2_FINAL_FREEZE_PLAN.md",
+        "reports/v2_2_final_report.md",
+        "configs/final_model_v2_2_fd001.yaml",
+        "configs/final_model_v2_2_fd004.yaml",
+        "configs/deployment_v2_2_fd001.yaml",
+        "experiments/v2_2/fd001_outer_fold_results.csv",
+        "experiments/v2_2/selection_decision.json",
+    ]
+    missing = [p for p in required if not (ROOT / p).exists()]
+    assert not missing, f"broken local references: {missing}"
+
+
+def test_no_broken_master_cleanup_plan_references():
+    """C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md does not exist and must not be referenced."""
+    if (ROOT / "C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md").exists():
+        return  # Option A: committed plan may be referenced
+    for rel in ("CHANGELOG.md", "V2_2_FINAL_CLEANUP_PLAN.md",
+                "reports/v2_2_final_report.md"):
+        src = (ROOT / rel).read_text(encoding="utf-8")
+        assert "C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN" not in src, f"broken ref in {rel}"

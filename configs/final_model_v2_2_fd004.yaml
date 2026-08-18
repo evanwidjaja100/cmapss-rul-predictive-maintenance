@@ -2,6 +2,7 @@ methodology_version: '2.2'
 dataset: FD004
 target: raw RUL regression under multiple operating regimes
 model:
+  candidate_name: gru_w45_huber_condC
   architecture: gru
   window: 45
   units:
@@ -13,10 +14,21 @@ model:
   learning_rate: 0.001
   batch_size: 256
   seed: 42
-preprocessing:
+  fixed_epochs: 8
+condition_preprocessing:
   variant: C
-  regime_clustering: KMeans(k=6) on (setting_1, setting_2, setting_3), n_init=10,
-    random_state=42
+  clustering:
+    method: kmeans
+    n_clusters: 6
+    random_state: 42
+    n_init: 10
+  operating_setting_columns:
+  - setting_1
+  - setting_2
+  - setting_3
+  sensor_scaling:
+    mode: per_regime_standard_scaler
+    fit_scope: training_rows_only
   fit_ids_stage2: 175 development/training engines only; validation and calibration
     rows transform-only
   official_test_rows: transform-only (never fit/refit/update)
@@ -30,10 +42,11 @@ splits:
   validation_engine_ids_sha256: ab78e219698ce277da836eab80081514b516c3cc8dc1c8f248e6b6567acf0912
   calibration_engine_ids_sha256: 9269bffcd698f07a9603b33f9cde1669d081de49a2010de3feeed58130a567d9
   validation_manifest: experiments/splits/fd004_v2_1_validation_cutoffs.csv
-training_control:
-  rule: final_epoch_count = best epoch from inner-fit/inner-stop (development engines
-    only)
-  best_epoch: 8
+training:
+  final_engine_count: 212
+  reserved_engine_count: 37
+  epoch_selection_rule: final_epoch_count = best epoch from inner-fit/inner-stop
+    (development engines only)
   validation_data_in_final_fit: false
 selection_policy: PRIMARY lowest NASA per engine; SECONDARY lower RMSE; then smaller
   |signed bias| (validation engines only; official FD004 labels are POST-HOC and never

@@ -100,8 +100,13 @@ def make_predictor(variant: str, model, kmeans, cluster_scalers, settings_scaler
     return predict_one
 
 
-def fit_preprocessing(variant: str, frame: pd.DataFrame, allowed_ids: set[int]):
-    """Fit preprocessing on `allowed_ids` rows only (asserted subset invariant)."""
+def fit_preprocessing(variant: str, frame: pd.DataFrame, allowed_ids: set[int],
+                      k: int = 6, seed: int = 42, n_init: int = 10):
+    """Fit preprocessing on `allowed_ids` rows only (asserted subset invariant).
+
+    `k` / `seed` / `n_init` are the deployment-clustering hyperparameters; the
+    final freeze path passes them explicitly from the YAML (never defaults).
+    """
     if variant in ("A", "B"):
         cols = SENSOR_COLUMNS + (SETTING_COLUMNS if variant == "B" else [])
         global_scaler = StandardScaler().fit(
@@ -109,7 +114,7 @@ def fit_preprocessing(variant: str, frame: pd.DataFrame, allowed_ids: set[int]):
         return {"global_scaler": global_scaler, "kmeans": None,
                 "cluster_scalers": None, "settings_scaler": None}
     kmeans, cluster_scalers, settings_scaler = fit_condition_models(
-        frame, allowed_ids, k=6, seed=42)
+        frame, allowed_ids, k=k, seed=seed, n_init=n_init)
     return {"global_scaler": None, "kmeans": kmeans,
             "cluster_scalers": cluster_scalers, "settings_scaler": settings_scaler}
 
@@ -275,6 +280,7 @@ def write_fd004_config(winner: pd.Series, results: pd.DataFrame,
         "dataset": "FD004",
         "target": "raw RUL regression under multiple operating regimes",
         "model": {
+            "candidate_name": f"gru_w{WINDOW}_huber_cond{winner['variant']}",
             "architecture": "gru",
             "window": WINDOW,
             "units": [128, 64],
@@ -284,10 +290,21 @@ def write_fd004_config(winner: pd.Series, results: pd.DataFrame,
             "learning_rate": 0.001,
             "batch_size": BATCH_SIZE,
             "seed": SEED,
+            "fixed_epochs": best_epoch,
         },
-        "preprocessing": {
+        "condition_preprocessing": {
             "variant": winner["variant"],
-            "regime_clustering": "KMeans(k=6) on (setting_1, setting_2, setting_3), n_init=10, random_state=42",
+            "clustering": {
+                "method": "kmeans",
+                "n_clusters": 6,
+                "random_state": 42,
+                "n_init": 10,
+            },
+            "operating_setting_columns": list(SETTING_COLUMNS),
+            "sensor_scaling": {
+                "mode": "per_regime_standard_scaler",
+                "fit_scope": "training_rows_only",
+            },
             "fit_ids_stage2": "175 development/training engines only; validation and calibration rows transform-only",
             "official_test_rows": "transform-only (never fit/refit/update)",
         },
@@ -302,9 +319,10 @@ def write_fd004_config(winner: pd.Series, results: pd.DataFrame,
             "calibration_engine_ids_sha256": canonical_sha256_json(sorted(split["calibration_engine_ids"])),
             "validation_manifest": "experiments/splits/fd004_v2_1_validation_cutoffs.csv",
         },
-        "training_control": {
-            "rule": "final_epoch_count = best epoch from inner-fit/inner-stop (development engines only)",
-            "best_epoch": best_epoch,
+        "training": {
+            "final_engine_count": 212,
+            "reserved_engine_count": 37,
+            "epoch_selection_rule": "final_epoch_count = best epoch from inner-fit/inner-stop (development engines only)",
             "validation_data_in_final_fit": False,
         },
         "selection_policy": "PRIMARY lowest NASA per engine; SECONDARY lower RMSE; then smaller |signed bias| (validation engines only; official FD004 labels are POST-HOC and never select)",

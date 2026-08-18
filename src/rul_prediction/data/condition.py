@@ -29,11 +29,12 @@ from rul_prediction.data.v2_preprocessing import SENSOR_COLUMNS
 SETTING_COLUMNS = ["setting_1", "setting_2", "setting_3"]
 
 
-def fit_condition_models(frame: pd.DataFrame, engine_ids, k: int = 6, seed: int = 42):
+def fit_condition_models(frame: pd.DataFrame, engine_ids, k: int = 6, seed: int = 42,
+                         n_init: int = 10):
     """KMeans (on settings) + per-cluster sensor scalers + settings scaler, fit on `engine_ids` rows only."""
     rows = frame[frame["engine_id"].isin(engine_ids)].sort_values(["engine_id", "cycle"])
     settings = rows[SETTING_COLUMNS].to_numpy(dtype=float)
-    kmeans = KMeans(n_clusters=k, random_state=seed, n_init=10).fit(settings)
+    kmeans = KMeans(n_clusters=k, random_state=seed, n_init=n_init).fit(settings)
     labels = kmeans.predict(settings)
     sensors = rows[SENSOR_COLUMNS].to_numpy(dtype=float)
     cluster_scalers = {}

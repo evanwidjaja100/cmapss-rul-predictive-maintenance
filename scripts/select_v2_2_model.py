@@ -57,8 +57,6 @@ def _model_config(candidate: dict, duration: dict) -> dict:
         "candidate_name": candidate["id"],
         "architecture": arch,
         "window": candidate["window"],
-        "features": f"{candidate['window']}-cycle windows of 21 sensors "
-                    "(padded+masked, shared history builder)",
     }
     if arch == "xgboost":
         params = _xgb_factory_params(42)
@@ -66,9 +64,17 @@ def _model_config(candidate: dict, duration: dict) -> dict:
             "max_depth", params["max_depth"])
         params["n_estimators"] = duration["n_estimators"]
         params["early_stopping_rounds"] = None  # final fit: fixed duration, no stopping
+        base["features"] = {
+            "representation": "engineered_variable_history",
+            "source_sensor_count": 21,
+            "max_history_cycles": candidate["window"],
+            "feature_extractor": "rul_prediction.features.v2_features.extract_v2_features",
+            "sequence_padding_consumed_by_model": False,
+        }
         return {**base, **params}
-    return {
-        **base,
+    base["features"] = (f"{candidate['window']}-cycle windows of 21 sensors "
+                        "(padded+masked, shared history builder)")
+    return {**base,
         "units": [128, 64],
         "dropout": 0.3,
         "loss": (candidate["overrides"] or {}).get("loss", "mse"),

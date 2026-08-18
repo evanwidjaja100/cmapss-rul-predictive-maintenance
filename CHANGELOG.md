@@ -1,10 +1,57 @@
 ﻿# CHANGELOG
 
+## V2.2 final repository freeze — 2026-08-18
+
+> Audit/freeze pass (`V2_2_FINAL_FREEZE_PLAN.md`; master instruction is
+> session-only and not committed). No retraining: FD004 YAML values verified
+> equal to the historical effective values (window 45, units (128,64),
+> dropout 0.3, loss huber, lr 1e-3, batch 256, seed 42, fixed_epochs 8,
+> variant C, k=6, cluster_seed 42, n_init 10). No FD001 CV rerun, no FD004
+> A/B/C/D rerun, no FD004 refit.
+
+- **FD004 now fully YAML-driven (freeze-1):** the freeze path previously
+  consumed units/dropout/KMeans n_init via function defaults and hardcoded
+  `n_init=10` / `k=6` / `seed=42` in `fit_condition_models`. Now
+  `resolve_model_config` returns architecture/units/dropout/loss/lr/batch/
+  seed/fixed_epochs/variant/n_clusters/cluster_seed/n_init, `fit_preprocessing`
+  threads k/seed/n_init, and `configs/final_model_v2_2_fd004.yaml` is
+  restructured (explicit `model.units`, `model.dropout`, `model.fixed_epochs`,
+  `condition_preprocessing.clustering{method,n_clusters,random_state,n_init}`
+  with numeric values) — every deployment-critical hyperparameter is
+  config-resolved, no hidden defaults.
+- **FD001 feature metadata corrected (freeze-2):** `final_model_v2_2_fd001.yaml`
+  now describes the real XGBoost path (engineered variable history via
+  `rul_prediction.features.v2_features.extract_v2_features`,
+  `sequence_padding_consumed_by_model: false`); `select_v2_2_model.py`
+  emits the same structured block.
+- **Real clean-clone QA (freeze-3):** the previous "clean public checkout"
+  measurement was a simulated tree (robocopy). The QA is now a real
+  `git clone .` of the committed repository; artifact-free
+  (`-m "not needs_artifacts"`) suite measured from the clone. Current
+  measurements (2026-08-18): full local **163 passed (16 warnings)**;
+  artifact-free local **158 passed, 5 deselected**; real clean clone
+  `<clone counts inserted after clone run>`.
+- **Provenance wording (freeze-4):** the committed `fd001_final_fit_metadata.json`
+  records `git_commit`, `git_is_dirty`, `git_diff_hash`, `timestamp_utc`; it
+  does NOT contain `source_tree_hash` (the `run_metadata()` helper supports
+  that field for future runs). Docs now say exactly this.
+- **Pre-registered → pre-specified (freeze-5):** live docs now say
+  "pre-specified" (the selection rule was specified in the recorded
+  development session before the final comparison; Git cannot prove formal
+  pre-registration). Superseded/historical entries keep old wording with
+  markers.
+- **Broken references fixed (freeze-6):** the untracked master cleanup-plan
+  filename was referenced by 4 files; all references replaced with the tracked
+  `V2_2_FINAL_CLEANUP_PLAN.md`.
+- **Tests (freeze-7):** added config-authority, feature-path, provenance,
+  conformal-q falsification, metric-falsification (tracked tables), and
+  broken-reference tests; 4 cleanup tests reading tracked `experiments/v2_2`
+  tables unmarked from `needs_artifacts` so CI exercises them.
+
 ## V2.2 final cleanup â€” 2026-08-17
 
 > Final reproducibility / auditability pass
-> (`C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md`,
-> `V2_2_FINAL_CLEANUP_PLAN.md`). No full CV rerun; all headline numbers were
+> (`V2_2_FINAL_CLEANUP_PLAN.md`). No full CV rerun; all headline numbers were
 > recomputed from saved artifacts and reproduced unchanged (FD001 post-hoc
 > RMSE 26.2526 / NASA 60,963.79; FD004 post-hoc RMSE 33.6579; deployment
 > `xgb_w90_d6`).
@@ -31,7 +78,9 @@
   (`historical_caveat` in `fd001_conformal_calibration.json`).
 - **Provenance:** freeze metadata now records `git_commit`, `git_is_dirty`
   (historical V2.2 runs were executed from a dirty worktree), `git_diff_hash`
-  and `source_tree_hash`.
+  and `timestamp_utc`; the shared `run_metadata()` helper additionally
+  supports `source_tree_hash` for future experiment runs (the committed
+  freeze metadata does not contain it — see freeze-4 above).
 - **Metric falsification tests:** saved official predictions recompute the
   headline FD001/FD004 metrics; CV summaries re-derived from fold rows;
   selection policy (incl. |bias| tie-break) re-applied.

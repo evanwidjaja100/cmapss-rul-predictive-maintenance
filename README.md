@@ -154,15 +154,22 @@ classification anywhere.
 .venv\Scripts\python.exe -m pytest -m "not needs_artifacts"   # CI artifact-free subset
 ```
 
-Measured:
+Measured (2026-08-18):
 
 ```text
 Local development tree:
-155 passed (16 warnings)
+163 passed (16 warnings)
 
-Clean public checkout (no data/, models/, experiments artifacts):
-135 passed, 11 skipped, 9 deselected
+Real clean Git clone (git clone . of the committed repository, tracked
+experiments/v2_2 included; PYTHONPATH=<clone>\src; same CI command):
+<clone counts inserted after QA run>
 ```
+
+The clean-clone QA is a real `git clone .` of the committed repository (not a
+simulated tree): tracked `experiments/v2_2` audit tables are present, so the
+artifact-free suite exercises the falsification and structural tests against
+them; only genuinely unavailable artifacts (raw NASA data, trained models,
+generated binaries) are excluded by the `needs_artifacts` marker.
 
 `tests/test_v2_2_protocol.py` (artifact-free) adds the V2.2 protocol gates:
 calibration isolation (A), outer-fold isolation (B), CV completeness (C),

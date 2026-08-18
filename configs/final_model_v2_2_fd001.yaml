@@ -5,7 +5,12 @@ model:
   candidate_name: xgb_w90_d6
   architecture: xgboost
   window: 90
-  features: 90-cycle windows of 21 sensors (padded+masked, shared history builder)
+  features:
+    representation: engineered_variable_history
+    source_sensor_count: 21
+    max_history_cycles: 90
+    feature_extractor: rul_prediction.features.v2_features.extract_v2_features
+    sequence_padding_consumed_by_model: false
   max_depth: 6
   learning_rate: 0.05
   subsample: 0.8

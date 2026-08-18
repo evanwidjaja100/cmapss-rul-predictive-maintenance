@@ -38,7 +38,7 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
-    variant = cfg["preprocessing"]["variant"]
+    variant = cfg["condition_preprocessing"]["variant"]
     window = cfg["model"]["window"]
     loss = cfg["model"]["loss"]
 

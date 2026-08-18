@@ -36,6 +36,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from rul_prediction.benchmark.v2 import (
+    ROOT,
     classical_features,
     make_predictor,
     partition_sequences,
@@ -218,6 +219,7 @@ def git_provenance(root: str | Path | None = None) -> dict:
     def _git(*args: str) -> str | None:
         try:
             out = subprocess.run(["git", *args], capture_output=True, text=True,
+                                 encoding="utf-8", errors="replace",
                                  check=False, cwd=cwd)
             return out.stdout.strip() or None
         except Exception:
