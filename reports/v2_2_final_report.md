@@ -429,12 +429,17 @@ retrain required**.
 
 ```text
 Full local artifact-rich suite:
-163 passed (16 warnings)
+164 passed (16 warnings)
 
 Artifact-free subset (-m "not needs_artifacts", local):
-158 passed, 5 deselected (4 warnings)
+159 passed, 5 deselected (4 warnings)
 
 Real clean Git clone (git clone . of the committed repo; PYTHONPATH=<clone>\src;
 same CI command -m "not needs_artifacts"):
-<counts inserted after run>
+149 passed, 10 skipped, 5 deselected (0 failed)
 ```
+
+Clone skips are the raw-data / trained-model / golden-file dependent tests that
+cannot run without untracked artifacts; the tracked `experiments/v2_2` audit
+tables ARE present in the clone, so structural, falsification, conformal and
+provenance tests all executed there.

@@ -46,6 +46,6 @@ Old effective values (historical comparison path, defaults/hardcoded constants) 
 |---|---|---|---|---|---|
 | Full local suite (baseline) | 155 | 0 | 0 | 0 | 16 |
 | Artifact-free `-m "not needs_artifacts"` (baseline) | 146 | 0 | 9 | 0 | 4 |
-| Full local suite (post-freeze) | 163 | 0 | 0 | 0 | 16 |
-| Artifact-free (post-freeze) | 158 | 0 | 0 | 5 | 4 |
-| Real clean clone QA | | | | | |
+| Full local suite (post-freeze) | 164 | 0 | 0 | 0 | 16 |
+| Artifact-free (post-freeze) | 159 | 0 | 0 | 5 | 4 |
+| Real clean clone QA | 149 | 0 | 10 | 5 | - |

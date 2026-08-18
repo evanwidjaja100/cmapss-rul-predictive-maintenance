@@ -158,11 +158,11 @@ Measured (2026-08-18):
 
 ```text
 Local development tree:
-163 passed (16 warnings)
+164 passed (16 warnings)
 
 Real clean Git clone (git clone . of the committed repository, tracked
 experiments/v2_2 included; PYTHONPATH=<clone>\src; same CI command):
-<clone counts inserted after QA run>
+149 passed, 10 skipped, 5 deselected
 ```
 
 The clean-clone QA is a real `git clone .` of the committed repository (not a

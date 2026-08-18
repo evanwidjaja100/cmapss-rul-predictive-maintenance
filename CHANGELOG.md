@@ -28,9 +28,10 @@
   measurement was a simulated tree (robocopy). The QA is now a real
   `git clone .` of the committed repository; artifact-free
   (`-m "not needs_artifacts"`) suite measured from the clone. Current
-  measurements (2026-08-18): full local **163 passed (16 warnings)**;
-  artifact-free local **158 passed, 5 deselected**; real clean clone
-  `<clone counts inserted after clone run>`.
+  measurements (2026-08-18): full local **164 passed (16 warnings)**;
+  artifact-free local **159 passed, 5 deselected (4 warnings)**; real clean
+  clone **149 passed, 10 skipped, 5 deselected** (0 failed; skips = raw-data/
+  model-dependent tests absent from a clone).
 - **Provenance wording (freeze-4):** the committed `fd001_final_fit_metadata.json`
   records `git_commit`, `git_is_dirty`, `git_diff_hash`, `timestamp_utc`; it
   does NOT contain `source_tree_hash` (the `run_metadata()` helper supports
