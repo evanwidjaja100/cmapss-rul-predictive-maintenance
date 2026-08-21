@@ -153,6 +153,7 @@ def test_import_emits_no_streamlit_or_tensorflow_warnings():
     assert "tensorflow" not in result.stderr.lower()
 
 
+@pytest.mark.needs_artifacts
 def test_xgboost_serving_does_not_import_tensorflow():
     """XGBoost deployment must use joblib without initializing TF."""
     code = """

@@ -98,8 +98,10 @@ def test_reference_integrity_no_missing_or_ambiguous():
 @pytest.mark.static_contract
 def test_repository_integrity_cli_passes():
     """CLI must exit 0 when integrity holds (uses git ls-files)."""
+    import sys
+
     result = subprocess.run(
-        [str(ROOT / ".venv/Scripts/python.exe"), "scripts/check_repository_integrity.py"],
+        [sys.executable, "scripts/check_repository_integrity.py"],
         cwd=ROOT,
         capture_output=True,
         text=True,

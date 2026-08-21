@@ -312,7 +312,8 @@ def test_model_binaries_unchanged():
 # 4. Deterministic generation & --check / timestamp preservation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.tracked_artifacts
+@pytest.mark.integration
+@pytest.mark.needs_artifacts
 def test_deterministic_serialization_with_fixed_timestamp():
     # identical inputs + fixed timestamp => byte-identical
     d1 = build_manifest_dict("FD001", root=REPO_ROOT, generated_at_utc="2026-08-21T00:00:00Z")
@@ -326,6 +327,7 @@ def test_deterministic_serialization_with_fixed_timestamp():
     assert b1 == on_disk
 
 @pytest.mark.integration
+@pytest.mark.needs_artifacts
 def test_preserve_generated_at_when_inputs_unchanged():
     # without --generated-at, second build should preserve prior timestamp when inputs unchanged
     m_before = _manifest_data("FD001")
@@ -336,6 +338,7 @@ def test_preserve_generated_at_when_inputs_unchanged():
     assert m_after["generated_at_utc"] == ts_before, "preserve prior generated_at_utc when inputs unchanged"
 
 @pytest.mark.integration
+@pytest.mark.needs_artifacts
 def test_check_mode_does_not_rewrite():
     # --check must not change file mtime/content and must validate
     path = REPO_ROOT / MANIFEST_PATHS["FD001"]
@@ -463,6 +466,7 @@ def test_present_wrong_local_fails_even_in_tracked():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
+@pytest.mark.needs_artifacts
 def test_builder_and_verifier_accept_root_override():
     # verifier with explicit root override on temp bundle
     with tempfile.TemporaryDirectory(prefix="bundle_root_") as td:
@@ -488,6 +492,7 @@ def test_builder_and_verifier_accept_root_override():
     assert d["dataset"] == "FD001"
 
 @pytest.mark.integration
+@pytest.mark.needs_artifacts
 def test_cli_check_is_deterministic_and_does_not_write():
     # build with fixed timestamp twice, compare bytes, check that --check validates
     d1 = build_manifest_dict("FD004", root=REPO_ROOT, generated_at_utc="2026-08-21T12:34:56Z")
