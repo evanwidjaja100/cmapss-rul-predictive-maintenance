@@ -585,6 +585,22 @@ def test_historical_legacy_payload_byte_identical_and_gated(tmp_path, monkeypatc
         load_and_verify_condition(cfg, model=StubModel())
 
 
+def test_future_condition_payload_is_not_loaded_without_manifest_authorization(tmp_path, monkeypatch):
+    cfg = load_fd004_final_config(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+    from rul_prediction.benchmark.fd004_config import FD004FinalConfig
+    import scripts.run_v2_2_fd004_posthoc as posthoc
+
+    candidate = tmp_path / "future.joblib"
+    candidate.write_bytes(b"schema_version fd004-condition-v1 malicious")
+    monkeypatch.setattr(posthoc, "ROOT", tmp_path)
+    monkeypatch.setattr(FD004FinalConfig, "condition_artifact_path", lambda self, root=None: candidate)
+    loaded = []
+    monkeypatch.setattr(posthoc, "load_joblib", lambda payload: loaded.append(payload))
+    with pytest.raises(FD004ConfigError, match="requires a trusted FD004 manifest|not authorized"):
+        posthoc.load_and_verify_condition(cfg)
+    assert loaded == []
+
+
 # ---- 9. Config, metadata, artifact name, payload, model shape cannot disagree
 
 def test_config_metadata_shape_disagreement_fails(tmp_path):

@@ -3,8 +3,7 @@
 Mechanical application of the rule locked in V2_2_REPAIR_PLAN.md in the
 recorded development session BEFORE the V2.2 CV comparison results were
 inspected (the plan file itself was uncommitted at run time, so Git cannot
-prove a formal pre-registration; the policy is pre-specified, not
-pre-registered):
+prove formal registration; the policy is pre-specified):
 
     PRIMARY: lowest mean NASA per engine
     GUARDRAIL: within one pooled standard error of the best -> prefer lower RMSE

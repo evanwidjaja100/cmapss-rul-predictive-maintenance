@@ -20,7 +20,7 @@ import re
 import struct
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 # ponytail: minimal stdlib implementation; no new dependency.
@@ -125,8 +125,15 @@ def _is_execution_input(posix_path: str) -> bool:
     Explicitly excludes __pycache__, .pyc, .egg-info, models, raw data, pytest caches
     even if force-tracked (per 10.1, P2-1).
     """
-    # Exclude non-execution artifacts even if force-tracked
-    if "__pycache__" in posix_path or posix_path.endswith(".pyc") or ".egg-info" in posix_path:
+    # Exclude non-execution artifacts even if force-tracked. Match path
+    # components so similarly named real source directories remain included.
+    parts = PurePosixPath(posix_path).parts
+    if (
+        "__pycache__" in parts
+        or ".pytest_cache" in parts
+        or any(part.endswith(".egg-info") for part in parts)
+        or posix_path.lower().endswith(".pyc")
+    ):
         return False
     if posix_path in EXECUTION_INPUT_EXACT:
         return True
@@ -331,11 +338,9 @@ def _parse_status_for_dirty(root: Path) -> dict:
         # Robust extraction per git status v2 spec
         if s.startswith("?"):
             # "? <path>" untracked
-            path = s[2:].strip() if len(s) > 2 else ""
-            # For v2, "? " may be "? <path>" with no tab
-            # If tab present (unlikely for untracked), take after tab
-            if "\t" in path:
-                path = path.split("\t")[-1].strip()
+            # Preserve tabs, spaces, and other valid pathname bytes after the
+            # single status separator.
+            path = s[2:] if s.startswith("? ") else s[1:]
             untracked.append(path)
             if _is_execution_input(path):
                 relevant_untracked.append(path)
@@ -355,10 +360,10 @@ def _parse_status_for_dirty(root: Path) -> dict:
                 # Use split with maxsplit to isolate path: for "2", there are 9 fields before path (1, XY, sub, mH, mI, mW, hH, hI, Xscore)
                 # We split header_and_new with maxsplit 9 to get path as last part
                 # Determine expected field count: 8 for "1"/"u", 9 for "2"
-                maxsplit = 9 if s.startswith("2") else 8
+                maxsplit = 9 if s.startswith("2") else 10 if s.startswith("u") else 8
                 # header_and_new starts with "2 " or "1 " etc., so split
                 parts = header_and_new.split(" ", maxsplit)
-                new_path = parts[-1].strip() if len(parts) > maxsplit else header_and_new.split(" ", 1)[-1].strip()
+                new_path = parts[-1] if len(parts) > maxsplit else header_and_new.split(" ", 1)[-1]
                 # For safety, if new_path still contains leading hash-like token, split once more
                 # The last field before path for "2" is Xscore (e.g., "R100"), for "1" is hI hash.
                 # Our maxsplit already isolates path, but if path contains spaces, it remains intact as last part.
@@ -368,14 +373,14 @@ def _parse_status_for_dirty(root: Path) -> dict:
                 canonical_path = new_path
             else:
                 # no tab: path is remainder after fixed fields, may contain spaces
-                maxsplit = 9 if s.startswith("2") else 8
+                maxsplit = 9 if s.startswith("2") else 10 if s.startswith("u") else 8
                 # Split with maxsplit to preserve path with spaces
                 parts = s.split(" ", maxsplit)
                 if len(parts) > maxsplit:
-                    canonical_path = parts[-1].strip()
+                    canonical_path = parts[-1]
                 else:
                     # fallback: take last token (for malformed)
-                    canonical_path = s.split()[-1].strip() if s.split() else ""
+                    canonical_path = s.split()[-1] if s.split() else ""
                 paths = [canonical_path]
             # XY at s[2:4] for "1 " and "2 " lines
             xy = s[2:4] if len(s) >= 4 else "  "
@@ -679,9 +684,10 @@ def assert_reproducible_run_state(
             if "experiments" in snap_resolved.parts or "configs" in snap_resolved.parts:
                 # Require explicit token, not weak substring, and include risk summary after inventory is available.
                 # We check for explicit tokens "confirm_tracked_evidence" or "approved_tracked_evidence"
-                has_explicit_confirm = (
-                    "confirm_tracked_evidence" in dirty_reason.lower()
-                    or "approved_tracked_evidence" in dirty_reason.lower()
+                confirmation_tokens = set(str(dirty_reason).split())
+                has_explicit_confirm = bool(
+                    confirmation_tokens
+                    & {"confirm_tracked_evidence", "approved_tracked_evidence"}
                 )
                 if not has_explicit_confirm:
                     raise DirtyExecutionError(

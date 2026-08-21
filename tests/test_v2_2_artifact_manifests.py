@@ -548,6 +548,22 @@ def test_load_time_verification_distinct_error_classes():
         with pytest.raises(ArtifactManifestError, match="legacy"):
             verify_before_load("nonexistent/path.csv", root=tmp, manifest_dataset="FD001")
 
+
+@pytest.mark.unit
+def test_load_time_verification_normalizes_windows_text_line_endings(tmp_path):
+    manifest_dir = tmp_path / "experiments" / "v2_2"
+    config_dir = tmp_path / "configs"
+    manifest_dir.mkdir(parents=True)
+    config_dir.mkdir()
+    shutil.copy2(REPO_ROOT / MANIFEST_PATHS["FD004"], manifest_dir / "fd004_artifact_manifest.json")
+    config = (REPO_ROOT / "configs" / "final_model_v2_2_fd004.yaml").read_bytes()
+    (config_dir / "final_model_v2_2_fd004.yaml").write_bytes(config.replace(b"\n", b"\r\n"))
+    verify_before_load(
+        "configs/final_model_v2_2_fd004.yaml",
+        root=tmp_path,
+        manifest_dataset="FD004",
+    )
+
 # ---------------------------------------------------------------------------
 # 8. Constraints and source integrity at generation time
 # ---------------------------------------------------------------------------

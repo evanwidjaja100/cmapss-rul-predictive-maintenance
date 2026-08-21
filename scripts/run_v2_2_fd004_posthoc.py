@@ -11,6 +11,8 @@ model/config/preprocessor compatibility passes.
 from __future__ import annotations
 
 import argparse
+import hashlib
+from io import BytesIO
 import json
 from pathlib import Path
 
@@ -24,7 +26,6 @@ from rul_prediction.benchmark.fd004_config import (
     FD004ConfigError,
     HISTORICAL_CONDITION_JOBLIB_SHA256,
     load_fd004_final_config,
-    sha256_file,
 )
 from rul_prediction.benchmark.v2 import ROOT
 from rul_prediction.data.loader import EXPECTED_ENGINE_COUNTS, load_rul, load_test
@@ -77,25 +78,35 @@ def load_and_verify_condition(config, *, model=None) -> dict:
             f"FD004 condition artifact missing: {cond_path}. Generate via scripts/run_v2_2_fd004_freeze.py "
             f"(or ensure models/v2_2/fd004_condition{config.selected_variant}.joblib exists)"
         )
-    # hash BEFORE deserialization (P0 fix: fail-closed before any pickle execution)
-    actual_sha = sha256_file(cond_path)
-    is_historical = actual_sha.lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower()
-    # Peek without full deserialization to decide legacy vs future without executing pickle
-    # Future payloads contain schema_version "fd004-condition-v1" as plain bytes in the pickle
+    # Hash the exact bytes that will be deserialized.
     try:
-        raw_head = cond_path.read_bytes()[:8192]  # first chunk contains schema_version if present
-    except Exception as e:
+        payload_bytes = cond_path.read_bytes()
+    except OSError as e:
         raise FD004ConfigError(f"failed to read condition payload {cond_path}: {e}") from e
-    is_future_peek = b"fd004-condition-v1" in raw_head or b"schema_version" in raw_head
-    # For historical legacy file, hash must equal baseline BEFORE any deserialization
-    if not is_future_peek and not is_historical:
-        raise FD004ConfigError(
-            f"legacy condition joblib hash mismatch: expected {HISTORICAL_CONDITION_JOBLIB_SHA256}, got {actual_sha}. "
-            f"Historical joblib is immutable; any other hash is unauthorized (hash-gated legacy adapter, no deserialization before check)."
-        )
-    # Safe to deseralize now (hash gate passed for legacy; future will be validated after load but manifest already gated)
+    actual_sha = hashlib.sha256(payload_bytes).hexdigest()
+    is_historical = actual_sha.lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower()
+    if not is_historical:
+        # Future pickles need an allowlisted manifest hash too; inspecting pickle bytes
+        # is not a safe authorization mechanism.
+        from rul_prediction.artifact_manifest import MANIFEST_PATHS, load_manifest
+
+        manifest_path = ROOT / MANIFEST_PATHS["FD004"]
+        if not manifest_path.exists():
+            raise FD004ConfigError("future condition payload requires a trusted FD004 manifest before deserialization")
+        try:
+            rel_path = cond_path.relative_to(ROOT).as_posix()
+        except ValueError as e:
+            raise FD004ConfigError(f"condition payload is outside repository root: {cond_path}") from e
+        manifest = load_manifest(manifest_path, root=ROOT)
+        entry = next((a for a in manifest["artifacts"] if a["path"] == rel_path), None)
+        if entry is None or actual_sha.lower() != entry["sha256"].lower():
+            expected = entry["sha256"] if entry else "no manifest entry"
+            raise FD004ConfigError(
+                f"future condition payload hash is not authorized: expected {expected}, got {actual_sha}"
+            )
+    # Load the same bytes that were hashed, not a path that can be swapped after verification.
     try:
-        payload = load_joblib(cond_path)
+        payload = load_joblib(BytesIO(payload_bytes))
     except Exception as e:
         raise FD004ConfigError(f"failed to load condition payload {cond_path}: {e}") from e
 

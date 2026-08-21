@@ -748,17 +748,7 @@ def verify_manifest_file(manifest_path: Path | str, root: Path | str | None = No
             skipped_absent_local += 1
             continue
         if not exists:
-            # for git files, also check blob existence (handles autocrlf where file may be considered missing but blob exists)
-            blob_exists = False
-            if storage == "git":
-                try:
-                    out = subprocess.run(["git", "cat-file", "-e", f"HEAD:{posix_path}"], capture_output=True, check=False, cwd=str(r))
-                    if out.returncode == 0:
-                        blob_exists = True
-                except Exception:
-                    pass
-            if not blob_exists:
-                raise ArtifactMissingError(f"missing required artifact {role}: {posix_path} (mode {mode}, storage {storage})")
+            raise ArtifactMissingError(f"missing required artifact {role}: {posix_path} (mode {mode}, storage {storage})")
         # present: verify hash before deserialization (hash check is the deserialization gate)
         # For git files, verify filesystem content (normalized for CRLF) against manifest's blob LF hash.
         # This detects working-tree tampering beyond CRLF while staying cross-platform stable.
@@ -860,15 +850,8 @@ def verify_before_load(posix_path: str, root: Path | str | None = None, manifest
     # verify existence
     p = r / rel_str
     storage = entry.get("storage_class", "git")
-    # for git files, consider blob existence as well (autocrlf)
+    # A tracked artifact must be present in the working tree before loading.
     exists = p.exists()
-    if not exists and storage == "git":
-        try:
-            out = subprocess.run(["git", "cat-file", "-e", f"HEAD:{rel_str}"], capture_output=True, check=False, cwd=str(r))
-            if out.returncode == 0:
-                exists = True
-        except Exception:
-            exists = False
     if not exists:
         raise ArtifactMissingError(
             f"artifact absent: {rel_str} (role {entry['role']}). Generate it with scripts/build_v2_2_artifact_manifests.py or scripts/run_v2_2_freeze.py "
@@ -896,4 +879,3 @@ def verify_before_load(posix_path: str, root: Path | str | None = None, manifest
         raise ArtifactHashMismatchError(
             f"size mismatch for {rel_str}: expected {entry['bytes']}, got {actual_bytes}"
         )
-

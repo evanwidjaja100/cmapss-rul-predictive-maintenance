@@ -19,6 +19,7 @@ import textwrap
 import pytest
 
 from rul_prediction.reproducibility import (
+    DirtyExecutionError,
     assert_reproducible_run_state,
     collect_git_provenance,
     sha256_file,
@@ -125,6 +126,20 @@ def test_untracked_source_relevant():
             assert (snap / "src" / "new_module.py").read_text(encoding="utf-8") == "z=99\n"
 
 
+def test_untracked_source_path_with_tab_is_relevant(monkeypatch):
+    from rul_prediction import reproducibility
+
+    raw = b"? src/tab\tmodule.py" + bytes([0])
+    monkeypatch.setattr(
+        reproducibility,
+        "_git_status_porcelain_v2_z",
+        lambda _root: (raw, "? src/tab\tmodule.py"),
+    )
+    parsed = reproducibility._parse_status_for_dirty(pathlib.Path.cwd())
+    assert parsed["relevant_untracked"] == ["src/tab\tmodule.py"]
+    assert parsed["execution_dirty"] is True
+
+
 def test_ignored_cache_does_not_affect_hash():
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td) / "repo"
@@ -176,6 +191,16 @@ def test_egg_info_not_affects_hash():
         (tmp / "src" / "rul_prediction.egg-info" / "PKG-INFO").write_text("Metadata\n")
         h1 = tracked_source_tree_details(tmp)["source_tree_hash"]
         assert h1 == h0
+
+
+def test_force_tracked_cache_filters_use_path_components():
+    from rul_prediction.reproducibility import _is_execution_input
+
+    assert _is_execution_input("src/__pycache__/module.py") is False
+    assert _is_execution_input("src/.pytest_cache/state.py") is False
+    assert _is_execution_input("src/package.egg-info/PKG-INFO") is False
+    assert _is_execution_input("src/my__pycache__/module.py") is True
+    assert _is_execution_input("src/package.egg-infoish/module.py") is True
 
 
 def test_mtime_change_does_not_affect_hash():
@@ -305,6 +330,21 @@ def test_path_traversal_rejected():
                 assert_reproducible_run_state(
                     root=tmp, allow_dirty_execution=True, dirty_reason="traversal", snapshot_dir=snap
                 )
+
+
+def test_tracked_evidence_confirmation_requires_exact_token():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td) / "repo"
+        tmp.mkdir()
+        _init_temp_repo(tmp)
+        (tmp / "src" / "a.py").write_text("x=dirty\n", encoding="utf-8")
+        with pytest.raises(DirtyExecutionError, match="Explicit user confirmation"):
+            assert_reproducible_run_state(
+                root=tmp,
+                allow_dirty_execution=True,
+                dirty_reason="not_confirm_tracked_evidence",
+                snapshot_dir=tmp / "experiments" / "snapshot",
+            )
 
 
 def test_oversized_rejected():
