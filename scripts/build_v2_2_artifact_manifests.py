@@ -34,17 +34,15 @@ def _resolve_root(root: str | None) -> Path:
     from rul_prediction.artifact_manifest import _resolve_root as _r
     return _r(root)
 
-def _maybe_preserve_timestamp(dataset: str, root: Path, new_dict: dict, generated_at_opt: str | None) -> str:
-    """Return timestamp to use: --generated-at overrides, else preserve prior if inputs unchanged, else new."""
-    if generated_at_opt is not None:
-        return str(generated_at_opt)
+def _prior_with_same_inputs(dataset: str, root: Path, new_dict: dict) -> dict | None:
+    """Return the prior manifest when its hashed inputs still match."""
     manifest_path = root / MANIFEST_PATHS[dataset]
     if not manifest_path.exists():
-        return new_dict["generated_at_utc"]
+        return None
     try:
         prior = json.loads(manifest_path.read_bytes().decode("utf-8"))
     except Exception:
-        return new_dict["generated_at_utc"]
+        return None
     # compare hashed inputs: artifacts sha/bytes + source/config/constraints hashes
     # if all equal, preserve prior timestamp
     def _inputs(d: dict) -> dict:
@@ -59,11 +57,17 @@ def _maybe_preserve_timestamp(dataset: str, root: Path, new_dict: dict, generate
         }
         return inp
     if _inputs(prior) == _inputs(new_dict):
-        # preserve prior generation time
-        prior_ts = prior.get("generated_at_utc")
-        if isinstance(prior_ts, str) and prior_ts:
-            return prior_ts
-    return new_dict["generated_at_utc"]
+        return prior
+    return None
+
+
+def _maybe_preserve_timestamp(dataset: str, root: Path, new_dict: dict, generated_at_opt: str | None) -> str:
+    """Return timestamp to use: --generated-at overrides, else preserve prior if inputs unchanged, else new."""
+    if generated_at_opt is not None:
+        return str(generated_at_opt)
+    prior = _prior_with_same_inputs(dataset, root, new_dict)
+    prior_ts = prior.get("generated_at_utc") if prior else None
+    return prior_ts if isinstance(prior_ts, str) and prior_ts else new_dict["generated_at_utc"]
 
 def build_one(dataset: str, root: Path, generated_at: str | None, check: bool = False) -> int:
     """Build single dataset manifest; honors --check and timestamp preservation; returns exit code."""
@@ -75,6 +79,15 @@ def build_one(dataset: str, root: Path, generated_at: str | None, check: bool = 
     if ts != new_dict["generated_at_utc"]:
         # rebuild with preserved timestamp for determinism
         new_dict = build_manifest_dict(dataset, root=root, generated_at_utc=ts)
+    # A manifest commit changes HEAD without changing the hashed inputs. Keep
+    # generation metadata stable in that case so --check remains meaningful.
+    prior = _prior_with_same_inputs(dataset, root, new_dict) if generated_at is None else None
+    if prior:
+        new_dict["generated_from_commit"] = prior.get("generated_from_commit")
+        prior_source = prior.get("source_integrity", {})
+        for key in ("git_commit", "git_is_dirty_whole", "git_is_dirty_execution"):
+            if key in prior_source:
+                new_dict["source_integrity"][key] = prior_source[key]
     # deterministic bytes
     new_bytes = deterministic_json_bytes(new_dict)
     if check:
