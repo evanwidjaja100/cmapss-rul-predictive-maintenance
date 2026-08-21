@@ -1,21 +1,21 @@
 {
   "artifacts": [
     {
-      "bytes": 74,
+      "bytes": 69,
       "hash_kind": "raw_sha256",
       "path": "experiments/v2_2/fd004_best_epochs.csv",
       "required_in_clean_clone": true,
       "role": "best_epochs",
-      "sha256": "a8643a7b9ac60a499eb557cd29cfc432f697e04e24056a75fd967dd2f28fbf13",
+      "sha256": "ea163a90f6a8cef74d0047a5fdb3ee95273804cb81deac5e60d10c03e25e3655",
       "storage_class": "git"
     },
     {
-      "bytes": 7049,
+      "bytes": 6800,
       "hash_kind": "raw_sha256",
       "path": "experiments/v2_2/fd004_official_predictions.csv",
       "required_in_clean_clone": true,
       "role": "canonical_official_predictions",
-      "sha256": "3489efda5b204b366236366eac3234c35cd5c52639f40f6c15cc5fa86cb35a28",
+      "sha256": "95fde4e2f1c3caae12169c891ad88e2e54fda7a3a9fd6274c64fd432b90a64f3",
       "storage_class": "git"
     },
     {
@@ -37,12 +37,12 @@
       "storage_class": "git"
     },
     {
-      "bytes": 4371,
+      "bytes": 4205,
       "hash_kind": "raw_sha256",
       "path": "requirements-lock.txt",
       "required_in_clean_clone": true,
       "role": "constraints_lock",
-      "sha256": "0a790671489289398271409f1f4eb86e39d0f1a63b2c5e0dded62a0ffad1bc21",
+      "sha256": "3e24e2aaf79f8137e5e26284a7ce5ce31d8dd283c3de713cd5223efd6f60a7dc",
       "storage_class": "git"
     },
     {
@@ -55,21 +55,21 @@
       "storage_class": "git"
     },
     {
-      "bytes": 2698,
+      "bytes": 2436,
       "hash_kind": "raw_sha256",
       "path": "experiments/v2_2/fd004_final_fit_metadata.json",
       "required_in_clean_clone": true,
       "role": "final_metadata",
-      "sha256": "80bfc38a6e45291726e5434e140248fa8b2957f65cee8f99b8cc6a42c7d9c95a",
+      "sha256": "b51c72a498a0bdaa4d9e9790099375002f256399234ff47722851a5b9326b074",
       "storage_class": "git"
     },
     {
-      "bytes": 448,
+      "bytes": 436,
       "hash_kind": "raw_sha256",
       "path": "experiments/v2_2/fd004_final_metrics.json",
       "required_in_clean_clone": true,
       "role": "final_metrics",
-      "sha256": "9bb92143520dc4cda4f1d1fe21d2c905cc7311215a58c54e4413db205eeb4359",
+      "sha256": "db800334dcd00781eaa98061830f38719c5df4ecea62c987d63e8117360cb678",
       "storage_class": "git"
     },
     {
@@ -82,48 +82,48 @@
       "storage_class": "local"
     },
     {
-      "bytes": 7049,
+      "bytes": 6800,
       "hash_kind": "raw_sha256",
       "path": "reports/tables/v2_2_fd004_predictions.csv",
       "required_in_clean_clone": true,
       "role": "report_table_mirror",
-      "sha256": "3489efda5b204b366236366eac3234c35cd5c52639f40f6c15cc5fa86cb35a28",
+      "sha256": "95fde4e2f1c3caae12169c891ad88e2e54fda7a3a9fd6274c64fd432b90a64f3",
       "storage_class": "git"
     },
     {
-      "bytes": 2720,
+      "bytes": 2455,
       "hash_kind": "raw_sha256",
       "path": "experiments/splits/FD004_v2_seed42.json",
       "required_in_clean_clone": true,
       "role": "split_json",
-      "sha256": "d954d9b77e637e5359636cfcf9372e7af4494d653c8170af635f09d491735fdf",
+      "sha256": "9ace791439f39071f19449f744512447ce2881d0e6fea5f44cc32b2fffb3c28c",
       "storage_class": "git"
     },
     {
-      "bytes": 3847,
+      "bytes": 3661,
       "hash_kind": "raw_sha256",
       "path": "experiments/splits/fd004_v2_1_validation_cutoffs.csv",
       "required_in_clean_clone": true,
       "role": "validation_cutoffs",
-      "sha256": "3fd6486746471fd672b2aa587c905c67962f6a9726aa144ac26973d348a9528f",
+      "sha256": "337cd23bcaa8680e77fcf6d7be76de72c5147d389525610e1bb719f94e4139fb",
       "storage_class": "git"
     },
     {
-      "bytes": 25291,
+      "bytes": 24550,
       "hash_kind": "raw_sha256",
       "path": "experiments/v2_2/fd004_variant_predictions.csv",
       "required_in_clean_clone": true,
       "role": "variant_predictions",
-      "sha256": "fca29f586a88b853be5adcba9bf19ecfa6e983122420cc5de709c11f6d7f55a3",
+      "sha256": "7e7996560ac36c6e9ff82fdeeda6b3c1e4ffd620f93bb76f5673aa082a10d18b",
       "storage_class": "git"
     },
     {
-      "bytes": 602,
+      "bytes": 597,
       "hash_kind": "raw_sha256",
       "path": "experiments/v2_2/fd004_variant_results.csv",
       "required_in_clean_clone": true,
       "role": "variant_results",
-      "sha256": "399dd33921561fb09b62e9d579ba5509956efc42dd8efe8e93e48e9934a3e134",
+      "sha256": "660cd2dd6803c8d954b6f88d775974251eb6d7c10b208241e30e91beed322760",
       "storage_class": "git"
     }
   ],
@@ -145,17 +145,17 @@
       "storage_class": "git"
     },
     {
-      "bytes": 4371,
+      "bytes": 4205,
       "hash_kind": "raw_sha256",
       "path": "requirements-lock.txt",
       "required_in_clean_clone": true,
-      "sha256": "0a790671489289398271409f1f4eb86e39d0f1a63b2c5e0dded62a0ffad1bc21",
+      "sha256": "3e24e2aaf79f8137e5e26284a7ce5ce31d8dd283c3de713cd5223efd6f60a7dc",
       "storage_class": "git"
     }
   ],
   "dataset": "FD004",
   "generated_at_utc": "2026-08-21T00:00:00Z",
-  "generated_from_commit": "6151773773fbfc3e8e420dda01fd423e255be87d",
+  "generated_from_commit": "8529ecf5fa25ea8a3b146a17d49fd577b71181d2",
   "historical_training_provenance": {
     "historical_commit": null,
     "note_config_hash_distinction": "config_file_sha256 vs config_canonical_sha256; new YAML is post-training normalized (structured optimizer) and behaviorally equivalent, raw hash is not historical training hash (not historical training hash)",
@@ -259,10 +259,10 @@
   "source_integrity": {
     "algorithm": "cmapss-tracked-source-v1",
     "file_count": 90,
-    "git_commit": "6151773773fbfc3e8e420dda01fd423e255be87d",
+    "git_commit": "8529ecf5fa25ea8a3b146a17d49fd577b71181d2",
     "git_is_dirty_execution": true,
     "git_is_dirty_whole": true,
     "note": "Manifest generation time is not training time; this source_tree_hash is current generation-time hash, not historical training hash",
-    "source_tree_hash": "ed656dd2d8c1dd6c9734112d2bee35c8050bb3a715cc117fc017760db86706fd"
+    "source_tree_hash": "47ccb314706d92b6c1531e8c2ff1c9d2ed96f838a068fd9ef73f48c53aeedf27"
   }
 }

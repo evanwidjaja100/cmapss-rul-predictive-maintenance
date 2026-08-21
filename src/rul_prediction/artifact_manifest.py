@@ -217,6 +217,53 @@ def sha256_file(path: Path | str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+
+def _sha256_git_blob_or_file(posix_path: str, root: Path) -> tuple[str, int]:
+    """Return (sha256, bytes) for tracked file via git blob (stable across autocrlf) or filesystem.
+
+    For `git` storage_class artifacts, hash the blob as stored in HEAD (LF normalized)
+    via `git show HEAD:<path>` when available; fallback to filesystem if not in HEAD
+    (e.g., newly staged file not yet committed). For `local` artifacts, hash filesystem.
+    This makes manifest deterministic across Windows (CRLF checkout) and Linux (LF).
+    """
+    # try git blob first for tracked files
+    try:
+        # Use git cat-file to get blob directly if HEAD exists
+        out = subprocess.run(
+            ["git", "show", f"HEAD:{posix_path}"],
+            capture_output=True,
+            check=False,
+            cwd=str(root),
+        )
+        if out.returncode == 0:
+            data = out.stdout
+            return hashlib.sha256(data).hexdigest(), len(data)
+    except Exception:
+        pass
+    # fallback: try index (staged but not in HEAD)
+    try:
+        out = subprocess.run(
+            ["git", "show", f":{posix_path}"],
+            capture_output=True,
+            check=False,
+            cwd=str(root),
+        )
+        if out.returncode == 0:
+            data = out.stdout
+            return hashlib.sha256(data).hexdigest(), len(data)
+    except Exception:
+        pass
+    # fallback to filesystem (for local artifacts or untracked)
+    p = root / PurePosixPath(posix_path)
+    data = p.read_bytes()
+    # Normalize CRLF to LF for text files to avoid autocrlf mismatch?
+    # We already tried git blob; if we are here, file may be local binary or not in git.
+    # For remaining git text files that are not in HEAD/index (unlikely), we normalize
+    # to be safe for cross-platform determinism.
+    if p.suffix.lower() in {".txt", ".csv", ".yaml", ".yml", ".json", ".md", ".py", ".toml"}:
+        data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest(), len(data)
+
 def _validate_posix_path(posix_path: str, *, manifest_path: str | None = None) -> None:
     if not isinstance(posix_path, str) or not posix_path:
         raise ArtifactManifestError(f"path must be non-empty str, got {posix_path!r}")
@@ -272,15 +319,31 @@ def _collect_file_artifact(spec: dict[str, Any], root: Path) -> dict[str, Any]:
     # check wrong identity: dataset-specific path sanity
     # For FD001 spec, paths should not mix? We keep light check: role-based sanity occurs outside
     p = root / PurePosixPath(posix_path)
-    if not p.exists():
-        # for local files absent is permitted in tracked mode, but builder expects existence
-        # we still record missing as error for builder; verifier handles missing semantics
-        # Here we provide placeholder for missing? But builder should fail closed unless explicitly allowed
-        # So we raise ArtifactMissingError for builder context
-        raise ArtifactMissingError(f"artifact {role} missing: {posix_path} (root {root})")
-    # hash before anything else (fail closed)
-    sha = sha256_file(p)
-    size = p.stat().st_size
+    # existence check: for git files, check via git blob or filesystem; for local, filesystem only
+    if storage_class == "git":
+        # git files must exist either as blob in HEAD/index or as file on disk
+        # we consider missing if neither blob nor file exists
+        blob_exists = False
+        try:
+            out = subprocess.run(["git", "cat-file", "-e", f"HEAD:{posix_path}"], capture_output=True, check=False, cwd=str(root))
+            if out.returncode == 0:
+                blob_exists = True
+            else:
+                out2 = subprocess.run(["git", "cat-file", "-e", f":{posix_path}"], capture_output=True, check=False, cwd=str(root))
+                if out2.returncode == 0:
+                    blob_exists = True
+        except Exception:
+            blob_exists = False
+        if not blob_exists and not p.exists():
+            raise ArtifactMissingError(f"artifact {role} missing: {posix_path} (root {root})")
+        # hash via git blob for stability across autocrlf (LF vs CRLF)
+        sha, size = _sha256_git_blob_or_file(posix_path, root)
+    else:
+        if not p.exists():
+            raise ArtifactMissingError(f"artifact {role} missing: {posix_path} (root {root})")
+        # hash before anything else (fail closed) — filesystem for local binaries
+        sha = sha256_file(p)
+        size = p.stat().st_size
     # check baseline immutability for known binaries
     # ensure model binaries have not changed
     if role == "model" and "fd001" in posix_path:
@@ -329,7 +392,8 @@ def _config_integrity_context(root: Path, dataset: str) -> dict[str, Any]:
         cfg_path = root / "configs" / "final_model_v2_2_fd001.yaml"
         if not cfg_path.exists():
             raise ArtifactMissingError(f"FD001 final config missing: {cfg_path}")
-        file_sha = sha256_file(cfg_path)
+        # Use git blob for stability across autocrlf (LF vs CRLF)
+        file_sha, _ = _sha256_git_blob_or_file("configs/final_model_v2_2_fd001.yaml", root)
         # canonical: yaml -> json canonical via sort_keys
         try:
             import yaml
@@ -351,7 +415,7 @@ def _config_integrity_context(root: Path, dataset: str) -> dict[str, Any]:
         cfg_path = root / "configs" / "final_model_v2_2_fd004.yaml"
         if not cfg_path.exists():
             raise ArtifactMissingError(f"FD004 final config missing: {cfg_path}")
-        file_sha = sha256_file(cfg_path)
+        file_sha, _ = _sha256_git_blob_or_file("configs/final_model_v2_2_fd004.yaml", root)
         cfg = load_fd004_final_config(cfg_path, root=root)
         canonical_sha = cfg.config_canonical_sha256
         return {
@@ -369,12 +433,21 @@ def _constraints_integrity_context(root: Path) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for posix in ["requirements.txt", "requirements-lock.txt"]:
         p = root / posix
-        if not p.exists():
+        # check existence via blob or filesystem
+        blob_exists = False
+        try:
+            out_b = subprocess.run(["git", "cat-file", "-e", f"HEAD:{posix}"], capture_output=True, check=False, cwd=str(root))
+            if out_b.returncode == 0:
+                blob_exists = True
+        except Exception:
+            pass
+        if not blob_exists and not p.exists():
             raise ArtifactMissingError(f"constraints missing: {posix}")
+        sha, size = _sha256_git_blob_or_file(posix, root)
         out.append({
             "path": posix,
-            "sha256": sha256_file(p),
-            "bytes": int(p.stat().st_size),
+            "sha256": sha,
+            "bytes": int(size),
             "storage_class": "git",
             "required_in_clean_clone": True,
             "hash_kind": "raw_sha256",
@@ -675,10 +748,24 @@ def verify_manifest_file(manifest_path: Path | str, root: Path | str | None = No
             skipped_absent_local += 1
             continue
         if not exists:
-            raise ArtifactMissingError(f"missing required artifact {role}: {posix_path} (mode {mode}, storage {storage})")
+            # for git files, also check blob existence (handles autocrlf where file may be considered missing but blob exists)
+            blob_exists = False
+            if storage == "git":
+                try:
+                    out = subprocess.run(["git", "cat-file", "-e", f"HEAD:{posix_path}"], capture_output=True, check=False, cwd=str(r))
+                    if out.returncode == 0:
+                        blob_exists = True
+                except Exception:
+                    pass
+            if not blob_exists:
+                raise ArtifactMissingError(f"missing required artifact {role}: {posix_path} (mode {mode}, storage {storage})")
         # present: verify hash before deserialization (hash check is the deserialization gate)
-        actual_sha = sha256_file(p)
-        actual_bytes = p.stat().st_size
+        # For git files, use blob hash for cross-platform stability (LF vs CRLF)
+        if storage == "git":
+            actual_sha, actual_bytes = _sha256_git_blob_or_file(posix_path, r)
+        else:
+            actual_sha = sha256_file(p)
+            actual_bytes = p.stat().st_size
         if actual_sha.lower() != expected_sha.lower() or actual_bytes != int(expected_bytes):
             raise ArtifactHashMismatchError(
                 f"hash mismatch for {role} {posix_path}: expected {expected_sha} ({expected_bytes} bytes), got {actual_sha} ({actual_bytes} bytes)"
@@ -761,19 +848,33 @@ def verify_before_load(posix_path: str, root: Path | str | None = None, manifest
         )
     # verify existence
     p = r / rel_str
-    if not p.exists():
+    storage = entry.get("storage_class", "git")
+    # for git files, consider blob existence as well (autocrlf)
+    exists = p.exists()
+    if not exists and storage == "git":
+        try:
+            out = subprocess.run(["git", "cat-file", "-e", f"HEAD:{rel_str}"], capture_output=True, check=False, cwd=str(r))
+            if out.returncode == 0:
+                exists = True
+        except Exception:
+            exists = False
+    if not exists:
         raise ArtifactMissingError(
             f"artifact absent: {rel_str} (role {entry['role']}). Generate it with scripts/build_v2_2_artifact_manifests.py or scripts/run_v2_2_freeze.py "
             f"(friendly guidance: ensure {rel_str} exists; for local artifacts run freeze)"
         )
-    actual_sha = sha256_file(p)
+    if storage == "git":
+        actual_sha, actual_bytes = _sha256_git_blob_or_file(rel_str, r)
+    else:
+        actual_sha = sha256_file(p)
+        actual_bytes = p.stat().st_size
     if actual_sha.lower() != entry["sha256"].lower():
         raise ArtifactHashMismatchError(
             f"present artifact hash mismatch for {rel_str} (role {entry['role']}): expected {entry['sha256']}, got {actual_sha} (hard failure before deserialization)"
         )
     # bytes also check
-    if p.stat().st_size != int(entry["bytes"]):
+    if actual_bytes != int(entry["bytes"]):
         raise ArtifactHashMismatchError(
-            f"size mismatch for {rel_str}: expected {entry['bytes']}, got {p.stat().st_size}"
+            f"size mismatch for {rel_str}: expected {entry['bytes']}, got {actual_bytes}"
         )
 

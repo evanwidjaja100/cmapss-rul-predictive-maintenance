@@ -244,7 +244,7 @@ FD004 full: 14/14 verified, skipped 0 local absent (total 14)
 [check] FD001 manifest OK (no rewrite, deterministic, 15093 bytes)
 [check] FD004 manifest OK (no rewrite, deterministic, 9394 bytes)
 ```
-Tamper (append to `fd001_cv_summary.csv` in temp bundle) → `ArtifactHashMismatchError` before deserialization; missing local → tracked `skipped 1` passes, full `ArtifactMissingError`; present wrong local → both modes `ArtifactHashMismatchError`. Tests: 28 passed in `test_v2_2_artifact_manifests.py`.
+Tamper (append to `experiments/v2_2/fd001_cv_summary.csv` in temp bundle) → `ArtifactHashMismatchError` before deserialization; missing local → tracked `skipped 1` passes, full `ArtifactMissingError`; present wrong local → both modes `ArtifactHashMismatchError`. Tests: 28 passed in `test_v2_2_artifact_manifests.py`.
 
 ---
 
@@ -395,11 +395,11 @@ Gate P7: bare import side-effect free in clean clone, XGBoost no TF, headless lo
 
 **No-retrain gates:** Four binary hashes recomputed from `models/v2_2` and verified equal to Section 4 before and after each phase; `git diff --check` clean.
 
-**FD001 CV:** `experiments/v2_2/fd001_outer_fold_results.csv` 40 rows, 8 candidates × folds 1–5, hard gate `assert_cv_complete` passes. Summary via `benchmark/v2_2.cv_summary` recomputed and matches `fd001_cv_summary.csv` within existing tolerances. Selection via `apply_selection_policy` recomputed: `deployment_selection=xgb_w90_d6`, `accuracy_champion=lstm_w60_huber`, `nasa_risk_champion=xgb_w90_d6`, `pooled_se_ties=[xgb_w90_d6]` — matches `selection_decision.json` exactly.
+**FD001 CV:** `experiments/v2_2/fd001_outer_fold_results.csv` 40 rows, 8 candidates × folds 1–5, hard gate `assert_cv_complete` passes. Summary via `benchmark/v2_2.cv_summary` recomputed and matches `experiments/v2_2/fd001_cv_summary.csv` within existing tolerances. Selection via `apply_selection_policy` recomputed: `deployment_selection=xgb_w90_d6`, `accuracy_champion=lstm_w60_huber`, `nasa_risk_champion=xgb_w90_d6`, `pooled_se_ties=[xgb_w90_d6]` — matches `selection_decision.json` exactly.
 
 **FD001 headline metrics:** Official `experiments/v2_2/fd001_final_metrics.json` (`RMSE 26.2526`, `NASA 60963.79`) recomputed from `fd001_official_predictions.csv` within tolerance (falsification test `test_final_evaluation` passes).
 
-**FD004:** Variant results `experiments/v2_2/fd004_variant_results.csv` (A 72.41/75343, B 72.4095/75333, C 29.8278/1448.64, D 33.9679/81963) unchanged; falsification `test_v2_2_fd004_config` still selects C (NASA per engine, then RMSE). `FD004` official `fd004_final_metrics.json` recomputed from `fd004_variant_predictions.csv` + canonical `fd004_official_predictions.csv` (7049 bytes, `3489efda` vs mirror) within tolerance.
+**FD004:** Variant results `experiments/v2_2/fd004_variant_results.csv` (A 72.41/75343, B 72.4095/75333, C 29.8278/1448.64, D 33.9679/81963) unchanged; falsification `test_v2_2_fd004_config` still selects C (NASA per engine, then RMSE). `FD004` official `fd004_final_metrics.json` recomputed from `experiments/v2_2/fd004_variant_predictions.csv` + canonical `fd004_official_predictions.csv` (7049 bytes, `3489efda` vs mirror) within tolerance.
 
 **Conformal:** `experiments/v2_2/conformal_calibration.json` 15 engine scores, `q_by_alpha` 66.2097 / 44.7955 / 41.4224 for α 0.1/0.2/0.3 recomputed from `fd001_conformal_engine_scores.csv` via `max |pred-true|` per engine; matches exactly.
 
