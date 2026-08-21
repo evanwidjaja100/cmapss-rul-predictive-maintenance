@@ -120,7 +120,14 @@ def sha256_file(path: Path | str) -> str:
 
 
 def _is_execution_input(posix_path: str) -> bool:
-    """Return True if tracked POSIX path is an execution input per versioned scope."""
+    """Return True if tracked POSIX path is an execution input per versioned scope.
+
+    Explicitly excludes __pycache__, .pyc, .egg-info, models, raw data, pytest caches
+    even if force-tracked (per 10.1, P2-1).
+    """
+    # Exclude non-execution artifacts even if force-tracked
+    if "__pycache__" in posix_path or posix_path.endswith(".pyc") or ".egg-info" in posix_path:
+        return False
     if posix_path in EXECUTION_INPUT_EXACT:
         return True
     for pref in EXECUTION_INPUT_PREFIXES:
@@ -337,24 +344,38 @@ def _parse_status_for_dirty(root: Path) -> dict:
             # ignored: "! <path>"
             continue
         if s.startswith("1") or s.startswith("2") or s.startswith("u"):
-            # Ordinary/rename/unmerged entries
-            # Extract path(s): for "2" there is tab separating new and orig
+            # Ordinary/rename/unmerged entries — robust to spaces in path (P2-2)
+            # Porcelain v2: fields are SP-separated; path may contain spaces and is the remainder after fixed fields.
+            # For "1"/"u": "1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>"
+            # For "2": "2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path><tab><origPath>"
             if "\t" in s:
-                # split on tab: header_and_new_path \t origPath
-                tab_parts = s.split("\t")
-                header_and_new = tab_parts[0]
-                orig = tab_parts[1] if len(tab_parts) > 1 else ""
-                # new path is last token of header_and_new after space
-                new_path = header_and_new.split()[-1].strip() if header_and_new.split() else ""
+                # split on tab: header_and_new_path \t origPath (origPath may also contain spaces, but we preserve as is)
+                header_and_new, orig = s.split("\t", 1)
+                # header_and_new contains fixed fields + path. Extract path as remainder after 8th SP (for "2", after Xscore)
+                # Use split with maxsplit to isolate path: for "2", there are 9 fields before path (1, XY, sub, mH, mI, mW, hH, hI, Xscore)
+                # We split header_and_new with maxsplit 9 to get path as last part
+                # Determine expected field count: 8 for "1"/"u", 9 for "2"
+                maxsplit = 9 if s.startswith("2") else 8
+                # header_and_new starts with "2 " or "1 " etc., so split
+                parts = header_and_new.split(" ", maxsplit)
+                new_path = parts[-1].strip() if len(parts) > maxsplit else header_and_new.split(" ", 1)[-1].strip()
+                # For safety, if new_path still contains leading hash-like token, split once more
+                # The last field before path for "2" is Xscore (e.g., "R100"), for "1" is hI hash.
+                # Our maxsplit already isolates path, but if path contains spaces, it remains intact as last part.
                 paths = [new_path]
                 if orig:
                     paths.append(orig.strip())
-                # Use new_path as canonical for staged/unstaged lists
                 canonical_path = new_path
             else:
-                # no tab: path is last whitespace token
-                tokens = s.split()
-                canonical_path = tokens[-1].strip() if tokens else ""
+                # no tab: path is remainder after fixed fields, may contain spaces
+                maxsplit = 9 if s.startswith("2") else 8
+                # Split with maxsplit to preserve path with spaces
+                parts = s.split(" ", maxsplit)
+                if len(parts) > maxsplit:
+                    canonical_path = parts[-1].strip()
+                else:
+                    # fallback: take last token (for malformed)
+                    canonical_path = s.split()[-1].strip() if s.split() else ""
                 paths = [canonical_path]
             # XY at s[2:4] for "1 " and "2 " lines
             xy = s[2:4] if len(s) >= 4 else "  "
@@ -647,24 +668,27 @@ def assert_reproducible_run_state(
     # We allow any caller-supplied destination but reject path traversal that would escape via ..
     if ".." in snap.parts:
         raise DirtyExecutionError(f"snapshot_dir must not contain '..': {snap}")
-    # Do not allow snapshot inside tracked repo evidence without explicit confirmation? Per spec, if snapshot is ever proposed for tracked evidence, stop and require confirmation.
-    # We check if snap is under experiments/ or configs etc. and warn
+    # Do not allow snapshot inside tracked repo evidence without explicit confirmation (P1-2 fix: explicit token, not substring)
+    # Per spec 10.3, if snapshot is ever proposed for tracked evidence, stop and obtain explicit user confirmation after showing destination and sensitive-data risk summary.
     try:
         snap_resolved = snap.resolve()
         repo_resolved = r.resolve()
-        # If snapshot is inside repo and under experiments/, report risk
         try:
             snap_resolved.relative_to(repo_resolved)
             # inside repo
             if "experiments" in snap_resolved.parts or "configs" in snap_resolved.parts:
-                # Report sensitive risk but require explicit confirmation - here we just raise unless caller acknowledges via reason containing confirmation?
-                # For now, we include a warning in provenance but still allow if reason mentions "confirm" or "approved"
-                if "confirm" not in dirty_reason.lower() and "approved" not in dirty_reason.lower():
-                    # We will still proceed but include risk summary; spec says stop and obtain explicit user confirmation after showing destination and risk.
-                    # To be safe, we fail closed here unless reason explicitly acknowledges.
+                # Require explicit token, not weak substring, and include risk summary after inventory is available.
+                # We check for explicit tokens "confirm_tracked_evidence" or "approved_tracked_evidence"
+                has_explicit_confirm = (
+                    "confirm_tracked_evidence" in dirty_reason.lower()
+                    or "approved_tracked_evidence" in dirty_reason.lower()
+                )
+                if not has_explicit_confirm:
                     raise DirtyExecutionError(
                         f"snapshot destination {snap_resolved} is inside tracked evidence area (experiments/configs). "
-                        "Explicit user confirmation required (include 'confirm' in dirty_reason) after reviewing sensitive-data risk."
+                        "Explicit user confirmation required (include 'confirm_tracked_evidence' in dirty_reason) after reviewing destination and sensitive-data risk summary. "
+                        f"Destination: {snap_resolved}, repo: {repo_resolved}, reason: {dirty_reason!r}. "
+                        "Sensitive-data risk: snapshots of tracked evidence may contain sensitive experiment data; review inventory before confirming."
                     )
         except ValueError:
             pass  # outside repo, fine

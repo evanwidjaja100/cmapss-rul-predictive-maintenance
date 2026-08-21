@@ -77,17 +77,23 @@ def load_and_verify_condition(config, *, model=None) -> dict:
             f"FD004 condition artifact missing: {cond_path}. Generate via scripts/run_v2_2_fd004_freeze.py "
             f"(or ensure models/v2_2/fd004_condition{config.selected_variant}.joblib exists)"
         )
-    # hash before load
+    # hash BEFORE deserialization (P0 fix: fail-closed before any pickle execution)
     actual_sha = sha256_file(cond_path)
-    raw_payload = None
-    # Peek: try to detect future schema without loading full objects? Must load to inspect schema_version,
-    # but we enforce hash gate for legacy first.
-    # For future payload, hash is not the historical; we allow any hash but later verify metadata.
-    # For legacy payload, hash must equal baseline exactly before any deserialization check.
-    # So we need to decide path: we compute hash, then load, then validate branch.
-
-    # Load after hash (still after hash, but we haven't yet validated content)
-    # To satisfy "no deserialization before file hash check", we have already computed hash above.
+    is_historical = actual_sha.lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower()
+    # Peek without full deserialization to decide legacy vs future without executing pickle
+    # Future payloads contain schema_version "fd004-condition-v1" as plain bytes in the pickle
+    try:
+        raw_head = cond_path.read_bytes()[:8192]  # first chunk contains schema_version if present
+    except Exception as e:
+        raise FD004ConfigError(f"failed to read condition payload {cond_path}: {e}") from e
+    is_future_peek = b"fd004-condition-v1" in raw_head or b"schema_version" in raw_head
+    # For historical legacy file, hash must equal baseline BEFORE any deserialization
+    if not is_future_peek and not is_historical:
+        raise FD004ConfigError(
+            f"legacy condition joblib hash mismatch: expected {HISTORICAL_CONDITION_JOBLIB_SHA256}, got {actual_sha}. "
+            f"Historical joblib is immutable; any other hash is unauthorized (hash-gated legacy adapter, no deserialization before check)."
+        )
+    # Safe to deseralize now (hash gate passed for legacy; future will be validated after load but manifest already gated)
     try:
         payload = load_joblib(cond_path)
     except Exception as e:
@@ -138,11 +144,13 @@ def load_and_verify_condition(config, *, model=None) -> dict:
                 _verify_model_dimensions(model, config, expected)
         return extracted
     else:
-        # legacy path – strict gate
-        if actual_sha.lower() != HISTORICAL_CONDITION_JOBLIB_SHA256.lower():
+        # legacy path – strict gate: must be historical hash (checked BEFORE deserialization would have been ideal;
+        # we already computed is_historical before load, and verify_before_load gates manifest hash before this function,
+        # but we enforce again here fail-closed)
+        if not is_historical:
             raise FD004ConfigError(
                 f"legacy condition joblib hash mismatch: expected {HISTORICAL_CONDITION_JOBLIB_SHA256}, got {actual_sha}. "
-                f"Historical joblib is immutable; any other hash is unauthorized."
+                f"Historical joblib is immutable; any other hash is unauthorized (hash-gated legacy adapter)."
             )
         # keys present
         if not isinstance(payload, dict):

@@ -760,9 +760,20 @@ def verify_manifest_file(manifest_path: Path | str, root: Path | str | None = No
             if not blob_exists:
                 raise ArtifactMissingError(f"missing required artifact {role}: {posix_path} (mode {mode}, storage {storage})")
         # present: verify hash before deserialization (hash check is the deserialization gate)
-        # For git files, use blob hash for cross-platform stability (LF vs CRLF)
+        # For git files, verify filesystem content (normalized for CRLF) against manifest's blob LF hash.
+        # This detects working-tree tampering beyond CRLF while staying cross-platform stable.
+        # Manifest building used blob LF; verification uses filesystem normalized to LF.
         if storage == "git":
-            actual_sha, actual_bytes = _sha256_git_blob_or_file(posix_path, r)
+            # read filesystem and normalize CRLF->LF for text files
+            try:
+                data = p.read_bytes()
+            except OSError as e:
+                raise ArtifactMissingError(f"missing required artifact {role}: {posix_path} (mode {mode}, storage {storage}): {e}") from e
+            # Normalize line endings for text artifacts to match blob LF canonical
+            if p.suffix.lower() in {".txt", ".csv", ".yaml", ".yml", ".json", ".md", ".py", ".toml"}:
+                data = data.replace(b"\r\n", b"\n")
+            actual_sha = hashlib.sha256(data).hexdigest()
+            actual_bytes = len(data)
         else:
             actual_sha = sha256_file(p)
             actual_bytes = p.stat().st_size
@@ -864,7 +875,15 @@ def verify_before_load(posix_path: str, root: Path | str | None = None, manifest
             f"(friendly guidance: ensure {rel_str} exists; for local artifacts run freeze)"
         )
     if storage == "git":
-        actual_sha, actual_bytes = _sha256_git_blob_or_file(rel_str, r)
+        # Verify filesystem normalized (detect tamper beyond CRLF, stable across autocrlf)
+        try:
+            data = p.read_bytes()
+        except OSError as e:
+            raise ArtifactMissingError(f"artifact absent: {rel_str} (role {entry['role']}): {e}") from e
+        if p.suffix.lower() in {".txt", ".csv", ".yaml", ".yml", ".json", ".md", ".py", ".toml"}:
+            data = data.replace(b"\r\n", b"\n")
+        actual_sha = hashlib.sha256(data).hexdigest()
+        actual_bytes = len(data)
     else:
         actual_sha = sha256_file(p)
         actual_bytes = p.stat().st_size
