@@ -7,6 +7,8 @@ import pytest
 from rul_prediction.data.loader import DATA_COLUMNS
 from rul_prediction.data.validation import validate_frame, validate_rul
 
+pytestmark = pytest.mark.unit
+
 
 def _frame(n_engines: int = 3, max_cycle: int = 10) -> pd.DataFrame:
     rows = [

@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.unit
+
 FIN_EVAL = Path(__file__).resolve().parents[1] / "scripts" / "final_evaluation.py"
 
 

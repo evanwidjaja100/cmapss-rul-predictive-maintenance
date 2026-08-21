@@ -39,6 +39,8 @@ from rul_prediction.benchmark.v2_2 import (
 )
 from rul_prediction.data.canonical_hash import canonical_sha256_csv, canonical_sha256_json
 
+pytestmark = pytest.mark.unit
+
 DEV_85 = set(range(1, 101)) - {22, 27, 31, 33, 34, 38, 46, 49, 50, 77, 81, 84, 88, 93, 97}
 CAL_15 = {22, 27, 31, 33, 34, 38, 46, 49, 50, 77, 81, 84, 88, 93, 97}
 

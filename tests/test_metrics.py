@@ -4,6 +4,9 @@ import numpy as np
 
 from rul_prediction.evaluation.metrics import mae, r2, rmse
 from rul_prediction.evaluation.nasa_score import nasa_score
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_rmse():

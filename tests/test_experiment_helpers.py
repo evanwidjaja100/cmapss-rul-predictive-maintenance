@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 RUN_EXPERIMENT = Path(__file__).resolve().parents[1] / "scripts" / "run_experiment.py"
 
 

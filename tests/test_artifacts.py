@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.needs_artifacts]
+
 PROCESSED = Path("data/processed")
 BASE = PROCESSED / "FD001_w30_c125_all"
 

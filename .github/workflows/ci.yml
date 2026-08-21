@@ -11,13 +11,44 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install dependencies
+          python-version: "3.12.10"
+      - name: Select constraints file (platform rule)
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e . --no-deps
-      - name: Run artifact-free unit tests
-        run: python -m pytest -m "not needs_artifacts"
-      - name: Report skipped (artifact-gated) tests
-        run: python -m pytest -m needs_artifacts --collect-only -q | tail -5
+          echo "Python 3.12.10 pinned per V2.2 configs (validated pip 26.2.1)"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            echo "CONSTRAINTS=requirements-ci-linux-py312.txt" >> $GITHUB_ENV
+            echo "Selected Linux constraints: requirements-ci-linux-py312.txt"
+            ls -l requirements-ci-linux-py312.txt
+            sha256sum requirements-ci-linux-py312.txt | head -c 16
+          else
+            echo "CONSTRAINTS=requirements-lock.txt" >> $GITHUB_ENV
+            echo "Selected Windows constraints: requirements-lock.txt"
+          fi
+          cat requirements.txt | head -20
+      - name: Install dependencies (pinned pip + constraints)
+        run: |
+          python -m pip install "pip==26.2.1"
+          python -m pip --version
+          python -m pip install -r requirements.txt -c $CONSTRAINTS
+          python -m pip install -e . --no-deps
+          python -m pip check
+      - name: Dependency consistency (subset/category, no path deps, CI consumes platform constraints, Python policy)
+        run: |
+          python scripts/check_dependency_consistency.py
+          echo "pip check (post-install):"
+          python -m pip check
+          echo "Selected constraints: $CONSTRAINTS sha=$(sha256sum $CONSTRAINTS | cut -d' ' -f1)"
+      - name: Repository integrity / static contracts
+        run: python -m pytest -m static_contract -v
+      - name: Unit tests
+        run: python -m pytest -m unit -v
+      - name: Tracked-artifact falsification
+        run: python -m pytest -m tracked_artifacts -v
+      - name: Artifact-free integration
+        run: python -m pytest -m "integration and not needs_artifacts" -v
+      - name: App import smoke (artifact-free)
+        run: python -m pytest -m "app_smoke and not needs_artifacts" -v
+      - name: Aggregate artifact-free guard
+        run: python -m pytest -m "not needs_artifacts" -q
+      - name: Artifact-gated discoverability (collect only)
+        run: python -m pytest -m needs_artifacts --collect-only -q

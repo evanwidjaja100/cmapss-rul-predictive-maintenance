@@ -1,0 +1,51 @@
+# V2_1_REPAIR_PLAN.md — Methodology V2.1 Repair Plan
+
+Date: 2026-08-15 (started) · Base: Methodology V2 (commits `c3c8694`…`6574b5a`) · 93 tests passing at audit
+
+## Audit summary
+
+An independent audit found four critical scientific issues plus engineering/documentation gaps:
+
+1. **C-MAPSS test trajectories are truncated before failure** — `max observed cycle` of a test engine was
+   incorrectly called its "lifetime" (e.g. "lifetime < 128", "short-lifetime engines", "OOD"). For labeled
+   analysis the correct quantity is `implied_failure_cycle = observed_cycles + true_rul`.
+2. **Model selection used one 15-engine validation set for ~45 experiments** — selection-overfitting risk;
+   calibration rows (5 cutoffs per engine) were treated as independent (n=75) in conformal calibration.
+3. **FD004 condition-aware modeling was never attempted** — the negative result stands, but explicitly
+   handling the 6 operating conditions may fix the collapse and was not tested.
+4. **Serving/Streamlit presented observed-history length as lifetime/OOD** — false OOD classification.
+
+## Issue table
+
+| ID | Problem | Scientific consequence | Files affected | Proposed correction | Required tests | Required experiment | Status | Evidence |
+|---|---|---|---|---|---|---|---|---|
+| ~~R1~~ ✅ | `cycle.max()` of official test trajectories called "lifetime" | Observed history length ≠ failure lifetime; all "short-lifetime" analyses mislabeled | `scripts/analyze_v2_errors.py`, `reports/v2_error_analysis.md`, `reports/v2_conformal.md`, `reports/v2_explainability.md`, `reports/v2_fd004.md`, `README.md`, `CHANGELOG.md`, `PROJECT_SPEC.md` | Terminology: `observed_cycles`, `true_rul`, `implied_failure_cycle`; never `lifetime` for test engines | Lifetime-semantics unit test (71+77→148); grep audit for stale terms | None (re-analysis) | DONE | 88 grep hits for lifetime<128/OOD/99.8% |
+| ~~R2~~ ✅ | `implied_failure_cycle` never computed | Missing quantity for honest post-hoc analysis | `scripts/analyze_v2_1_errors.py` (new), profile CSV | `implied_failure_cycle = observed_cycles + true_rul` stored as its own column | See R1 test | None | DONE | — |
+| ~~R3~~ ✅ | `observed_cycles < 128` served as "OOD" | False formal claim; training contains padded short histories, so short observed history is in-distribution representationally | `src/rul_prediction/serving/v2_predictor.py`, `app_v2.py`, `tests/test_v2_serving.py`, `reports/v2_serving.md` | Remove OOD; add `history_is_padded = observed_cycles < window` (objective) + optional "limited observed history" warning; any <128 flag becomes empirical "short-history risk flag", never OOD | Serving test: padded ⇒ `history_is_padded` True, no OOD field | None | DONE | `OOD_LIFETIME=128` in serving |
+| ~~R4~~ ✅ | Error analysis conflates history length with lifetime | 99.8%-of-NASA conclusion is about observed-history groups, not lifetime groups | `reports/v2_error_analysis.md`, `experiments/v2_error_profile.csv` | Rerun as `reports/v2_1_error_analysis.md` with separate observed-history, implied-lifetime, true-RUL, RUL-bin, padded vs unpadded analyses; keep old report, mark SUPERSEDED | Bucket/profile tests (artifact-free where possible) | Error-profile rerun on frozen V2.1 model | DONE | — |
+| ~~R5~~ ✅ | Model selection on 15 validation engines / 45 runs | Selection overfitting to one small set; calibration engines may have influenced nothing but risk remains | `scripts/run_v2_ablation.py`, `src/rul_prediction/benchmark/v2.py`, reports | V2.1: 85 development engines + 5-fold engine-group CV (seed 42), 15 calibration engines untouched and documented | Group-CV leakage tests: disjointness, each dev engine validated exactly once, calibration never in folds | 5-fold CV of bounded candidate set | DONE | fd001_v2 split: 70/15/15 |
+| ~~R6~~ ✅ | Cutoffs 0.50–0.95 concentrate on late life | Validation RUL distribution biased low vs official (median 86) | `src/rul_prediction/data/pseudo_test.py`, manifests | Balanced cutoffs 0.25/0.45/0.65/0.80/0.95 fixed before any comparison | Manifest test: exactly 5 cutoffs per engine at the fixed fractions | None (fold manifests) | DONE | V2 fractions tuple |
+| ~~R7~~ ✅ | Unbounded 45-config search | Selection-overfit risk, no out-of-set estimate | V2-4 reports | Bounded set ≤ 12 (choose 8: gru/lstm w45+w60 huber, rf/xgb w60+w90); no tuning until CV results | CV runner metrics test (per-fold + mean±std + engine-level) | 8 configs × 5 folds | DONE | 45-run V2 ablation |
+| ~~R8~~ ✅ | Final config hardcoded in scripts | Not auditable / not reproducible from a single source | `scripts/run_v2_freeze.py` etc. | `configs/final_model_v2_1_fd001.yaml` (+ `_fd004.yaml`) with dataset, target, model, window, loss, lr, batch, epochs, patience, seed, dev/cal ID hashes, manifest hashes, software versions, CV metrics; scripts read the config | Config-loading test (YAML ↔ run parameters) | None | DONE | V2 freeze hardcodes |
+| ~~R9~~ ✅ | Conformal calibrated 75 correlated rows as n=75 | Over-optimistic width/coverage; independence assumption violated | `scripts/calibrate_v2_conformal.py`, `src/rul_prediction/evaluation/conformal.py`, tests | Engine-level scores: `score_engine = max(abs(err))` over the 5 cutoffs → n=15 calibration scores | Engine-cluster test: 5 errors → 1 score; n=15 not 75 | Recalibration on frozen V2.1 model | DONE | V2-8 n=75 |
+| ~~R10~~ ✅ | Finite-sample quantile not explicit/clamped | Edge-case index ambiguity | `conformal.py` | `k = ceil((n+1)(1-α))`, clamp 1≤k≤n, explicit ordered-score index; unit test | Quantile-index test (incl. n=15, α=0.1/0.2/0.3) | None | DONE | current uses np.quantile level |
+| ~~R11~~ ✅ | Conformal wording may overclaim ("90% guarantee" for arbitrary real-time obs) | Statistical misrepresentation | `reports/v2_conformal.md`, `reports/v2_serving.md`, app | Precise statements: simultaneous engine-cluster coverage over the 5-checkpoint scheme; empirical numbers separate from the formal guarantee | Wording review (grep "guarantee") | None | DONE | — |
+| ~~R12~~ ✅ | Streamlit/app serve V2 model with OOD | UI contradicts corrected methodology | `app_v2.py`, `v2_predictor.py` | Serve V2.1 frozen model + engine-level q; show Engine/Observed cycles/padded/Prediction/Interval/Model version; "limited observed history" warning with exact trigger text | app import smoke; serving prediction smoke | None | DONE | app_v2.py:6-77 |
+| ~~R13~~ ✅ | FD004 condition-aware modeling not attempted | Possible (unverified) fix for the collapse left untested | `scripts/run_v2_fd004.py`, reports | A (global scaler baseline) vs B (global scaler + settings inputs) vs C (per-condition scalers, KMeans k=6 on dev-train rows only) vs D (C + condition features); same split/target/manifest/budget | FD004 condition-leakage test: cluster/scalers fit on train rows only | 4-condition FD004 experiment | DONE | V2-11 collapse |
+| ~~R14~~ ✅ | FD004 described as "sealed/first-ever" | False after V2-11 inspected labels | `reports/v2_fd004.md`, README, CHANGELOG | FD004 official = post-hoc; development uses `train_FD004.txt` only | Wording review | None | DONE | V2-11 read labels |
+| ~~R15~~ ✅ | `scripts/explain_v2_shap.py` not SHAP | Misleading name/method label | script + `reports/v2_explainability.md` | Rename to `explain_v2_sensitivity.py` (leave-one-sensor-out occlusion), keep a thin compat wrapper if referenced | Import wrapper test | None | DONE | V2-7 substituted method |
+| ~~R16~~ ✅ | `pyproject.toml requires-python = ">=3.11"` | Claims support for untested versions (3.13+ has no TF) | `pyproject.toml`, README, PROJECT_SPEC, CI | `>=3.11,<3.13`, documented as tested on 3.12 | Metadata check | None | DONE | pyproject line |
+| ~~R17~~ ✅ | Upstream attribution not re-verified / no third-party notice | License/attribution risk | `THIRD_PARTY_NOTICES.md` (new), README | Verify upstream `aun151214/predictive-maintenance-cmapss` (MIT); add notice if source was adapted | — | None | DONE | README attribution added V2-12 |
+| ~~R18~~ ✅ | CI runs only artifact-free subset; V2.1 tests need markers | New tests must not break CI | `.github/workflows/ci.yml`, tests | Markers `unit`/`integration`/`needs_artifacts`; CI: `-m "not needs_artifacts"`; verify artifact-free run locally | CI subset run | None | DONE | — |
+| ~~R19~~ ✅ | README/PROJECT_SPEC/CHANGELOG contain pre-correction claims | Stale misleading claims | README, PROJECT_SPEC, CHANGELOG | Update only after V2.1 results are settled; label V2 conclusions SUPERSEDED | Stale-phrase grep (final self-review) | None | DONE | 88 hits |
+| ~~R20~~ ✅ | V2 reports must be preserved but clearly superseded | Historical honesty without misleading readers | `reports/v2_*.md`, `reports/v2_fd004.md` | Add `SUPERSEDED BY METHODOLOGY V2.1` banners; never delete V2 reports | — | None | DONE | — |
+
+## Design decisions (locked before experiments)
+
+- **FD001 V2.1 split:** preserve the 15 V2 calibration engines `[22, 27, 31, 33, 34, 38, 46, 49, 50, 77, 81, 84, 88, 93, 97]` (sha256 prefix `2b6229c9ef25` of the V2 split payload) — used only for conformal calibration, never model selection. Development = the remaining 85 engines. 5-fold engine-group CV, seed 42, 17 engines per fold.
+- **V2.1 cutoffs (fixed before comparison):** 0.25 / 0.45 / 0.65 / 0.80 / 0.95.
+- **CV candidates (8 ≤ 12 bound):** gru w45 huber, gru w60 huber, lstm w45 huber, lstm w60 huber, rf w60, rf w90, xgb w60 depth6, xgb w90 depth6. Excluded with reason: TCN (never competitive in V2-4, ~2× cost), linear (unusable on raw RUL, V2-3).
+- **Final fit:** retrain the CV-selected configuration on all 85 development engines (scaler on those 85 only); freeze config YAML; official FD001 = post-hoc.
+- **FD004:** keep the V2 split (175/37/37, scientifically valid); V2.1 fractions; conditions handled via settings-derived clusters (KMeans k=6) fit on development-training rows only.
+- **Conformal:** engine-level max-|error| scores over the 5 checkpoints, n=15; `k = ceil((n+1)(1-α))` clamped to [1,15].
+- **Definition:** `error = prediction - true_rul`; positive error = overpredicting remaining life.

@@ -330,7 +330,7 @@ Recomputed by `tests/test_v2_2_cleanup.py` from saved prediction CSVs
 - FD004 variant C (248 official predictions): RMSE **33.6579**, MAE **22.0687**,
   R² **0.6189**, NASA **1,545,798.5** — matches `fd004_final_metrics.json`.
 - CV summary re-derived from fold rows (`cv_summary(fold_rows, CV_CANDIDATES)`)
-  matches `fd001_cv_summary.csv` for RMSE/MAE/R²/NASA_mean_per_engine/signed_bias.
+  matches `experiments/v2_2/fd001_cv_summary.csv` for RMSE/MAE/R²/NASA_mean_per_engine/signed_bias.
 
 ## 27.11 Remaining Limitations
 

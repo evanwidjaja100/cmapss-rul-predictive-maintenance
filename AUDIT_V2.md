@@ -69,7 +69,7 @@ Tests skip on missing artifacts:
 - Notebook `01_data_exploration.ipynb` cell output exposes `D:\Desktop\test\cmapss-rul-predictive-maintenance` (anchored project root).
 - `reports/phase8_ablation.md:18` typo "6918 engines" — actually sequences/windows (all windows, not engines; FD001 has 100 training engines).
 - Misleading "RMSE 2.40" headline (Issue 1) and "exactly once" language (Issue 7).
-- **NEW**: `reports/phase9_final_evaluation.md` contains mojibake (`�?"` for em-dashes) — encoding corruption to fix in the documentation phase.
+- **NEW**: `reports/phase9_final_evaluation.md` contains mojibake (`—?"` for em-dashes) — encoding corruption to fix in the documentation phase.
 - **NEW**: `requirements-lock.txt` includes editable install line with a local absolute path (`-e d:\desktop\test\...`) — must be regenerated to a relative/path-free form.
 - `experiments/FD001_final_test_results.json` artifacts field stores absolute local paths (machine-specific; acceptable as historical record but not for reproduction).
 
@@ -82,11 +82,11 @@ Tests skip on missing artifacts:
 
 ## 4. V2 plan (for reference; NOT executed in this phase)
 
-1. New engine-level split: 70 train / 15 validation / 15 calibration, seed 42 (`experiments/splits/fd001_v2_seed42.json`).
+1. New engine-level split: 70 train / 15 validation / 15 calibration, seed 42 (`experiments/splits/FD001_v2_seed42.json`).
 2. Fixed pseudo-test manifests at lifecycle fractions 0.50/0.65/0.80/0.90/0.95 → 75 validation + 75 calibration terminal prediction points.
 3. Primary target = RAW RUL; cap 45 demoted to a labeled secondary maintenance-horizon experiment.
 4. Consistent training/inference history handling (padding + masking or variable-history features).
-5. Raw-RUL benchmark (mean, linear, RF, XGBoost, LSTM, GRU, TCN), window ablations, freeze `configs/final_model_v2_fd001.yaml`, post-hoc FD001 evaluation.
+5. Raw-RUL benchmark (mean, linear, RF, XGBoost, LSTM, GRU, TCN), window ablations, freeze `configs/final_model_v2_2_fd001.yaml`, post-hoc FD001 evaluation.
 6. Error analysis, SHAP explainability, conformal uncertainty (calibration engines only).
 7. Streamlit dashboard; keep HTTP serving.
 8. Test markers (unit/integration/artifact), GitHub Actions CI, dependency cleanup, consistent Python-version policy.

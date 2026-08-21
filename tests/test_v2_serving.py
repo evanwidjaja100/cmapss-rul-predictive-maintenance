@@ -24,7 +24,7 @@ from rul_prediction.serving.v2_predictor import (
     load_deployment_q,
 )
 
-pytestmark = pytest.mark.needs_artifacts
+pytestmark = [pytest.mark.integration, pytest.mark.needs_artifacts]
 
 
 def test_predictions_match_freeze_official_test():

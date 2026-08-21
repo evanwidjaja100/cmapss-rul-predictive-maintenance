@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rul-prediction"
 version = "0.1.0"
 description = "Leakage-safe Remaining Useful Life prediction for predictive maintenance using NASA C-MAPSS"
-requires-python = ">=3.11,<3.13"  # TensorFlow has no Windows wheels for 3.13; tested on 3.12.6
+requires-python = ">=3.11,<3.13"  # TensorFlow has no Windows wheels for 3.13; tested on 3.12.10 (V2.2 configs record 3.12.10, CI pinned to 3.12.10)
 license = { text = "MIT" }
 dependencies = [
     "numpy",
@@ -33,7 +33,10 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
 markers = [
-    "needs_artifacts: requires gitignored data/model/experiment artifacts (excluded in CI)",
-    "unit: fast, artifact-free unit tests (CI default)",
-    "integration: multi-component tests needing no gitignored artifacts",
+    "unit: pure, synthetic, fast",
+    "static_contract: source/config/reference/encoding contracts",
+    "tracked_artifacts: committed CSV/JSON/YAML evidence (experiments/v2_2, configs tracked)",
+    "integration: multi-component tests without gitignored artifacts",
+    "app_smoke: app import/startup behavior",
+    "needs_artifacts: supplemental requirement for gitignored data/model/processed files",
 ]

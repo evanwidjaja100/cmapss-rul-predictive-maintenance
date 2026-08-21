@@ -13,6 +13,8 @@ from rul_prediction.data.preprocessing import (
 from rul_prediction.data.sequences import make_sequences
 from rul_prediction.data.splitting import split_engine_ids
 
+pytestmark = pytest.mark.unit
+
 FEATURES = ["f1", "f2", "f3"]
 
 

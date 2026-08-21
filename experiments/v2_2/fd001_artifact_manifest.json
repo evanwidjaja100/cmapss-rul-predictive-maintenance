@@ -1,0 +1,462 @@
+{
+  "artifacts": [
+    {
+      "bytes": 1069,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_best_epochs.csv",
+      "required_in_clean_clone": true,
+      "role": "best_iterations",
+      "sha256": "e1f5c61638e98b74d1611ca30bc82995f84bffaf815c90336344e812a7f15dcd",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1543,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd001_v2_2_calibration_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "calibration_cutoffs",
+      "sha256": "e5c7ecef887203591ab33ff7472ba10e9cd0db4b5d3885aa7966cb4dec8c29d6",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 2805,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/conformal_calibration.json",
+      "required_in_clean_clone": true,
+      "role": "conformal_calibration",
+      "sha256": "cbed0694556ab2822efefd2042b5638c0a92caeaf679bf0325f1cf2acbbd4902",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 48,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_conformal_quantiles.csv",
+      "required_in_clean_clone": true,
+      "role": "conformal_quantiles",
+      "sha256": "f3d1df897895513c3ab17d98d6edf2e3899acc991128e6814ba63f81b9181734",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 203,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_conformal_engine_scores.csv",
+      "required_in_clean_clone": true,
+      "role": "conformal_scores",
+      "sha256": "d3ffd76cabe6bdc39995082de1127c1f94b70e27e5140ce826ef9cecab19703f",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 129,
+      "hash_kind": "raw_sha256",
+      "path": "requirements.txt",
+      "required_in_clean_clone": true,
+      "role": "constraints",
+      "sha256": "c536fba54a3028f6b921260a6828ee6495abbf64bcc865176133114f4e161e6c",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 4371,
+      "hash_kind": "raw_sha256",
+      "path": "requirements-lock.txt",
+      "required_in_clean_clone": true,
+      "role": "constraints_lock",
+      "sha256": "0a790671489289398271409f1f4eb86e39d0f1a63b2c5e0dded62a0ffad1bc21",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 2334,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_cv_summary.csv",
+      "required_in_clean_clone": true,
+      "role": "cv_summary",
+      "sha256": "1adcf749a51d00b413c4fe926a00262c3ac483d27ccf7378fe9668a727fcf00e",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 785,
+      "hash_kind": "raw_sha256",
+      "path": "configs/deployment_v2_2_fd001.yaml",
+      "required_in_clean_clone": true,
+      "role": "deployment_config",
+      "sha256": "31986c1c0b8d5808f791d96b4f79b651e909ac0db55b41dc96b7feaebf663ffa",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 63320,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_outer_engine_level.csv",
+      "required_in_clean_clone": true,
+      "role": "engine_level_results",
+      "sha256": "6e9311e3b5f29fc5de46d990a06a0e3766156dde435c622452bda5fcd7757366",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 4613,
+      "hash_kind": "raw_sha256",
+      "path": "configs/final_model_v2_2_fd001.yaml",
+      "required_in_clean_clone": true,
+      "role": "final_config",
+      "sha256": "acc8cf646c8862a511fb4800e11ec02bfa45bfd5c58c470cfbf116e98bd2db54",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1111,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_final_fit_metadata.json",
+      "required_in_clean_clone": true,
+      "role": "final_metadata",
+      "sha256": "7f6993cb582e56fc8aa43bb2dbe87caaa49c689bd3c0593be8841d1a28284a9d",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 456,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_final_metrics.json",
+      "required_in_clean_clone": true,
+      "role": "final_metrics",
+      "sha256": "e84d8f940e6b6c54e41caf8b1f4eb7e3ad30a31c5233edb1f3eb66c545812e2c",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 9436,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_outer_fold_results.csv",
+      "required_in_clean_clone": true,
+      "role": "fold_results",
+      "sha256": "fcd43ec5a1cac0da6ec2e01b7443f86fd89ff99fcd12278103b079b91d9c80d1",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 429226,
+      "hash_kind": "raw_sha256",
+      "path": "models/v2_2/fd001_xgb_w90_d6.joblib",
+      "required_in_clean_clone": false,
+      "role": "model",
+      "sha256": "23bd460cd447141d90fd045b863f1a33db02845b83ce9d4148791811ad5a9d6b",
+      "storage_class": "local"
+    },
+    {
+      "bytes": 2798,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_official_predictions.csv",
+      "required_in_clean_clone": true,
+      "role": "official_predictions",
+      "sha256": "675f904911a1aa0116584cef16a24ff4aa5d0e412c8945bbf81556acf72a15dd",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1746,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd001_v2_2_outer_fold1_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "outer_fold1_cutoffs",
+      "sha256": "91918a2462a753c51aca8522989f2e24cdbbaddb5ebcb56dd4dc7acc39bfcb4a",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1730,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd001_v2_2_outer_fold2_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "outer_fold2_cutoffs",
+      "sha256": "9eb381bebea0a8e6471bce89edcf36f2655b8f72cb2dc30c47af8d3630ae99f1",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1707,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd001_v2_2_outer_fold3_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "outer_fold3_cutoffs",
+      "sha256": "83917dc41f0d9d4d70a35a622de0badc05eca6fb7814e980a7fea3d157e741b2",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1728,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd001_v2_2_outer_fold4_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "outer_fold4_cutoffs",
+      "sha256": "000911356a4390450ef033e0661a696aa831f49d1f3c7547f6bcb8a004ec857f",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1724,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd001_v2_2_outer_fold5_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "outer_fold5_cutoffs",
+      "sha256": "16108b1a459a7ce7965f3981ad709e935a14039ab05d162cdb0a889a10365377",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 149251,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_outer_predictions.csv",
+      "required_in_clean_clone": true,
+      "role": "outer_predictions",
+      "sha256": "430b203b71a506d9b201b00eb36fa9b8b17f0c0dc558b61c19269d289db61d03",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 8806,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/fd001_outer_split_manifest.json",
+      "required_in_clean_clone": true,
+      "role": "outer_split_manifest",
+      "sha256": "4dced5fd57a2ee17679440abd464b5246147c7d72e788e9538237275a4058d51",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1071,
+      "hash_kind": "raw_sha256",
+      "path": "models/v2_2/fd001_scaler.joblib",
+      "required_in_clean_clone": false,
+      "role": "scaler",
+      "sha256": "d1b02cfc7043de8e68f9dd71bc1a99efbcd2754a921a59524a431647d0371a48",
+      "storage_class": "local"
+    },
+    {
+      "bytes": 3713,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/v2_2/selection_decision.json",
+      "required_in_clean_clone": true,
+      "role": "selection_decision",
+      "sha256": "9820dee4239bfcb51fbb942a7e5092454a1d0df34abcc7fa0edebc9b493eaa09",
+      "storage_class": "git"
+    }
+  ],
+  "config_integrity": {
+    "canonical_algo": "cmapss-fd001-config-canonical-v1",
+    "config_canonical_sha256": "ea7e7b5cf3ff402e86e40af2d41a91acca0a7c868845614477632441bb54c8b8",
+    "config_file_sha256": "acc8cf646c8862a511fb4800e11ec02bfa45bfd5c58c470cfbf116e98bd2db54",
+    "note": "config_file_sha256 is raw-byte integrity; config_canonical_sha256 is versioned semantic identity; neither is historical training hash for post-training normalized config (not historical training hash)",
+    "path": "configs/final_model_v2_2_fd001.yaml"
+  },
+  "constraints_integrity": [
+    {
+      "bytes": 129,
+      "hash_kind": "raw_sha256",
+      "path": "requirements.txt",
+      "required_in_clean_clone": true,
+      "sha256": "c536fba54a3028f6b921260a6828ee6495abbf64bcc865176133114f4e161e6c",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 4371,
+      "hash_kind": "raw_sha256",
+      "path": "requirements-lock.txt",
+      "required_in_clean_clone": true,
+      "sha256": "0a790671489289398271409f1f4eb86e39d0f1a63b2c5e0dded62a0ffad1bc21",
+      "storage_class": "git"
+    }
+  ],
+  "dataset": "FD001",
+  "generated_at_utc": "2026-08-21T00:00:00Z",
+  "generated_from_commit": "6151773773fbfc3e8e420dda01fd423e255be87d",
+  "historical_training_provenance": {
+    "historical_commit": "53e50d87b2402da5a6014d5ba4fb0adb635e1d71",
+    "historical_timestamp": "2026-08-17T01:42:52+00:00",
+    "note_config_hash_distinction": "config_file_sha256 (raw bytes) vs config_canonical_sha256 (semantic); neither is historical training hash (not historical training hash)",
+    "note_dirty_partial": "Historical training run was dirty (git_is_dirty true) and provenance is partial; future freezes reject dirty execution inputs",
+    "note_generation_not_training": "Manifest generated_at_utc is generation time, not historical training time (2026-08-17)",
+    "note_model_binaries_immutable": "Model binaries must not change; verified against baseline hashes Section 4.2",
+    "note_new_source_not_historical": "Current source_tree_hash is generation-time value, not historical training source hash (not historical training hash)",
+    "status": "historical_dirty_partial"
+  },
+  "lineage": [
+    {
+      "from": "best_iterations",
+      "relation": "provides n_estimators",
+      "to": "final_metadata"
+    },
+    {
+      "from": "calibration_cutoffs",
+      "relation": "evaluated to scores",
+      "to": "conformal_scores"
+    },
+    {
+      "from": "conformal_quantiles",
+      "relation": "calibrated interval",
+      "to": "conformal_calibration"
+    },
+    {
+      "from": "conformal_scores",
+      "relation": "quantiles from scores",
+      "to": "conformal_quantiles"
+    },
+    {
+      "from": "cv_summary",
+      "relation": "selects",
+      "to": "selection_decision"
+    },
+    {
+      "from": "deployment_config",
+      "relation": "serving interval mirrors calibration",
+      "to": "conformal_calibration"
+    },
+    {
+      "from": "deployment_config",
+      "relation": "q values consistent",
+      "to": "conformal_quantiles"
+    },
+    {
+      "from": "final_config",
+      "relation": "governs fixed n_estimators",
+      "to": "best_iterations"
+    },
+    {
+      "from": "final_config",
+      "relation": "validated constraints",
+      "to": "constraints"
+    },
+    {
+      "from": "final_config",
+      "relation": "validated constraints",
+      "to": "constraints_lock"
+    },
+    {
+      "from": "final_config",
+      "relation": "configures final fit",
+      "to": "final_metadata"
+    },
+    {
+      "from": "final_config",
+      "relation": "configures split",
+      "to": "outer_split_manifest"
+    },
+    {
+      "from": "final_metadata",
+      "relation": "trained from",
+      "to": "model"
+    },
+    {
+      "from": "final_metadata",
+      "relation": "fitted from",
+      "to": "scaler"
+    },
+    {
+      "from": "fold_results",
+      "relation": "summarizes",
+      "to": "cv_summary"
+    },
+    {
+      "from": "fold_results",
+      "relation": "aggregates",
+      "to": "engine_level_results"
+    },
+    {
+      "from": "fold_results",
+      "relation": "produces",
+      "to": "outer_predictions"
+    },
+    {
+      "from": "model",
+      "relation": "post-hoc predicts",
+      "to": "official_predictions"
+    },
+    {
+      "from": "official_predictions",
+      "relation": "metrics from predictions",
+      "to": "final_metrics"
+    },
+    {
+      "from": "outer_fold1_cutoffs",
+      "relation": "evaluated on",
+      "to": "fold_results"
+    },
+    {
+      "from": "outer_fold2_cutoffs",
+      "relation": "evaluated on",
+      "to": "fold_results"
+    },
+    {
+      "from": "outer_fold3_cutoffs",
+      "relation": "evaluated on",
+      "to": "fold_results"
+    },
+    {
+      "from": "outer_fold4_cutoffs",
+      "relation": "evaluated on",
+      "to": "fold_results"
+    },
+    {
+      "from": "outer_fold5_cutoffs",
+      "relation": "evaluated on",
+      "to": "fold_results"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "holds out calibration",
+      "to": "calibration_cutoffs"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "provides train ids",
+      "to": "final_metadata"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "derives cutoffs",
+      "to": "outer_fold1_cutoffs"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "derives cutoffs",
+      "to": "outer_fold2_cutoffs"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "derives cutoffs",
+      "to": "outer_fold3_cutoffs"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "derives cutoffs",
+      "to": "outer_fold4_cutoffs"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "derives cutoffs",
+      "to": "outer_fold5_cutoffs"
+    },
+    {
+      "from": "outer_split_manifest",
+      "relation": "defines development vs calibration",
+      "to": "selection_decision"
+    },
+    {
+      "from": "scaler",
+      "relation": "preprocesses",
+      "to": "official_predictions"
+    },
+    {
+      "from": "selection_decision",
+      "relation": "records median best_iteration",
+      "to": "best_iterations"
+    },
+    {
+      "from": "selection_decision",
+      "relation": "deployment selection",
+      "to": "final_config"
+    }
+  ],
+  "methodology_version": "2.2",
+  "model_id": "xgb_w90_d6",
+  "notes": {
+    "hash_kind": "raw_sha256 is SHA-256 of exact raw file bytes (artifact integrity)",
+    "no_self_hash": "no manifest hashes itself",
+    "path_policy": "repo-relative POSIX paths only; absolute, .., duplicates, globs rejected",
+    "storage_classes": "git must exist in clean clone; local gitignored runtime artifact; tracked mode permits absent local"
+  },
+  "schema_version": "cmapss-artifact-manifest-v1",
+  "source_integrity": {
+    "algorithm": "cmapss-tracked-source-v1",
+    "file_count": 90,
+    "git_commit": "6151773773fbfc3e8e420dda01fd423e255be87d",
+    "git_is_dirty_execution": true,
+    "git_is_dirty_whole": true,
+    "note": "Manifest generation time is not training time; this source_tree_hash is current generation-time hash, not historical training hash",
+    "source_tree_hash": "ed656dd2d8c1dd6c9734112d2bee35c8050bb3a715cc117fc017760db86706fd"
+  }
+}

@@ -3,6 +3,9 @@
 import numpy as np
 
 from rul_prediction.features.engineered_features import extract_features
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_feature_shape_and_names():

@@ -149,33 +149,41 @@ classification anywhere.
 
 ## 10. Testing / CI
 
+CI is authoritative for current branch health. Tests are organized intotiers (see `pyproject.toml` / `conftest.py`):
+
+- `static_contract` — repository-integrity, config/provenance/manifest contracts
+- `unit` — pure, synthetic, fast
+- `tracked_artifacts` — committed `experiments/v2_2` evidence (falsification)
+- `integration` — multi-component, artifact-free
+- `app_smoke` — Streamlit import/startup
+- `needs_artifacts` — supplemental marker for gitignored data/models
+
+Reproducible commands (Section 15.3):
+
 ```bash
-.venv\Scripts\python.exe -m pytest          # full local artifact-rich suite
-.venv\Scripts\python.exe -m pytest -m "not needs_artifacts"   # CI artifact-free subset
+.venv\Scripts\python.exe -m pytest -m static_contract
+.venv\Scripts\python.exe -m pytest -m unit
+.venv\Scripts\python.exe -m pytest -m tracked_artifacts
+.venv\Scripts\python.exe -m pytest -m "integration and not needs_artifacts"
+.venv\Scripts\python.exe -m pytest -m "app_smoke and not needs_artifacts"
+.venv\Scripts\python.exe -m pytest -m "not needs_artifacts"   # aggregate artifact-free guard
+.venv\Scripts\python.exe -m pytest -m needs_artifacts --collect-only  # discoverability
+.venv\Scripts\python.exe -m pytest          # full local suite (requires gitignored artifacts)
+.venv\Scripts\python.exe scripts/check_repository_integrity.py
+.venv\Scripts\python.exe scripts/verify_v2_2_artifacts.py --mode tracked
+.venv\Scripts\python.exe scripts/verify_v2_2_artifacts.py --mode full
 ```
 
-Measured (2026-08-18):
-
-```text
-Local development tree:
-164 passed (16 warnings)
-
-Real clean Git clone (git clone . of the committed repository, tracked
-experiments/v2_2 included; PYTHONPATH=<clone>\src; same CI command):
-149 passed, 10 skipped, 5 deselected
-```
-
-The clean-clone QA is a real `git clone .` of the committed repository (not a
-simulated tree): tracked `experiments/v2_2` audit tables are present, so the
-artifact-free suite exercises the falsification and structural tests against
-them; only genuinely unavailable artifacts (raw NASA data, trained models,
-generated binaries) are excluded by the `needs_artifacts` marker.
+Historical measurements (e.g., 2026-08-18 snapshot at commit `23cc934` and `6151773`)
+are preserved in `CHANGELOG.md` and `reports/repository_integrity_implementation_report.md`
+with date, commit, and command context. Do not treat them as permanent current counts;
+later commits change collection and counts. See CI workflow (`.github/workflows/ci.yml`)
+for the current authoritative check (Python 3.12.10, pinned constraints, `pip check`).
 
 `tests/test_v2_2_protocol.py` (artifact-free) adds the V2.2 protocol gates:
 calibration isolation (A), outer-fold isolation (B), CV completeness (C),
 selection-policy consistency (D), config-driven training (E), canonical
-hashing (F), conformal isolation (G), FD004 condition fit-IDs (H). CI runs the
-artifact-free subset on Python 3.12 (`.github/workflows/ci.yml`).
+hashing (F), conformal isolation (G), FD004 condition fit-IDs (H).
 
 ## 11. Reproduction (V2.2)
 

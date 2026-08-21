@@ -73,10 +73,16 @@ def main() -> None:
         assert abs(re_row["RMSE_mean"] - store_row["RMSE_mean"]) < 1e-3, cid
         assert abs(re_row["NASA_mean_per_engine_mean"] - store_row["NASA_mean_per_engine_mean"]) < 1e-3, cid
 
-    # ---- post-hoc official evaluation ----
+    # ---- load-time verification before deserialization (distinct errors) ----
+    from rul_prediction.artifact_manifest import verify_before_load
+
     if model_name in ("rf", "xgboost"):
+        verify_before_load(f"models/v2_2/fd001_{candidate}.joblib", root=ROOT, manifest_dataset="FD001")
+        verify_before_load("models/v2_2/fd001_scaler.joblib", root=ROOT, manifest_dataset="FD001")
         model = load_joblib(ROOT / "models" / "v2_2" / f"fd001_{candidate}.joblib")
     else:
+        verify_before_load(f"models/v2_2/fd001_{candidate}.keras", root=ROOT, manifest_dataset="FD001")
+        verify_before_load("models/v2_2/fd001_scaler.joblib", root=ROOT, manifest_dataset="FD001")
         model = keras.models.load_model(ROOT / "models" / "v2_2" / f"fd001_{candidate}.keras")
     scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")
 

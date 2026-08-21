@@ -1,0 +1,32 @@
+# Repository integrity exceptions
+# Each exception must have source, target/pattern, and nonempty reason.
+# source: file containing the reference or encoding issue
+# target: exact missing path, or pattern (regex) to match
+# reason: nonempty justification; fail on unused
+
+exceptions:
+  # Historical plan byte-identical preservation — mojibake retained
+  - source: "V2_2_REPAIR_PLAN.md"
+    pattern: "mojibake"
+    reason: "historical byte-identical preservation per plan Section 8; file is restored from 23cc934 and must remain unchanged"
+  # Historical plans contain references to files that were renamed or were session-only (byte-identical, cannot edit)
+  - source: "V2_1_REPAIR_PLAN.md"
+    target: "scripts/explain_v2_shap.py"
+    reason: "historical reference to renamed script; file is V2_1 historical record, must remain byte-identical"
+  - source: "V2_2_FINAL_CLEANUP_PLAN.md"
+    target: "reports/v2_2_methodology.md"
+    reason: "historical documentation of broken link; file is restored historical record, cannot be edited"
+  - source: "V2_2_FINAL_FREEZE_PLAN.md"
+    target: "C_MAPSS_V2_2_FINAL_REPOSITORY_FREEZE_AGENT_PLAN.md"
+    reason: "session-only master instruction, intentionally not committed per plan Section 8"
+  - source: "V2_2_FINAL_FREEZE_PLAN.md"
+    target: "C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md"
+    reason: "historical broken reference documented in plan; file is historical record"
+  - source: "V2_2_REPAIR_PLAN.md"
+    target: "reports/v2_2_conformal.md"
+    reason: "historical reference to report that was later renamed; file must remain byte-identical"
+  # Test that intentionally verifies a missing file must not be flagged
+  - source: "tests/test_v2_2_cleanup.py"
+    target: "C_MAPSS_V2_2_FINAL_CLEANUP_AGENT_PLAN.md"
+    reason: "test verifies that the untracked master cleanup plan is not referenced; string is test subject, not a live reference"
+

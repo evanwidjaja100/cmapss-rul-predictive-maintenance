@@ -203,73 +203,33 @@ def _stage2_fit(candidate, frame, outer_train, control: dict, fold: int, *,
 
 
 def git_provenance(root: str | Path | None = None) -> dict:
-    """Honest source-tree provenance for run metadata (V2.2 cleanup, issue I-4).
+    """Git provenance at run start (delegates to rul_prediction.reproducibility).
 
-    Reports the Git HEAD, whether the working tree was dirty at run time, a
-    hash of the dirty-state diff + status, a source-tree content hash, and the
-    UTC timestamp. `git_is_dirty=True` means the recorded `git_commit` does NOT
-    exactly represent the tree used; do not claim bit-exact reproducibility.
+    Reports Git HEAD, whole-repo and execution-scope dirty flags, status/diff
+    hashes, deterministic source_tree_hash via git ls-files, and UTC timestamp.
+    Uses NUL-delimited status and binary diffs; tracked content-hash uses
+    domain-separated length-delimited encoding cmapss-tracked-source-v1.
     """
-    import datetime
-    import hashlib
-    import subprocess
+    from rul_prediction.reproducibility import collect_git_provenance
 
-    cwd = Path(root) if root else None
-
-    def _git(*args: str) -> str | None:
-        try:
-            out = subprocess.run(["git", *args], capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace",
-                                 check=False, cwd=cwd)
-            return out.stdout.strip() or None
-        except Exception:
-            return None
-
-    commit = _git("rev-parse", "HEAD")
-    status = _git("status", "--porcelain")
-    diff = _git("diff")
-    dirty = bool(status)
-    diff_hash = None
-    if dirty:
-        payload = f"status:\n{status}\ndiff:\n{diff or ''}"
-        diff_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    return {
-        "git_commit": commit,
-        "git_is_dirty": dirty,
-        "git_diff_hash": diff_hash,
-        "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-    }
+    return collect_git_provenance(root=root)
 
 
 def source_tree_hash(root: str | Path | None = None) -> str | None:
-    """Content hash of the tracked source/config tree (reproducibility metadata).
+    """Deterministic Git-tracked execution-input hash (reproducibility).
 
-    Hashes every file under src/, scripts/, configs/ plus app_v2.py and
-    pyproject.toml; None if the root is missing. Used to fingerprint the exact
-    source state of a run, independent of Git bookkeeping.
+    Enumerates tracked execution inputs via git ls-files -z (src/**, scripts/**,
+    configs/**, app_v2.py, .github/workflows/**, pyproject.toml, requirements*),
+    sorts POSIX paths, and hashes with domain-separated length-delimited format
+    cmapss-tracked-source-v1 (path length, path bytes, content length, content).
+    Ignored/cached/generated files do not affect the hash. Fail-closed on read errors.
     """
-    import hashlib
+    from rul_prediction.reproducibility import tracked_source_tree_details
 
-    root = Path(root) if root else None
-    base = root or ROOT
-    dirs = [base / "src", base / "scripts", base / "configs"]
-    extras = [base / "app_v2.py", base / "pyproject.toml"]
-    files: list[Path] = []
-    for d in dirs:
-        files.extend(sorted(p for p in d.rglob("*") if p.is_file()))
-    files.extend(p for p in extras if p.is_file())
-    files = sorted(set(files))
-    if not files:
+    try:
+        return tracked_source_tree_details(root)["source_tree_hash"]
+    except Exception:
         return None
-    h = hashlib.sha256()
-    for p in files:
-        rel = p.relative_to(base).as_posix()
-        h.update(rel.encode("utf-8"))
-        try:
-            h.update(p.read_bytes())
-        except OSError:
-            continue
-    return h.hexdigest()
 
 
 def run_metadata(dataset: str, candidate: str, fold: int, control: dict,

@@ -1,6 +1,9 @@
 """Phase 0 smoke tests: package imports and basic metadata."""
 
 import rul_prediction
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_package_imports():

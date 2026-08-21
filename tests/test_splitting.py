@@ -6,6 +6,8 @@ import pytest
 
 from rul_prediction.data.splitting import SEED, VAL_FRACTION, split_engine_ids, write_split_file
 
+pytestmark = pytest.mark.unit
+
 ENGINES = set(range(1, 101))  # FD001
 
 

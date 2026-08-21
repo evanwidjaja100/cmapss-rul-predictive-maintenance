@@ -18,6 +18,8 @@ from rul_prediction.data.splitting import (
 )
 from rul_prediction.evaluation.manifest import evaluate_manifest
 
+pytestmark = pytest.mark.unit
+
 ENGINES = set(range(1, 101))  # FD001 cardinality
 LIFETIMES = {e: 128 + (e % 50) for e in ENGINES}  # deterministic synthetic lifetimes
 

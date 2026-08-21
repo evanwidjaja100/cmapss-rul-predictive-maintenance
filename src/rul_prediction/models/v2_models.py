@@ -11,15 +11,16 @@ zeros, and the same padded representation appears in training).
 from __future__ import annotations
 
 
-def _optimizer(learning_rate: float, loss: str):
+def _optimizer(learning_rate: float, loss: str, clipnorm: float = 1.0):
     from tensorflow import keras
 
-    optimizer = keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0)
+    # ponytail: optimizer clipnorm is behavior-driving; passed explicitly from config
+    optimizer = keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=float(clipnorm))
     return optimizer
 
 
 def v2_lstm(window: int, n_features: int, units=(128, 64), dropout: float = 0.3,
-            loss: str = "mse", learning_rate: float = 1e-3, seed: int = 42):
+            loss: str = "mse", learning_rate: float = 1e-3, seed: int = 42, clipnorm: float = 1.0):
     from tensorflow import keras
 
     keras.utils.set_random_seed(seed)
@@ -32,12 +33,12 @@ def v2_lstm(window: int, n_features: int, units=(128, 64), dropout: float = 0.3,
     x = keras.layers.Dense(32, activation="relu")(x)
     outputs = keras.layers.Dense(1)(x)
     model = keras.Model([inputs, mask_in], outputs)
-    model.compile(optimizer=_optimizer(learning_rate, loss), loss=loss)
+    model.compile(optimizer=_optimizer(learning_rate, loss, clipnorm), loss=loss)
     return model
 
 
 def v2_gru(window: int, n_features: int, units=(128, 64), dropout: float = 0.3,
-           loss: str = "mse", learning_rate: float = 1e-3, seed: int = 42):
+           loss: str = "mse", learning_rate: float = 1e-3, seed: int = 42, clipnorm: float = 1.0):
     from tensorflow import keras
 
     keras.utils.set_random_seed(seed)
@@ -50,13 +51,13 @@ def v2_gru(window: int, n_features: int, units=(128, 64), dropout: float = 0.3,
     x = keras.layers.Dense(32, activation="relu")(x)
     outputs = keras.layers.Dense(1)(x)
     model = keras.Model([inputs, mask_in], outputs)
-    model.compile(optimizer=_optimizer(learning_rate, loss), loss=loss)
+    model.compile(optimizer=_optimizer(learning_rate, loss, clipnorm), loss=loss)
     return model
 
 
 def v2_tcn(window: int, n_features: int, filters: int = 64, dilations=(1, 2, 4, 8),
            dropout: float = 0.2, loss: str = "mse", learning_rate: float = 1e-3,
-           seed: int = 42):
+           seed: int = 42, clipnorm: float = 1.0):
     from tensorflow import keras
 
     keras.utils.set_random_seed(seed)
@@ -84,5 +85,5 @@ def v2_tcn(window: int, n_features: int, filters: int = 64, dilations=(1, 2, 4, 
     x = keras.layers.Dense(32, activation="relu")(x)
     outputs = keras.layers.Dense(1)(x)
     model = keras.Model([inputs, mask_in], outputs)
-    model.compile(optimizer=_optimizer(learning_rate, loss), loss=loss)
+    model.compile(optimizer=_optimizer(learning_rate, loss, clipnorm), loss=loss)
     return model

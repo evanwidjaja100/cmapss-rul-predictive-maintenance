@@ -13,6 +13,8 @@ from rul_prediction.data.v2_preprocessing import (
 )
 from rul_prediction.data.windows import build_window, window_mask
 
+pytestmark = pytest.mark.unit
+
 
 def _frame(lifetimes: dict[int, int], n_features: int = 3) -> pd.DataFrame:
     rows = []

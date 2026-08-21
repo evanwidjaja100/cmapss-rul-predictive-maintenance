@@ -11,6 +11,8 @@ import pytest
 from rul_prediction.data.loader import load_test
 from rul_prediction.serving.inference import RulPredictor
 
+pytestmark = [pytest.mark.integration, pytest.mark.needs_artifacts]
+
 ROOT = Path(__file__).resolve().parents[1]
 PRED_CSV = (ROOT / "data" / "processed" / "FD001_w90_c45_all" / "FD001_test_predictions.csv")
 MODEL = ROOT / "models" / "final" / "FD001_final_model.joblib"

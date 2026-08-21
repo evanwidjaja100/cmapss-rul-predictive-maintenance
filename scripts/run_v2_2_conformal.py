@@ -94,12 +94,23 @@ def main() -> None:
     candidate = args.candidate or cfg["model"]["candidate_name"]
     window = cfg["model"]["window"]
     arch = candidate.split("_")[0]
+    # load-time verification before deserialization: distinct errors for missing/legacy/mismatch
+    from rul_prediction.artifact_manifest import verify_before_load
+
+    scaler_posix = "models/v2_2/fd001_scaler.joblib"
     if arch.startswith(("gru", "lstm")):
-        model_path = ROOT / "models" / "v2_2" / f"fd001_{candidate}.keras"
+        model_posix = f"models/v2_2/fd001_{candidate}.keras"
+        model_path = ROOT / model_posix
+        verify_before_load(model_posix, root=ROOT, manifest_dataset="FD001")
+        verify_before_load(scaler_posix, root=ROOT, manifest_dataset="FD001")
         model = keras.models.load_model(model_path)
     else:
         from joblib import load as load_joblib
-        model = load_joblib(ROOT / "models" / "v2_2" / f"fd001_{candidate}.joblib")
+        model_posix = f"models/v2_2/fd001_{candidate}.joblib"
+        model_path = ROOT / model_posix
+        verify_before_load(model_posix, root=ROOT, manifest_dataset="FD001")
+        verify_before_load(scaler_posix, root=ROOT, manifest_dataset="FD001")
+        model = load_joblib(model_path)
     scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")
 
     scores_df = calibration_scores(model, scaler, window, candidate)

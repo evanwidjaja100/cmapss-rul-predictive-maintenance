@@ -3,6 +3,9 @@
 import numpy as np
 
 from rul_prediction.evaluation.conformal import conformal_quantile, interval_coverage
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_quantile_is_ceil_order_statistic():

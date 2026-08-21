@@ -1,7 +1,7 @@
 """Generate Methodology V2 engine split and fixed pseudo-test manifests.
 
 Creates (all deterministic, seed 42, never overwrites legacy split files):
-    experiments/splits/fd001_v2_seed42.json           (70/15/15 engine split)
+    experiments/splits/FD001_v2_seed42.json           (70/15/15 engine split)
     experiments/splits/fd001_v2_validation_cutoffs.csv (75 pseudo-test rows)
     experiments/splits/fd001_v2_calibration_cutoffs.csv (75 pseudo-test rows)
 

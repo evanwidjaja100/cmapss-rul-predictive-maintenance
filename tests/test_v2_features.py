@@ -7,6 +7,8 @@ import pytest
 from rul_prediction.evaluation.manifest import evaluate_manifest
 from rul_prediction.features.v2_features import FEATURE_GROUPS, N_EXTRA_FEATURES, extract_v2_features
 
+pytestmark = pytest.mark.unit
+
 
 def _observed(n: int, n_features: int = 3, base: float = 0.0) -> np.ndarray:
     rng = np.random.RandomState(42)

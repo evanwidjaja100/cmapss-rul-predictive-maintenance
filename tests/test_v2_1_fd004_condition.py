@@ -17,6 +17,8 @@ from rul_prediction.data.condition import (
 )
 from rul_prediction.data.v2_preprocessing import SENSOR_COLUMNS
 
+pytestmark = pytest.mark.unit
+
 RNG = np.random.default_rng(3)
 
 

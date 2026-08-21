@@ -19,6 +19,8 @@ RAW = Path("data/raw")
 HAS_DATA = (RAW / "train_FD001.txt").exists()
 
 
+@pytest.mark.integration
+@pytest.mark.needs_artifacts
 @pytest.mark.skipif(not HAS_DATA, reason="raw C-MAPSS files not present")
 def test_train_schema_and_shape():
     frame = load_train("FD001")
@@ -27,6 +29,8 @@ def test_train_schema_and_shape():
     assert frame.shape[0] > 20000  # official FD001: 20631 rows
 
 
+@pytest.mark.integration
+@pytest.mark.needs_artifacts
 @pytest.mark.skipif(not HAS_DATA, reason="raw C-MAPSS files not present")
 def test_engine_counts():
     train, test = load_train("FD001"), load_test("FD001")
@@ -34,6 +38,8 @@ def test_engine_counts():
     assert test["engine_id"].nunique() == EXPECTED_ENGINE_COUNTS["FD001"]["test"]
 
 
+@pytest.mark.integration
+@pytest.mark.needs_artifacts
 @pytest.mark.skipif(not HAS_DATA, reason="raw C-MAPSS files not present")
 def test_cycles_ordered_and_unique_per_engine():
     frame = load_train("FD001")
@@ -42,6 +48,8 @@ def test_cycles_ordered_and_unique_per_engine():
     assert frame.duplicated(subset=["engine_id", "cycle"]).sum() == 0
 
 
+@pytest.mark.integration
+@pytest.mark.needs_artifacts
 @pytest.mark.skipif(not HAS_DATA, reason="raw C-MAPSS files not present")
 def test_rul_length():
     train = load_train("FD001")
@@ -49,6 +57,8 @@ def test_rul_length():
     assert len(rul) == EXPECTED_ENGINE_COUNTS["FD001"]["test"] == train["engine_id"].nunique()
 
 
+@pytest.mark.integration
+@pytest.mark.needs_artifacts
 @pytest.mark.skipif(not HAS_DATA, reason="raw C-MAPSS files not present")
 def test_summary_fields():
     summary = summarize(load_train("FD001"), "FD001", "train")
@@ -58,6 +68,7 @@ def test_summary_fields():
     assert summary["max_lifetime"] > summary["min_lifetime"]
 
 
+@pytest.mark.unit
 def test_sensor_columns_helper():
     import pandas as pd
 

@@ -1,3 +1,11 @@
+# Post-training normalization (2026-08-21):
+#  - legacy effective optimizer: "Adam(clipnorm=1.0)"
+#  - resolved structured optimizer: {name: adam, clipnorm: 1.0}
+#  Numeric behavior unchanged. See src/rul_prediction/benchmark/fd004_config.py.
+# Hash distinction:
+#  - config_file_sha256 = SHA-256 of exact raw file bytes (artifact integrity).
+#  - config_canonical_sha256 = SHA-256 of normalized mapping via cmapss-fd004-config-canonical-v1 (semantic identity).
+#  Split evidence likewise uses raw file hashes vs canonical engine-ID/manifest hashes (never compare across kinds).
 methodology_version: '2.2'
 dataset: FD004
 target: raw RUL regression under multiple operating regimes
@@ -10,7 +18,9 @@ model:
   - 64
   dropout: 0.3
   loss: huber
-  optimizer: Adam(clipnorm=1.0)
+  optimizer:
+    name: adam
+    clipnorm: 1.0
   learning_rate: 0.001
   batch_size: 256
   seed: 42
@@ -29,6 +39,12 @@ condition_preprocessing:
   sensor_scaling:
     mode: per_regime_standard_scaler
     fit_scope: training_rows_only
+  scopes:
+    stage1_inner: 150 inner-fit / 25 inner-stop, seed 4201 (development engines only)
+    stage2_refit: 175 development/training engines (variant comparison; validation transform-only)
+    final_freeze: 212 engines (175 training + 37 validation; 37 calibration reserved)
+    reserved_calibration: 37 engines (held out from all fitting; transform-only)
+    official_test: transform-only (never fit/refit/update; labels post-hoc)
   fit_ids_stage2: 175 development/training engines only; validation and calibration
     rows transform-only
   official_test_rows: transform-only (never fit/refit/update)

@@ -74,7 +74,6 @@ class V2Predictor:
 
     def __init__(self, alpha: float = ALPHA, q_cycles: float | None = None) -> None:
         from joblib import load as load_joblib
-        from tensorflow import keras
 
         cfg = yaml.safe_load((ROOT / "configs" / "final_model_v2_2_fd001.yaml")
                              .read_text(encoding="utf-8"))
@@ -89,7 +88,16 @@ class V2Predictor:
             model_file = ROOT / "models" / "v2_2" / f"fd001_{self.candidate}.joblib"
             loader = load_joblib
         else:
+            from tensorflow import keras  # ponytail: lazy import only for neural branch; xgboost deployment must not init TF
+
             loader = keras.models.load_model
+        # load-time verification: when manifest available, verify hashes before deserialization
+        # ponytail: manifest gate keeps distinct errors (absent friendly, legacy compatibility, present mismatch hard)
+        from rul_prediction.artifact_manifest import verify_before_load
+
+        rel_model_posix = f"models/v2_2/fd001_{self.candidate}.joblib" if self._model_name in ("rf", "xgboost") else f"models/v2_2/fd001_{self.candidate}.keras"
+        verify_before_load(rel_model_posix, root=ROOT, manifest_dataset="FD001")
+        verify_before_load("models/v2_2/fd001_scaler.joblib", root=ROOT, manifest_dataset="FD001")
         try:
             self.model = loader(model_file)
             self.scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")

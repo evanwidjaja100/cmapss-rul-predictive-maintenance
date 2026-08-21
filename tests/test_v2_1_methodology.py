@@ -25,6 +25,8 @@ from rul_prediction.evaluation.conformal import (
     finite_sample_quantile_index,
 )
 
+pytestmark = pytest.mark.unit
+
 
 # ---- R1/R2: observed history is never failure lifetime ---------------------
 
