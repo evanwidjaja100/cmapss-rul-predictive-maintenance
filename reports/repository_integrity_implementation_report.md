@@ -550,13 +550,29 @@ Preservation loop after every phase: four binary hashes unchanged (`23bd460c…`
 
 ## 18. Clean-Clone Verification (Loop L10)
 
-Executed against final commit: see below (recorded immediately after the loop ran).
+**Verified commit:** `ab83fd250def9a7c93affc0120119f609c522a6f` (`ab83fd2`)
+**Date:** 2026-08-22 · **OS:** Windows 11 · **Python:** 3.12.10 · **pip:** 26.2.1
+**Method:** real `git clone` of the exact commit into a newly created temporary directory; fresh venv from `py -3.12`; `pip install "pip==26.2.1"`; `pip install -r requirements.txt -c requirements-lock.txt`; `pip install -e . --no-deps`; no models/raw data present.
+
+| Step | Command | Result |
+|---|---|---|
+| Constrained cold install | `pip install -r requirements.txt -c requirements-lock.txt` | success |
+| Environment consistency | `pip check` | No broken requirements found. |
+| Editable source registration | `python -c "import rul_prediction.benchmark.fd004_config as f; f.REPO_ROOT"` | resolves inside the clone (verified isolation) |
+| Repository integrity | `scripts/check_repository_integrity.py` | OK — 233 tracked files, 14 anchors, 7 exceptions used |
+| Tracked manifest verification | `scripts/verify_v2_2_artifacts.py --mode tracked` | FD001 23/25 verified (+2 local absent permitted), FD004 12/14 verified (+2 local absent) — exit 0 |
+| Import safety | `import app_v2` without models/raw data | OK; `main`/`get_predictor` exist; TensorFlow not imported |
+| CI-equivalent artifact-free suite | `pytest -m "not needs_artifacts"` | **276 passed, 2 skipped, 26 deselected, 0 failed** |
+
+Two portability defects were caught by earlier L10 iterations and fixed before this green run (each fixed, recommitted, and re-verified against the new exact commit per L10 step 10): a double-CRLF conversion in a manifest test (`autocrlf` checkout + naive `\n→\r\n`) and a baseline-overwrite gate test that read gitignored bytes absent in clones (now artifact-free with the real-baseline variant under `needs_artifacts`). A third iteration failed due to verifier error (the editable install was accidentally registered against the source repository instead of the clone); it is an environment-setup mistake, not a repository defect.
+
+The temporary clone directory and its environment were deleted after verification (only the exact verified directory was removed).
 
 ---
 
 ## 19. Handoff
 
-The repository-integrity implementation and the 2026-08-22 adversarial-review hardening wave are committed. The remaining gate — **real clean-clone verification (Loop L10)** against the exact final commit SHA — is executed after the documentation commit that carries this report, per Section 14; its results are recorded in Section 18 immediately after the loop runs, in a follow-up docs-only commit.
+The repository-integrity implementation, the 2026-08-22 adversarial-review hardening wave, and the Loop L10 clean-clone verification against exact commit `ab83fd2` are complete (Section 18). The commit carrying this paragraph is documentation-only relative to `ab83fd2`; the verified behavioral state is `ab83fd2` plus this report.
 
 > No `GOAL_COMPLETE` or "all fixed" is declared until every applicable checklist item in Section 21 has passed with current evidence.
 
