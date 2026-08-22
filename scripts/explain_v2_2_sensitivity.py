@@ -100,7 +100,7 @@ def main() -> None:
     else:
         model = keras.models.load_model(ROOT / "models" / "v2_2" / f"fd001_{candidate}.keras")
     scaler = load_joblib(ROOT / "models" / "v2_2" / "fd001_scaler.joblib")
-    predict_one = make_predictor(model_name, model, scaler, window)
+    predict_one = make_predictor(model_name, model, scaler, window=window)
 
     frame = load_train("FD001", args.data_dir)
     manifest, trajectories = load_dev_manifest(frame)

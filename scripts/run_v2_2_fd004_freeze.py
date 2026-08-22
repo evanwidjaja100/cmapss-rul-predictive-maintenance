@@ -28,6 +28,7 @@ from joblib import dump as dump_joblib
 from rul_prediction.benchmark.fd004_config import (
     FD004ConfigError,
     FD004FinalConfig,
+    HISTORICAL_CONDITION_JOBLIB_SHA256,
     load_fd004_final_config,
 )
 from rul_prediction.benchmark.v2 import ROOT
@@ -35,6 +36,10 @@ from rul_prediction.data.canonical_hash import canonical_sha256_json
 from rul_prediction.data.loader import load_train
 from rul_prediction.data.v2_preprocessing import add_raw_rul, build_v2_train_sequences
 from rul_prediction.models.v2_models import v2_gru
+from rul_prediction.reproducibility import (
+    DirtyExecutionError,
+    assert_reproducible_run_state,
+)
 from rul_prediction.training.trainer import set_seed
 
 try:
@@ -44,81 +49,62 @@ except ImportError:  # package invocation from the repo root
 
 
 def resolve_model_config(cfg: dict) -> dict:
-    """Resolve every final-fit deployment parameter from the YAML (tested; no hidden constants).
+    """Resolve every final-fit deployment parameter from the YAML via STRICT typed validation.
 
-    Every deployment-relevant value below must exist in the YAML and be read
-    here; a function default may never silently substitute for one of them.
-    This wrapper stays lenient for the legacy unit test that supplies a minimal
-    mapping, while the authoritative path uses FD004FinalConfig strict validation.
+    Any invalid or missing field raises FD004ConfigError (fail closed) — there is
+    no lenient fallback: an unvalidated value must never reach training.
     """
-    # Use authoritative validation when possible; fallback to lenient for minimal test payloads
-    try:
-        # attempt strict typed validation (requires full splits/training counts)
-        from rul_prediction.benchmark.fd004_config import from_mapping
+    from rul_prediction.benchmark.fd004_config import from_mapping
 
-        typed = from_mapping(cfg)
-        return {
-            "candidate": typed.candidate_name,
-            "architecture": typed.architecture,
-            "window": int(typed.window),
-            "units": tuple(int(u) for u in typed.units),
-            "dropout": float(typed.dropout),
-            "loss": typed.loss,
-            "learning_rate": float(typed.learning_rate),
-            "batch_size": int(typed.batch_size),
-            "seed": int(typed.seed),
-            "fixed_epochs": int(typed.fixed_epochs),
-            "variant": typed.selected_variant,
-            "n_clusters": int(typed.n_clusters),
-            "cluster_seed": int(typed.clustering_random_state),
-            "n_init": int(typed.clustering_n_init),
-            "optimizer_name": typed.optimizer_name,
-            "optimizer_clipnorm": float(typed.optimizer_clipnorm),
-        }
-    except Exception:
-        # lenient path for test_fd004_config_controls_freeze_parameters minimal payload
-        assert cfg["methodology_version"] == "2.2" and cfg["dataset"] == "FD004"
-        assert cfg["training"]["validation_data_in_final_fit"] is False
-        model_cfg = cfg["model"]
-        pre_cfg = cfg["condition_preprocessing"]
-        cluster = pre_cfg["clustering"]
-        # optimizer handling: legacy string or structured, default to adam 1.0 for test
-        opt_raw = model_cfg.get("optimizer", "Adam(clipnorm=1.0)")
-        if isinstance(opt_raw, str):
-            assert opt_raw == "Adam(clipnorm=1.0)"
-            opt_name, opt_clip = "adam", 1.0
-        elif isinstance(opt_raw, dict):
-            opt_name = str(opt_raw.get("name", "adam")).lower()
-            opt_clip = float(opt_raw.get("clipnorm", 1.0))
-        else:
-            opt_name, opt_clip = "adam", 1.0
-        return {
-            "candidate": model_cfg["candidate_name"],
-            "architecture": model_cfg["architecture"],
-            "window": int(model_cfg["window"]),
-            "units": tuple(int(u) for u in model_cfg["units"]),
-            "dropout": float(model_cfg["dropout"]),
-            "loss": model_cfg["loss"],
-            "learning_rate": float(model_cfg["learning_rate"]),
-            "batch_size": int(model_cfg["batch_size"]),
-            "seed": int(model_cfg["seed"]),
-            "fixed_epochs": int(model_cfg["fixed_epochs"]),
-            "variant": pre_cfg["variant"],
-            "n_clusters": int(cluster["n_clusters"]),
-            "cluster_seed": int(cluster["random_state"]),
-            "n_init": int(cluster["n_init"]),
-            "optimizer_name": opt_name,
-            "optimizer_clipnorm": opt_clip,
-        }
+    typed = from_mapping(cfg)
+    return {
+        "candidate": typed.candidate_name,
+        "architecture": typed.architecture,
+        "window": int(typed.window),
+        "units": tuple(int(u) for u in typed.units),
+        "dropout": float(typed.dropout),
+        "loss": typed.loss,
+        "learning_rate": float(typed.learning_rate),
+        "batch_size": int(typed.batch_size),
+        "seed": int(typed.seed),
+        "fixed_epochs": int(typed.fixed_epochs),
+        "variant": typed.selected_variant,
+        "n_clusters": int(typed.n_clusters),
+        "cluster_seed": int(typed.clustering_random_state),
+        "n_init": int(typed.clustering_n_init),
+        "optimizer_name": typed.optimizer_name,
+        "optimizer_clipnorm": float(typed.optimizer_clipnorm),
+    }
+
+
+def _require_case_exact(path: Path) -> Path:
+    """Fail closed if the resolved path's final component differs in case on disk.
+
+    On case-insensitive filesystems (Windows/macOS) ``exists()`` passes for a
+    wrong-case request; Linux clean clones would break later. Detect the
+    mismatch here so every platform behaves identically.
+    """
+    parent = path.parent
+    if not parent.is_dir():
+        raise FD004ConfigError(f"split evidence parent directory not found: {parent}")
+    if path.name not in {p.name for p in parent.iterdir()}:
+        raise FD004ConfigError(
+            f"split evidence not found with exact-case name: requested {path.name!r} "
+            f"under {parent} (tracked name may differ in case)"
+        )
+    return path
 
 
 def load_and_validate_split(config: FD004FinalConfig, frame: pd.DataFrame) -> dict:
     """Load split/cutoff from config paths, recompute hashes/counts, verify IDs/disjointness.
 
     Fails closed (FD004ConfigError) on:
-      - missing files, count mismatch, hash mismatch, overlap, missing IDs.
+      - missing or case-mismatched files, count mismatch,
+      - canonical engine-ID hash mismatch, RAW exact-file hash mismatch,
+      - overlap, missing IDs.
     """
     split_path = config.resolve_split_path()
+    _require_case_exact(split_path)
     if not split_path.exists():
         raise FD004ConfigError(f"split provenance not found: {split_path}")
     payload = json.loads(split_path.read_text(encoding="utf-8"))
@@ -143,13 +129,25 @@ def load_and_validate_split(config: FD004FinalConfig, frame: pd.DataFrame) -> di
         raise FD004ConfigError(
             f"calibration count {len(cal_ids)} != config {config.calibration_engine_count}"
         )
-    # hashes (canonical)
+    # hashes (canonical engine-ID digests — semantic membership identity)
     if canonical_sha256_json(sorted(train_ids)) != config.development_engine_ids_sha256:
         raise FD004ConfigError("development_engine_ids_sha256 mismatch")
     if canonical_sha256_json(sorted(val_ids)) != config.validation_engine_ids_sha256:
         raise FD004ConfigError("validation_engine_ids_sha256 mismatch")
     if canonical_sha256_json(sorted(cal_ids)) != config.calibration_engine_ids_sha256:
         raise FD004ConfigError("calibration_engine_ids_sha256 mismatch")
+
+    # raw exact-file hashes (byte integrity) when the config pins them.
+    # RAW and CANONICAL digests are separately named and never compared across kinds.
+    from rul_prediction.benchmark.fd004_config import raw_text_file_sha256
+
+    if config.split_provenance_file_sha256 is not None:
+        actual_raw = raw_text_file_sha256(split_path)
+        if actual_raw != config.split_provenance_file_sha256:
+            raise FD004ConfigError(
+                f"split_provenance_file_sha256 (raw file) mismatch: expected "
+                f"{config.split_provenance_file_sha256}, got {actual_raw} for {split_path}"
+            )
 
     # existence in frame
     frame_ids = set(int(x) for x in frame["engine_id"].unique())
@@ -174,15 +172,19 @@ def load_and_validate_split(config: FD004FinalConfig, frame: pd.DataFrame) -> di
         raise FD004ConfigError("calibration overlaps final fit")
     if len(cal_ids) != config.reserved_engine_count:
         raise FD004ConfigError("reserved count mismatch calibration")
-    # Also check total FD004 train size
-    if len(all_split_ids) != 249:
-        # FD004 train has 249 engines; allow but warn via error? Keep strict earlier counts
-        pass
 
     # validation manifest
     manifest_path = config.resolve_validation_manifest_path()
+    _require_case_exact(manifest_path)
     if not manifest_path.exists():
         raise FD004ConfigError(f"validation manifest not found: {manifest_path}")
+    if config.validation_cutoff_manifest_file_sha256 is not None:
+        actual_raw = raw_text_file_sha256(manifest_path)
+        if actual_raw != config.validation_cutoff_manifest_file_sha256:
+            raise FD004ConfigError(
+                f"validation_cutoff_manifest_file_sha256 (raw file) mismatch: expected "
+                f"{config.validation_cutoff_manifest_file_sha256}, got {actual_raw} for {manifest_path}"
+            )
     manifest = pd.read_csv(manifest_path)
     expected_rows = config.validation_engine_count * 5
     if len(manifest) != expected_rows:
@@ -298,8 +300,13 @@ def save_fd004_final_artifacts(
     split_plan: dict,
     training_time: float | None = None,
     root: Path | str | None = None,
+    allow_overwrite: bool = False,
 ) -> Path:
     """Persist versioned preprocessing payload and atomic metadata.
+
+    Immutable-baseline gate: refuses to overwrite a condition joblib whose
+    current bytes hash to the historical baseline (Section 9.5.1) — even with
+    allow_overwrite. Other existing artifacts require allow_overwrite=True.
 
     Returns metadata path.
     """
@@ -308,6 +315,28 @@ def save_fd004_final_artifacts(
     model_path = config.model_artifact_path(r)
     cond_path = config.condition_artifact_path(r)
     metadata_path = config.resolve_metadata_path(r)
+
+    # ---- fail-closed pre-write gates (before any deserialization or write) ----
+    if cond_path.exists():
+        from rul_prediction.benchmark.fd004_config import sha256_file
+
+        current = sha256_file(cond_path)
+        if current.lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower():
+            raise FD004ConfigError(
+                f"refusing to overwrite {cond_path}: its bytes match the immutable historical "
+                f"baseline {HISTORICAL_CONDITION_JOBLIB_SHA256} (Section 9.5.1). Future freezes "
+                "must write versioned payloads to identity-derived paths, never rewrite history."
+            )
+        if not allow_overwrite:
+            raise FD004ConfigError(
+                f"refusing to overwrite existing condition artifact {cond_path} "
+                "(pass --overwrite-existing to replace a non-baseline artifact)"
+            )
+    if model_path.exists() and not allow_overwrite:
+        raise FD004ConfigError(
+            f"refusing to overwrite existing model artifact {model_path} "
+            "(pass --overwrite-existing to replace it)"
+        )
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -369,11 +398,13 @@ def save_fd004_final_artifacts(
 
     # persist model (caller saves model separately? we save here if not already)
     # model.save is done by caller; we ensure preprocessing payload written atomically via joblib
-    # joblib dump is not atomic by itself; we dump to tmp then replace
+    # joblib dump is not atomic by itself; we dump to a unique tmp then replace
     import tempfile
     import os
 
-    tmp_cond = Path(tempfile.mktemp(dir=str(cond_path.parent)))
+    fd, tmp_name = tempfile.mkstemp(dir=str(cond_path.parent), suffix=".joblib.tmp")
+    os.close(fd)
+    tmp_cond = Path(tmp_name)
     try:
         dump_joblib(payload, tmp_cond)
         os.replace(tmp_cond, cond_path)
@@ -433,6 +464,8 @@ def save_fd004_final_artifacts(
         "canonical_algo": "cmapss-fd004-config-canonical-v1",
         "split_provenance": config.split_provenance,
         "validation_manifest": config.validation_manifest,
+        "split_provenance_file_sha256": config.split_provenance_file_sha256,
+        "validation_cutoff_manifest_file_sha256": config.validation_cutoff_manifest_file_sha256,
         "fit_ids_sha256": fit_ids_hash,
         "model_artifact": model_meta,
         "condition_artifact": cond_meta,
@@ -441,10 +474,12 @@ def save_fd004_final_artifacts(
         "provenance": git_provenance(),
     }
 
-    # atomic write
-    tmp_meta = Path(tempfile.mktemp(dir=str(metadata_path.parent)))
+    # atomic write with unique temp name in target directory
+    fd, tmp_name = tempfile.mkstemp(dir=str(metadata_path.parent), suffix=".json.tmp")
+    tmp_meta = Path(tmp_name)
     try:
-        tmp_meta.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(meta, indent=2))
         os.replace(tmp_meta, metadata_path)
     finally:
         if tmp_meta.exists():
@@ -458,10 +493,44 @@ def save_fd004_final_artifacts(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Freeze V2.2 FD004 final model")
     parser.add_argument("--config", default="configs/final_model_v2_2_fd004.yaml")
-    parser.add_argument("--data-dir", default="data/raw")
+    parser.add_argument("--data-dir", default=str(ROOT / "data" / "raw"))
+    parser.add_argument("--overwrite-existing", action="store_true",
+                        help="permit replacing existing non-baseline artifacts (historical baseline is always protected)")
+    parser.add_argument("--allow-dirty-reason", default=None,
+                        help="nonempty reason permitting dirty execution inputs (requires --allow-dirty-snapshot-dir)")
+    parser.add_argument("--allow-dirty-snapshot-dir", default=None,
+                        help="durable destination for the dirty-source snapshot (required with --allow-dirty-reason)")
     args = parser.parse_args()
 
+    # fail-closed reproducibility gate BEFORE any training/loading/output
+    try:
+        assert_reproducible_run_state(
+            allow_dirty_execution=bool(args.allow_dirty_reason),
+            dirty_reason=args.allow_dirty_reason,
+            snapshot_dir=args.allow_dirty_snapshot_dir,
+        )
+    except DirtyExecutionError as e:
+        import sys
+
+        sys.exit(f"refusing to freeze FD004: {e}")
+
     config = load_fd004_final_config(args.config)
+
+    # refuse clobbering existing artifacts before spending training time
+    model_path = config.model_artifact_path(ROOT)
+    cond_path = config.condition_artifact_path(ROOT)
+    if not args.overwrite_existing and (model_path.exists() or cond_path.exists()):
+        from rul_prediction.benchmark.fd004_config import sha256_file
+
+        if cond_path.exists() and sha256_file(cond_path).lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower():
+            raise FD004ConfigError(
+                f"refusing to freeze: {cond_path} holds the immutable historical baseline; "
+                "rewriting it is prohibited (Section 9.5.1)"
+            )
+        raise FD004ConfigError(
+            "refusing to freeze: artifacts already exist "
+            f"({model_path.name=}, {cond_path.name=}); pass --overwrite-existing to replace"
+        )
 
     frame = load_train("FD004", args.data_dir)
     split_plan = load_and_validate_split(config, frame)
@@ -473,11 +542,10 @@ def main() -> None:
     # save model via keras (anchor under ROOT)
     out_dir = ROOT / "models" / "v2_2"
     out_dir.mkdir(parents=True, exist_ok=True)
-    model_path = config.model_artifact_path(ROOT)
     model.save(model_path)
 
     meta_path = save_fd004_final_artifacts(config, model, pre, split_plan, training_time, ROOT)
-    print(json.loads(Path(meta_path).read_text(encoding="utf-8")).__str__() if False else json.dumps(json.loads(Path(meta_path).read_text(encoding="utf-8")), indent=2))
+    print(json.dumps(json.loads(Path(meta_path).read_text(encoding="utf-8")), indent=2))
 
 
 if __name__ == "__main__":

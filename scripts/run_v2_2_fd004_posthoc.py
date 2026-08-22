@@ -32,6 +32,10 @@ from rul_prediction.data.loader import EXPECTED_ENGINE_COUNTS, load_rul, load_te
 from rul_prediction.evaluation.manifest import evaluate_manifest
 from rul_prediction.evaluation.metrics import mae, r2, rmse
 from rul_prediction.evaluation.nasa_score import nasa_score
+from rul_prediction.reproducibility import (
+    DirtyExecutionError,
+    assert_reproducible_run_state,
+)
 
 try:
     from run_v2_2_fd004 import build_matrix, make_predictor
@@ -45,22 +49,27 @@ VARIANT_FEATURE_DIMS = {"A": 21, "B": 24, "C": 21, "D": 30}
 
 
 def _verify_model_dimensions(model, config, expected_feature_dim: int | None = None) -> None:
-    """Verify Keras time and feature dimensions against config."""
-    try:
-        inp = model.input_shape
-        # model.input_shape is list for multi-input; inp[0] is windowed tensor
-        # v2_gru has two inputs: window and mask. First is (None, window, n_features)
-        shape = inp[0] if isinstance(inp, list) else inp
-        _, w, f = shape
-        if int(w) != int(config.window):
-            raise FD004ConfigError(f"model window {w} != config.window {config.window}")
-        if expected_feature_dim is not None and int(f) != int(expected_feature_dim):
-            raise FD004ConfigError(f"model feature dim {f} != expected {expected_feature_dim} for variant {config.selected_variant}")
-    except FD004ConfigError:
-        raise
-    except Exception:
-        # stub models in tests may not have input_shape; skip strict check but ensure window passed
-        pass
+    """Verify Keras time and feature dimensions against config.
+
+    Fail-closed: a model that exposes no usable input_shape is an error, not a
+    skip — dimension verification must never be silently bypassed.
+    """
+    inp = getattr(model, "input_shape", None)
+    shapes = [inp] if isinstance(inp, tuple) else (list(inp) if isinstance(inp, list) else None)
+    if not shapes:
+        raise FD004ConfigError(
+            f"model exposes no usable input_shape {inp!r}; cannot verify window/feature dimensions"
+        )
+    shape = shapes[0]
+    if not (isinstance(shape, tuple) and len(shape) == 3):
+        raise FD004ConfigError(
+            f"model windowed-input shape {shape!r} is not (None, window, features)"
+        )
+    _, w, f = shape
+    if int(w) != int(config.window):
+        raise FD004ConfigError(f"model window {w} != config.window {config.window}")
+    if expected_feature_dim is not None and int(f) != int(expected_feature_dim):
+        raise FD004ConfigError(f"model feature dim {f} != expected {expected_feature_dim} for variant {config.selected_variant}")
 
 
 def load_and_verify_condition(config, *, model=None) -> dict:
@@ -204,9 +213,25 @@ def load_and_verify_condition(config, *, model=None) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Post-hoc official FD004 evaluation")
-    parser.add_argument("--data-dir", default="data/raw")
+    parser.add_argument("--data-dir", default=str(ROOT / "data" / "raw"))
     parser.add_argument("--config", default="configs/final_model_v2_2_fd004.yaml")
+    parser.add_argument("--allow-dirty-reason", default=None,
+                        help="nonempty reason permitting dirty execution inputs (requires --allow-dirty-snapshot-dir)")
+    parser.add_argument("--allow-dirty-snapshot-dir", default=None,
+                        help="durable destination for the dirty-source snapshot (required with --allow-dirty-reason)")
     args = parser.parse_args()
+
+    # fail-closed reproducibility gate BEFORE loading artifacts/labels
+    try:
+        assert_reproducible_run_state(
+            allow_dirty_execution=bool(args.allow_dirty_reason),
+            dirty_reason=args.allow_dirty_reason,
+            snapshot_dir=args.allow_dirty_snapshot_dir,
+        )
+    except DirtyExecutionError as e:
+        import sys
+
+        sys.exit(f"refusing to run FD004 post-hoc evaluation: {e}")
 
     config = load_fd004_final_config(args.config)
     variant = config.selected_variant
@@ -216,15 +241,11 @@ def main() -> None:
     model_path = config.model_artifact_path(ROOT)
     cond_path = config.condition_artifact_path(ROOT)
 
-    # manifest-based load-time verification before deserialization (distinct errors)
-    # ponytail: verify hashes before loading when manifest available; keeps absent/legacy/mismatch distinct
-    try:
-        from rul_prediction.artifact_manifest import verify_before_load
+    # manifest-based load-time verification before deserialization (distinct error classes)
+    from rul_prediction.artifact_manifest import verify_before_load
 
-        verify_before_load(model_path.relative_to(ROOT).as_posix(), root=ROOT, manifest_dataset="FD004")
-        verify_before_load(cond_path.relative_to(ROOT).as_posix(), root=ROOT, manifest_dataset="FD004")
-    except Exception:
-        raise
+    verify_before_load(model_path.relative_to(ROOT).as_posix(), root=ROOT, manifest_dataset="FD004")
+    verify_before_load(cond_path.relative_to(ROOT).as_posix(), root=ROOT, manifest_dataset="FD004")
 
     # distinguish missing artifact (friendly) before hash checks (legacy fallback if manifest not yet available)
     if not model_path.exists():
@@ -257,7 +278,11 @@ def main() -> None:
     # official labels remain unread until after compatibility passes
     engines = sorted(test["engine_id"].unique())
     # verify test engine count matches expected but not labels
-    assert len(engines) == EXPECTED_ENGINE_COUNTS["FD004"]["test"], f"test engine count {len(engines)} mismatch"
+    expected_test_count = EXPECTED_ENGINE_COUNTS["FD004"]["test"]
+    if len(engines) != expected_test_count:
+        raise FD004ConfigError(
+            f"official FD004 test engine count {len(engines)} != expected {expected_test_count}"
+        )
     test_manifest = pd.DataFrame({
         "engine_id": engines,
         "cutoff_cycle": [int(test[test["engine_id"] == e]["cycle"].max()) for e in engines]})
@@ -273,7 +298,11 @@ def main() -> None:
 
     # ONLY NOW read official labels (post-hoc, selection-inert)
     rul = load_rul("FD004", args.data_dir).astype(float)
-    assert len(engines) == len(rul) == EXPECTED_ENGINE_COUNTS["FD004"]["test"]
+    if not (len(engines) == len(rul) == EXPECTED_ENGINE_COUNTS["FD004"]["test"]):
+        raise FD004ConfigError(
+            f"official label count {len(rul)} vs engines {len(engines)} vs expected "
+            f"{EXPECTED_ENGINE_COUNTS['FD004']['test']} mismatch"
+        )
     y_true = np.asarray(rul, dtype=float)
 
     metrics = {
@@ -306,8 +335,10 @@ def main() -> None:
         y, p = g["true_raw_rul"].to_numpy(float), g["prediction"].to_numpy(float)
         re_rmse = round(float(rmse(y, p)), 4)
         re_nasa = round(float(nasa_score(y, p)), 2)
-        assert abs(re_rmse - stored.loc[v, "RMSE"]) < 1e-3, f"variant {v} RMSE drift"
-        assert abs(re_nasa - stored.loc[v, "NASA_total"]) < 1e-1, f"variant {v} NASA drift"
+        if abs(re_rmse - stored.loc[v, "RMSE"]) >= 1e-3:
+            raise FD004ConfigError(f"falsification failed: variant {v} RMSE drift (recomputed {re_rmse} vs stored {stored.loc[v, 'RMSE']})")
+        if abs(re_nasa - stored.loc[v, "NASA_total"]) >= 1e-1:
+            raise FD004ConfigError(f"falsification failed: variant {v} NASA drift (recomputed {re_nasa} vs stored {stored.loc[v, 'NASA_total']})")
     print("falsification: stored FD004 variant metrics match saved predictions")
 
 

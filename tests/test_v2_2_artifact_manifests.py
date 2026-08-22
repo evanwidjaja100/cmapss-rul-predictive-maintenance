@@ -531,22 +531,49 @@ def test_load_time_verification_distinct_error_classes():
         with pytest.raises(ArtifactHashMismatchError) as exc2:
             verify_before_load("configs/final_model_v2_2_fd001.yaml", root=tmp, manifest_dataset="FD001")
         assert "hard" in str(exc2.value).lower() or "mismatch" in str(exc2.value).lower()
-    # legacy without current schema -> ArtifactManifestError compatibility message or legacy path
-    # Simulate legacy manifest missing -> verify_before_load with no manifest should be legacy path (no error, allow)
+    # legacy without current schema -> absent manifest is class-2 legacy path:
+    # explicit UNVERIFIED warning, then proceed (never silent, never a hard error)
     with tempfile.TemporaryDirectory(prefix="bundle_legacy_") as td:
         tmp = Path(td) / "repo"
         tmp.mkdir()
         _copy_bundle(tmp)
         # remove manifest to simulate legacy without current schema
         (tmp / MANIFEST_PATHS["FD001"]).unlink()
-        # verify_before_load should allow legacy path (no manifest available) without raising hard failure
-        # It returns without error (compatibility: legacy path)
-        verify_before_load("models/v2_2/fd001_xgb_w90_d6.joblib", root=tmp, manifest_dataset="FD001")  # should not raise if manifest missing
+        # verify_before_load should allow legacy path but MUST warn that the load
+        # is unverified (never silent)
+        with pytest.warns(UserWarning, match="UNVERIFIED legacy-path load"):
+            verify_before_load("models/v2_2/fd001_xgb_w90_d6.joblib", root=tmp, manifest_dataset="FD001")  # should not raise if manifest missing
         # But if artifact not in manifest (when manifest exists but entry missing), it should raise compatibility
         _copy_bundle(tmp)  # restore manifest
         # Now remove entry simulation: manifest exists but path not in manifest should raise ManifestError
         with pytest.raises(ArtifactManifestError, match="legacy"):
             verify_before_load("nonexistent/path.csv", root=tmp, manifest_dataset="FD001")
+
+
+@pytest.mark.unit
+def test_tampered_manifest_schema_fails_closed_not_legacy_compat():
+    """Structurally invalid / tampered manifest must raise a HARD integrity error
+    (fail closed), never the old 'legacy manifest without current schema'
+    compatibility message (plan §11.6: distinct error classes)."""
+    with tempfile.TemporaryDirectory(prefix="bundle_tampered_manifest_") as td:
+        tmp = Path(td) / "repo"
+        tmp.mkdir()
+        _copy_bundle(tmp)
+        mp = tmp / MANIFEST_PATHS["FD001"]
+        data = json.loads(mp.read_text(encoding="utf-8"))
+        data["schema_version"] = "cmapss-artifact-manifest-TAMPERED"
+        mp.write_text(json.dumps(data), encoding="utf-8")
+        with pytest.raises(ArtifactManifestError, match="integrity violation") as exc:
+            verify_before_load("configs/final_model_v2_2_fd001.yaml", root=tmp, manifest_dataset="FD001")
+        msg = str(exc.value)
+        assert "legacy manifest without current schema" not in msg
+        assert "TAMPERED" in msg
+        # malformed entries (missing required key) are also hard integrity failures
+        data2 = json.loads((REPO_ROOT / MANIFEST_PATHS["FD001"]).read_text(encoding="utf-8"))
+        del data2["artifacts"][0]["sha256"]
+        mp.write_text(json.dumps(data2), encoding="utf-8")
+        with pytest.raises(ArtifactManifestError, match="integrity violation"):
+            verify_before_load("configs/final_model_v2_2_fd001.yaml", root=tmp, manifest_dataset="FD001")
 
 
 @pytest.mark.unit

@@ -50,7 +50,7 @@ def main() -> None:
     model = keras.models.load_model(ROOT / "models/v2_1/fd001_gru_w45_huber.keras")
     scaler = load_joblib(ROOT / "models/v2_1/fd001_scaler.joblib")
     window = 45
-    predictor = make_predictor("gru", model, scaler, window)
+    predictor = make_predictor("gru", model, scaler, window=window)
 
     frame = load_train("FD001", args.data_dir)
     cal_ids = pd.read_csv(Path(args.splits_dir) / "fd001_v2_1_calibration_cutoffs.csv")

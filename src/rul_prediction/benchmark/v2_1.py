@@ -128,7 +128,8 @@ def run_cv_fold(candidate: dict, fold: dict, frame, data_dir: str | Path,
     training_time = round(time.perf_counter() - start, 2)
 
     pred = evaluate_manifest(manifest, trajectories,
-                             make_predictor(candidate["model"], model, scaler, window))
+                             make_predictor(candidate["model"], model, scaler,
+                                            window=window))
     y_true = manifest["true_raw_rul"].to_numpy()
     row = {
         "candidate_id": candidate["id"],

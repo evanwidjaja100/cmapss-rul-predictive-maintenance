@@ -60,7 +60,7 @@ def main() -> None:
     print(f"saved -> {MODEL_PATH}  ({training_time}s)")
 
     pred_val = evaluate_manifest(manifest, trajectories,
-                                 make_predictor(MODEL_NAME, model, scaler, WINDOW))
+                                 make_predictor(MODEL_NAME, model, scaler, window=WINDOW))
     y_true_val = manifest["true_raw_rul"].to_numpy()
     val_total = nasa_score(y_true_val, pred_val)
     val_metrics = {

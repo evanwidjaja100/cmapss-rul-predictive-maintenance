@@ -94,7 +94,7 @@ def main() -> None:
         "cutoff_cycle": [int(test[test["engine_id"] == e]["cycle"].max()) for e in engines]})
     test_traj = {int(e): g.sort_values("cycle") for e, g in test.groupby("engine_id")}
     pred = evaluate_manifest(test_manifest, test_traj,
-                             make_predictor(model_name, model, scaler, window))
+                             make_predictor(model_name, model, scaler, window=window))
     pred_rows = pd.DataFrame({"engine_id": engines, "true_rul_official": rul.astype(float),
                               "prediction": pred})
     pred_rows.to_csv(OUT_DIR / "fd001_official_predictions.csv", index=False)

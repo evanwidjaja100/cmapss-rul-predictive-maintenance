@@ -274,33 +274,33 @@ def test_headless_streamlit_smoke_with_artifacts():
     cmd = [sys.executable, "-m", "streamlit", "run", "app_v2.py", "--server.headless", "true", "--server.port", str(port), "--server.address", "127.0.0.1", "--browser.gatherUsageStats", "false"]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=str(ROOT))
     try:
-        # wait up to 12s for startup
+        # wait up to 12s for startup; success = server still running after grace
+        # period AND no Python traceback in its output (a Streamlit server stays
+        # alive even when the script raises during render, so scan for tracebacks)
         start = time.perf_counter()
         out = ""
+        startup_ok = False
         while time.perf_counter() - start < 12:
             if proc.poll() is not None:
                 break
-            # non-blocking read attempt via communicate timeout?
-            # use simple sleep and check
             time.sleep(0.5)
-            # peek if process still alive – if it started, it will stay alive
-            if proc.poll() is None:
-                # consider success if it stayed alive >4s without immediate crash
-                if time.perf_counter() - start > 5:
-                    out = "headless_started"
-                    break
+            if proc.poll() is None and time.perf_counter() - start > 5:
+                startup_ok = True
+                break
+        elapsed = time.perf_counter() - start  # diagnostic only, no hard cutoff assert
+        print(f"TIMING headless_startup_observed_after={elapsed:.2f}s startup_ok={startup_ok}")
         if proc.poll() is not None:
-            # process exited – capture output
+            # process exited before grace period – capture output and fail with context
             try:
                 stdout, _ = proc.communicate(timeout=2)
                 out += stdout
             except Exception:
                 pass
-            # if artifacts present, exit code should be 0 or still running; non-zero is failure
-            assert proc.returncode == 0 or "headless_started" in out, f"streamlit exited {proc.returncode}: {out[:2000]}"
+            assert "headless_started" in out, f"streamlit exited {proc.returncode}: {out[:2000]}"
         else:
-            # headless started successfully
-            assert True
+            # server alive past grace period: fail if the app script raised
+            assert startup_ok, f"streamlit not stable after grace period: {out[:2000]}"
+            assert "Traceback (most recent call last)" not in out, f"traceback in streamlit output: {out[:2000]}"
             print(f"headless predictor ok: {predictor.model_version} on port {port}")
     finally:
         try:

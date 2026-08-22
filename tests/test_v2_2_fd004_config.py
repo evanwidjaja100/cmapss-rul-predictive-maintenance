@@ -34,6 +34,7 @@ from rul_prediction.benchmark.fd004_config import (
     HISTORICAL_CONDITION_JOBLIB_SHA256,
     from_mapping,
     load_fd004_final_config,
+    raw_text_file_sha256,
     sha256_file,
 )
 from rul_prediction.benchmark.v2 import ROOT
@@ -88,8 +89,16 @@ def test_production_yaml_parses_to_expected_contract():
     assert cfg.operating_setting_columns == ("setting_1", "setting_2", "setting_3")
     assert cfg.sensor_scaling_mode == "per_regime_standard_scaler"
     assert cfg.sensor_scaling_fit_scope == "training_rows_only"
-    assert cfg.split_provenance == "experiments/splits/fd004_v2_seed42.json"
+    assert cfg.split_provenance == "experiments/splits/FD004_v2_seed42.json"
     assert cfg.validation_manifest == "experiments/splits/fd004_v2_1_validation_cutoffs.csv"
+    # raw exact-file evidence hashes present in production YAML and distinct in kind
+    assert cfg.split_provenance_file_sha256 is not None and len(cfg.split_provenance_file_sha256) == 64
+    assert cfg.validation_cutoff_manifest_file_sha256 is not None
+    assert cfg.split_provenance_file_sha256 not in {
+        cfg.development_engine_ids_sha256,
+        cfg.validation_engine_ids_sha256,
+        cfg.calibration_engine_ids_sha256,
+    }
     assert cfg.development_engine_count == 175
     assert cfg.validation_engine_count == 37
     assert cfg.calibration_engine_count == 37
@@ -428,6 +437,9 @@ def test_temporary_split_paths_consumed_and_drift_fails(tmp_path):
     mapping["splits"]["development_engine_ids_sha256"] = canonical_sha256_json(sorted(train_ids))
     mapping["splits"]["validation_engine_ids_sha256"] = canonical_sha256_json(sorted(val_ids))
     mapping["splits"]["calibration_engine_ids_sha256"] = canonical_sha256_json(sorted(cal_ids))
+    # raw exact-file hashes must pin the TEMP files, not the production files
+    mapping["splits"]["split_provenance_file_sha256"] = raw_text_file_sha256(split_file)
+    mapping["splits"]["validation_cutoff_manifest_file_sha256"] = raw_text_file_sha256(manifest_file)
     mapping["training"]["final_engine_count"] = len(train_ids) + len(val_ids)
     mapping["training"]["reserved_engine_count"] = len(cal_ids)
     cfg = from_mapping(mapping)
@@ -435,6 +447,21 @@ def test_temporary_split_paths_consumed_and_drift_fails(tmp_path):
     plan = load_and_validate_split(cfg, frame)
     assert plan["train_ids"] == set(train_ids)
     assert plan["val_ids"] == set(val_ids)
+
+    # RAW hash drift with identical semantics: same IDs, different byte layout
+    # (re-serialized dict). Canonical engine-ID digests are unchanged; the raw
+    # file digest changes — proving the two hash kinds are independent.
+    reordered = {
+        "calibration_engine_ids": cal_ids,
+        "validation_engine_ids": val_ids,
+        "train_engine_ids": train_ids,
+    }
+    split_file.write_text(json.dumps(reordered), encoding="utf-8")
+    with pytest.raises(FD004ConfigError, match="split_provenance_file_sha256"):
+        load_and_validate_split(cfg, frame)
+
+    # restore exact bytes so canonical-hash drift cases below stay isolated
+    split_file.write_text(json.dumps(payload), encoding="utf-8")
 
     # drift: overlap
     payload_overlap = {"train_engine_ids": [1,2,3,4,5], "validation_engine_ids": [5,6], "calibration_engine_ids": [8,9,10]}
@@ -696,3 +723,151 @@ def test_partial_results_cannot_overwrite_canonical_config(tmp_path):
         pytest.fail("non-canonical partial should be allowed to temp path (if implementation permits)")
     after = canonical_path.read_bytes()
     assert before == after
+
+
+# ---- 13. Review-wave hardening (fail-closed gates) ---------------------------
+
+def test_best_epoch_non_int_rejected():
+    mapping = _production_mapping()
+    mapping["model"]["fixed_epochs"] = 8
+    for bad in (8.0, "8", None):
+        vr = dict(mapping["variant_results"]["C"])
+        if bad is None:
+            vr.pop("best_epoch", None)
+        else:
+            vr["best_epoch"] = bad
+        m = json.loads(json.dumps(mapping))
+        m["variant_results"]["C"] = vr
+        with pytest.raises(FD004ConfigError, match="best_epoch"):
+            from_mapping(m)
+
+
+def test_canonical_guard_bypass_via_absolute_path(tmp_path):
+    # partial results written to the canonical file via an ABSOLUTE path spelling
+    # must still be refused (resolved-path comparison)
+    from scripts.run_v2_2_fd004 import write_fd004_config
+    results = pd.DataFrame([
+        {"variant": "A", "RMSE": 1.0, "R2": 0, "NASA_mean_per_engine": 100, "signed_bias_mean": 0, "best_epoch": 10},
+    ])
+    best_rows = pd.DataFrame([{"variant": "A", "best_epoch": 10, "inner_seed": 4201}])
+    winner = results.iloc[0]
+    absolute_spelling = str(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+    with pytest.raises(ValueError):
+        write_fd004_config(winner, results, best_rows, absolute_spelling)
+    # and the canonical file is untouched
+    assert (ROOT / "configs" / "final_model_v2_2_fd004.yaml").exists()
+
+
+def test_save_refuses_overwriting_historical_condition_baseline(tmp_path, monkeypatch):
+    import scripts.run_v2_2_fd004_freeze as freeze_mod
+    cfg = load_fd004_final_config(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+    baseline_file = tmp_path / "fd004_conditionC.joblib"
+    real_bytes = (ROOT / "models" / "v2_2" / "fd004_conditionC.joblib").read_bytes()
+    assert sha256_file(ROOT / "models" / "v2_2" / "fd004_conditionC.joblib") == HISTORICAL_CONDITION_JOBLIB_SHA256
+    baseline_file.write_bytes(real_bytes)
+    monkeypatch.setattr(FD004FinalConfig, "condition_artifact_path", lambda self, root=None: baseline_file)
+    monkeypatch.setattr(FD004FinalConfig, "model_artifact_path", lambda self, root=None: tmp_path / "m.keras")
+    split_plan = {"final_ids": {1}, "cal_ids": {2}}
+    pre = {"global_scaler": None, "kmeans": object(), "cluster_scalers": {}, "settings_scaler": object()}
+    # baseline hash present -> refused even WITH allow_overwrite
+    with pytest.raises(FD004ConfigError, match="immutable historical"):
+        freeze_mod.save_fd004_final_artifacts(cfg, None, pre, split_plan, root=tmp_path, allow_overwrite=True)
+    # different (non-baseline) content -> allowed only with allow_overwrite
+    baseline_file.write_bytes(b"not the baseline")
+    with pytest.raises(FD004ConfigError, match="overwrite-existing"):
+        freeze_mod.save_fd004_final_artifacts(cfg, None, pre, split_plan, root=tmp_path)
+
+
+def test_save_refuses_existing_model_without_flag(tmp_path, monkeypatch):
+    import scripts.run_v2_2_fd004_freeze as freeze_mod
+    cfg = load_fd004_final_config(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+    model_file = tmp_path / "m.keras"
+    cond_file = tmp_path / "c.joblib"
+    model_file.write_bytes(b"existing model")
+    monkeypatch.setattr(FD004FinalConfig, "condition_artifact_path", lambda self, root=None: cond_file)
+    monkeypatch.setattr(FD004FinalConfig, "model_artifact_path", lambda self, root=None: model_file)
+    split_plan = {"final_ids": {1}, "cal_ids": {2}}
+    pre = {"global_scaler": None, "kmeans": object(), "cluster_scalers": {}, "settings_scaler": object()}
+    with pytest.raises(FD004ConfigError, match="overwrite-existing"):
+        freeze_mod.save_fd004_final_artifacts(cfg, None, pre, split_plan, root=tmp_path)
+
+
+def test_case_mismatched_split_name_fails(tmp_path):
+    # tracked-style uppercase request against a lowercase file on disk must fail
+    train_ids, val_ids, cal_ids = list(range(1, 6)), list(range(6, 8)), list(range(8, 11))
+    payload = {"train_engine_ids": train_ids, "validation_engine_ids": val_ids, "calibration_engine_ids": cal_ids}
+    wrong_case_dir = tmp_path / "splits"
+    wrong_case_dir.mkdir()
+    lower = wrong_case_dir / "fd004_split.json"
+    lower.write_text(json.dumps(payload), encoding="utf-8")
+    mapping = _production_mapping()
+    mapping["splits"]["provenance"] = str(wrong_case_dir / "FD004_split.json")  # case differs
+    mapping["splits"]["validation_manifest"] = str(tmp_path / "manifest.csv")
+    mapping["splits"]["split_provenance_file_sha256"] = raw_text_file_sha256(lower)
+    manifest_rows = []
+    for e in val_ids:
+        for frac in (0.25, 0.45, 0.65, 0.8, 0.95):
+            manifest_rows.append({"engine_id": e, "full_lifetime": 100, "cutoff_cycle": 50, "true_raw_rul": 50, "fraction": frac})
+    manifest_file = tmp_path / "manifest.csv"
+    pd.DataFrame(manifest_rows).to_csv(manifest_file, index=False)
+    mapping["splits"]["validation_cutoff_manifest_file_sha256"] = raw_text_file_sha256(manifest_file)
+    for k, v in (("development_engine_count", len(train_ids)), ("validation_engine_count", len(val_ids)), ("calibration_engine_count", len(cal_ids))):
+        mapping["splits"][k] = v
+    for key, ids in (("development_engine_ids_sha256", train_ids), ("validation_engine_ids_sha256", val_ids), ("calibration_engine_ids_sha256", cal_ids)):
+        mapping["splits"][key] = canonical_sha256_json(sorted(ids))
+    mapping["training"]["final_engine_count"] = len(train_ids) + len(val_ids)
+    mapping["training"]["reserved_engine_count"] = len(cal_ids)
+    cfg = from_mapping(mapping)
+    from scripts.run_v2_2_fd004_freeze import load_and_validate_split
+    frame = _synthetic_frame(num_engines=10)
+    with pytest.raises(FD004ConfigError, match="exact-case"):
+        load_and_validate_split(cfg, frame)
+
+
+def test_predictor_without_input_shape_fails_closed():
+    import scripts.run_v2_2_fd004 as runner
+
+    class NoShapeModel:
+        def predict(self, *a, **k):
+            raise AssertionError("must not be called")
+
+    predictor = runner.make_predictor("C", NoShapeModel(), None, None, None, None, window=45)
+    rng = np.random.default_rng(3)
+    history = pd.DataFrame({
+        "engine_id": 1,
+        "cycle": np.arange(1, 50),
+        **{f"sensor_{i}": rng.normal(size=49) for i in range(1, 22)},
+        **{f"setting_{i}": rng.normal(size=49) for i in range(1, 4)},
+    })
+    with pytest.raises(ValueError, match="input_shape"):
+        predictor(history, cutoff=49)
+
+
+def test_posthoc_dimension_check_requires_input_shape():
+    from scripts.run_v2_2_fd004_posthoc import _verify_model_dimensions
+    cfg = load_fd004_final_config(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+
+    class NoShape:
+        pass
+
+    with pytest.raises(FD004ConfigError, match="input_shape"):
+        _verify_model_dimensions(NoShape(), cfg, expected_feature_dim=21)
+
+
+def test_runner_main_rejects_dirty_execution(monkeypatch):
+    """Freeze/variant/posthoc entrypoints must fail closed on dirty execution."""
+    import sys
+
+    import scripts.run_v2_2_fd004 as runner
+    import scripts.run_v2_2_fd004_freeze as freeze_mod
+    import scripts.run_v2_2_fd004_posthoc as posthoc_mod
+    from rul_prediction.reproducibility import DirtyExecutionError
+
+    def refuse(*a, **k):
+        raise DirtyExecutionError("dirty execution inputs detected")
+
+    monkeypatch.setattr(sys, "argv", ["prog"])
+    for mod in (runner, freeze_mod, posthoc_mod):
+        monkeypatch.setattr(mod, "assert_reproducible_run_state", refuse, raising=False)
+        with pytest.raises(SystemExit, match="refusing"):
+            mod.main()

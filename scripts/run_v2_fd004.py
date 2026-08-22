@@ -80,7 +80,7 @@ def main() -> None:
     print(f"saved -> {MODEL_PATH}  ({training_time}s)")
 
     pred_val = evaluate_manifest(manifest, trajectories,
-                                 make_predictor(MODEL_NAME, model, scaler, WINDOW))
+                                 make_predictor(MODEL_NAME, model, scaler, window=WINDOW))
     y_true_val = manifest["true_raw_rul"].to_numpy()
     val_metrics = {
         "validation_RMSE": round(rmse(y_true_val, pred_val), 4),

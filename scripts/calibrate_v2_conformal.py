@@ -59,7 +59,7 @@ def main() -> None:
     calibration_ids = a["calibration_ids"]
     manifest, trajectories = a["manifest"], a["trajectories"]
     model = keras_models.load_model(MODEL_PATH)
-    predictor = make_predictor(MODEL_NAME, model, scaler, WINDOW)
+    predictor = make_predictor(MODEL_NAME, model, scaler, window=WINDOW)
 
     cal_path = ROOT / "experiments" / "splits" / "fd001_v2_calibration_cutoffs.csv"
     cal_manifest = pd.read_csv(cal_path, dtype={"engine_id": int, "cutoff_cycle": int})

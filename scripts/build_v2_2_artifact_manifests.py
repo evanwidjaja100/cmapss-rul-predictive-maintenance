@@ -72,13 +72,17 @@ def _maybe_preserve_timestamp(dataset: str, root: Path, new_dict: dict, generate
 def build_one(dataset: str, root: Path, generated_at: str | None, check: bool = False) -> int:
     """Build single dataset manifest; honors --check and timestamp preservation; returns exit code."""
     manifest_path = root / MANIFEST_PATHS[dataset]
+    # Gate P4: --check never writes anything — FD004 canonical ensure/create is
+    # skipped (fails closed if missing) and no manifest bytes are written.
     # First build with requested or now timestamp
-    new_dict = build_manifest_dict(dataset, root=root, generated_at_utc=generated_at)
+    new_dict = build_manifest_dict(dataset, root=root, generated_at_utc=generated_at,
+                                   ensure_canonical=not check)
     # Determine timestamp to use (preserve or override)
     ts = _maybe_preserve_timestamp(dataset, root, new_dict, generated_at)
     if ts != new_dict["generated_at_utc"]:
         # rebuild with preserved timestamp for determinism
-        new_dict = build_manifest_dict(dataset, root=root, generated_at_utc=ts)
+        new_dict = build_manifest_dict(dataset, root=root, generated_at_utc=ts,
+                                       ensure_canonical=not check)
     # A manifest commit changes HEAD without changing the hashed inputs. Keep
     # generation metadata stable in that case so --check remains meaningful.
     prior = _prior_with_same_inputs(dataset, root, new_dict) if generated_at is None else None

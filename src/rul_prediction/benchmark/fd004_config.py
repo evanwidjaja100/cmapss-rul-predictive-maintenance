@@ -63,6 +63,41 @@ def _check_hex_sha256(s: Any, field: str) -> None:
         _fail(f"{field} must be hex, got {s!r}")
 
 
+# Text suffixes whose raw evidence hash uses CRLF->LF normalization, mirroring
+# the artifact-manifest verifier convention (cross-platform stable under autocrlf).
+_LF_TEXT_SUFFIXES = {".txt", ".csv", ".yaml", ".yml", ".json", ".md", ".py", ".toml"}
+
+
+def raw_text_file_sha256(path: Path | str) -> str:
+    """Raw exact-file hash for split/cutoff evidence files.
+
+    Mirrors artifact-manifest verification: worktree bytes with CRLF->LF
+    normalization for known text suffixes; raw bytes otherwise. This is a RAW
+    integrity digest and is never compared to canonical engine-ID hashes.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FD004ConfigError(f"split evidence file not found: {p}")
+    data = p.read_bytes()
+    if p.suffix.lower() in _LF_TEXT_SUFFIXES:
+        data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
+def compute_split_evidence_hashes(config_split_provenance: str, config_validation_manifest: str, *, root: Path | str | None = None) -> dict:
+    """Compute raw file hashes for the split JSON and validation cutoff CSV."""
+    r = _resolve_repo_root(root)
+
+    def _resolve(v: str) -> Path:
+        p = Path(v)
+        return p if p.is_absolute() else r / p
+
+    return {
+        "split_provenance_file_sha256": raw_text_file_sha256(_resolve(config_split_provenance)),
+        "validation_cutoff_manifest_file_sha256": raw_text_file_sha256(_resolve(config_validation_manifest)),
+    }
+
+
 def _normalize_optimizer(raw: Any) -> tuple[str, float]:
     """Return (name, clipnorm) from either legacy string or structured dict."""
     if isinstance(raw, str):
@@ -161,6 +196,21 @@ def _resolve_repo_root(root: Path | str | None) -> Path:
     return Path(root).resolve()
 
 
+def _resolve_evidence_path(value: str, root: Path, field: str) -> Path:
+    """Resolve a repo-relative or absolute evidence path, preserving the
+    requested final path component verbatim so exact-case validation works on
+    case-insensitive filesystems (``Path.resolve`` would otherwise silently
+    rewrite the name to whatever exists on disk)."""
+    p = Path(value)
+    if ".." in p.parts:
+        _fail(f"{field} must not contain '..', got {value!r}")
+    if p.is_absolute():
+        parent = p.parent.resolve()
+    else:
+        parent = (root / p.parent).resolve()
+    return parent / p.name
+
+
 @dataclass(frozen=True)
 class FD004FinalConfig:
     """Immutable FD004 final config (GRU-only, huber, KMeans)."""
@@ -198,6 +248,9 @@ class FD004FinalConfig:
     validation_engine_ids_sha256: str
     calibration_engine_ids_sha256: str
     validation_data_in_final_fit: bool
+    # raw exact-file evidence hashes (never compared to canonical digests)
+    split_provenance_file_sha256: str | None = None
+    validation_cutoff_manifest_file_sha256: str | None = None
     # provenance for hash distinction
     config_file_sha256: str | None = None
     config_canonical_sha256: str | None = None
@@ -220,27 +273,12 @@ class FD004FinalConfig:
 
     def resolve_split_path(self, root: Path | str | None = None) -> Path:
         r = _resolve_repo_root(root)
-        p = Path(self.split_provenance)
-        # ponytail: allow absolute temp paths for testing (9.7 case 7); repo-relative is canonical
-        if p.is_absolute():
-            # still reject traversal that escapes via .. in absolute
-            if ".." in p.parts:
-                _fail(f"split provenance must not contain '..', got {p}")
-            return p.resolve()
-        if ".." in p.parts:
-            _fail(f"split provenance must not contain '..', got {p}")
-        return (r / p).resolve()
+        # preserve the requested final component verbatim (exact-case checks)
+        return _resolve_evidence_path(self.split_provenance, r, "split provenance")
 
     def resolve_validation_manifest_path(self, root: Path | str | None = None) -> Path:
         r = _resolve_repo_root(root)
-        p = Path(self.validation_manifest)
-        if p.is_absolute():
-            if ".." in p.parts:
-                _fail(f"validation_manifest must not contain '..', got {p}")
-            return p.resolve()
-        if ".." in p.parts:
-            _fail(f"validation_manifest must not contain '..', got {p}")
-        return (r / p).resolve()
+        return _resolve_evidence_path(self.validation_manifest, r, "validation_manifest")
 
     def resolve_metadata_path(self, root: Path | str | None = None) -> Path:
         r = _resolve_repo_root(root)
@@ -424,14 +462,32 @@ def from_mapping(
         _fail(f"candidate_name {candidate_name!r} inconsistent with identity: expected {expected_candidate!r} from architecture/window/loss/variant")
     # architecture already validated gru
     # also ensure variant matches candidate suffix
-    # fixed_epochs consistency vs variant_results if present
+    # fixed_epochs consistency vs variant_results if present (total: no silent skip)
     variant_results = mapping.get("variant_results")
     if isinstance(variant_results, dict) and selected_variant in variant_results:
         vr = variant_results[selected_variant]
-        if isinstance(vr, dict) and "best_epoch" in vr:
-            be = vr["best_epoch"]
-            if isinstance(be, int) and not isinstance(be, bool) and be != int(fixed_epochs):
-                _fail(f"fixed_epochs {fixed_epochs} inconsistent with variant_results[{selected_variant}].best_epoch {be}")
+        if not isinstance(vr, dict):
+            _fail(f"variant_results[{selected_variant}] must be a mapping, got {vr!r}")
+        if "best_epoch" not in vr:
+            _fail(f"variant_results[{selected_variant}] missing best_epoch (cannot verify fixed_epochs consistency)")
+        be = vr["best_epoch"]
+        if isinstance(be, bool) or not isinstance(be, int):
+            _fail(f"variant_results[{selected_variant}].best_epoch must be an int, got {be!r}")
+        if be != int(fixed_epochs):
+            _fail(f"fixed_epochs {fixed_epochs} inconsistent with variant_results[{selected_variant}].best_epoch {be}")
+
+    # raw exact-file evidence hashes: optional fields, validated when present.
+    # These are RAW digests of the split JSON / cutoff CSV bytes and are never
+    # compared to canonical engine-ID hashes.
+    def _opt_raw_hash(field: str) -> str | None:
+        v = splits.get(field)
+        if v is None:
+            return None
+        _check_hex_sha256(v, f"splits.{field}")
+        return str(v)
+
+    split_file_sha = _opt_raw_hash("split_provenance_file_sha256")
+    cutoff_file_sha = _opt_raw_hash("validation_cutoff_manifest_file_sha256")
 
     osc_tuple = tuple(str(x) for x in osc)
 
@@ -469,6 +525,8 @@ def from_mapping(
         validation_engine_ids_sha256=str(val_sha),
         calibration_engine_ids_sha256=str(cal_sha),
         validation_data_in_final_fit=bool(validation_data_in_final_fit),
+        split_provenance_file_sha256=split_file_sha,
+        validation_cutoff_manifest_file_sha256=cutoff_file_sha,
         config_file_sha256=config_file_sha256,
         config_canonical_sha256=None,  # filled below
         source_path=Path(source_path) if source_path else None,
@@ -483,15 +541,8 @@ def from_mapping(
 def load_fd004_final_config(path: str | Path, *, root: Path | str | None = None) -> FD004FinalConfig:
     p = Path(path)
     if not p.is_absolute():
-        # resolve relative to repo root for consistent behavior
-        r = _resolve_repo_root(root)
-        # if path is already repo-relative, try relative to root; fallback to cwd
-        candidate = r / p
-        if candidate.exists():
-            p = candidate
-        else:
-            # also try cwd resolution
-            p = p.resolve()
+        # resolve relative paths against repository root (never CWD-dependent)
+        p = _resolve_repo_root(root) / p
     if not p.exists():
         _fail(f"FD004 config file not found: {p}")
     file_sha = sha256_file(p)

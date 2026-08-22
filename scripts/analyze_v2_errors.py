@@ -77,7 +77,7 @@ def main() -> None:
     frame, scaler = artifacts["frame"], artifacts["scaler"]
     manifest, trajectories = artifacts["manifest"], artifacts["trajectories"]
     model = __import__("keras").models.load_model(MODEL_PATH)
-    predictor = make_predictor(MODEL_NAME, model, scaler, WINDOW)
+    predictor = make_predictor(MODEL_NAME, model, scaler, window=WINDOW)
 
     val_true = manifest["true_raw_rul"].to_numpy()
     val_pred = evaluate_manifest(manifest, trajectories, predictor)

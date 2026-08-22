@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import warnings
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -225,6 +226,13 @@ def _sha256_git_blob_or_file(posix_path: str, root: Path) -> tuple[str, int]:
     via `git show HEAD:<path>` when available; fallback to filesystem if not in HEAD
     (e.g., newly staged file not yet committed). For `local` artifacts, hash filesystem.
     This makes manifest deterministic across Windows (CRLF checkout) and Linux (LF).
+
+    Deliberate asymmetry (intentional, conservative direction): this builder hashes the
+    COMMITTED blob/index content for git-class artifacts, while verify_manifest_file /
+    verify_before_load hash the WORKING-TREE text normalized to LF. Consequence: a
+    manifest built in a dirty worktree records committed content and only verifies once
+    that content is actually committed — uncommitted drift is surfaced as a mismatch
+    rather than silently blessed.
     """
     # try git blob first for tracked files
     try:
@@ -454,10 +462,15 @@ def _constraints_integrity_context(root: Path) -> list[dict[str, Any]]:
         })
     return out
 
-def build_manifest_dict(dataset: str, root: Path | str | None = None, generated_at_utc: str | None = None) -> dict[str, Any]:
+def build_manifest_dict(dataset: str, root: Path | str | None = None,
+                        generated_at_utc: str | None = None,
+                        ensure_canonical: bool = True) -> dict[str, Any]:
     """Build manifest dict for dataset (FD001 or FD004) at root.
-    
+
     generated_at_utc: ISO UTC timestamp; if None, use now.
+    ensure_canonical: FD004 only — when True (actual builds) a missing canonical
+      official-predictions CSV is derived from its report-table mirror (writes to
+      experiments/). Must be False in check mode: --check never writes (Gate P4).
     Returns manifest dict (not yet serialized).
     """
     r = _resolve_root(root)
@@ -480,14 +493,20 @@ def build_manifest_dict(dataset: str, root: Path | str | None = None, generated_
     # specs
     specs = FD001_ARTIFACT_SPECS if dataset == "FD001" else FD004_ARTIFACT_SPECS
     lineage = FD001_LINEAGE if dataset == "FD001" else FD004_LINEAGE
-    # special handling for FD004 canonical equality: ensure file exists and equals report mirror
+    # special handling for FD004 canonical equality
     if dataset == "FD004":
         canon = r / "experiments" / "v2_2" / "fd004_official_predictions.csv"
         mirror = r / "reports" / "tables" / "v2_2_fd004_predictions.csv"
         if not canon.exists():
-            # derive from mirror without inference
             if not mirror.exists():
                 raise ArtifactMissingError(f"FD004 report mirror missing: {mirror}")
+            # ensure/create step writes to experiments/: only during real builds.
+            # --check is strictly read-only (Gate P4): it fails closed instead.
+            if not ensure_canonical:
+                raise ArtifactMissingError(
+                    f"FD004 canonical official predictions missing: {canon} "
+                    f"(check mode never writes; run an actual manifest build to derive "
+                    f"it from the mirror {mirror})")
             canon.parent.mkdir(parents=True, exist_ok=True)
             canon.write_bytes(mirror.read_bytes())
         elif mirror.exists():
@@ -617,7 +636,7 @@ def _validate_manifest_artifacts(artifacts: list[dict[str, Any]], dataset: str) 
             # If they differ, it's not ambiguous but would violate canonical equality requirement
             # We keep strict: they must be equal, otherwise it's wrong identity
             if canon["sha256"] != mirror["sha256"]:
-                raise ArtifactManifestError(f"FKD004 canonical {canon['sha256'][:8]} != mirror {mirror['sha256'][:8]}; must be byte-identical")
+                raise ArtifactManifestError(f"FD004 canonical {canon['sha256'][:8]} != mirror {mirror['sha256'][:8]}; must be byte-identical")
             if canon["bytes"] != mirror["bytes"]:
                 raise ArtifactManifestError("FD004 canonical and mirror size mismatch")
 
@@ -793,39 +812,52 @@ def verify_manifest_file(manifest_path: Path | str, root: Path | str | None = No
 
 def verify_before_load(posix_path: str, root: Path | str | None = None, manifest_dataset: str | None = None) -> None:
     """Load-time verification: when manifest available, verify hash before deserialization.
-    
-    Raises:
-      ArtifactMissingError: artifact absent (friendly)
-      ArtifactManifestError: legacy without current schema (compatibility message)
-      ArtifactHashMismatchError: present hash mismatch (hard failure)
+
+    Distinct error classes (plan §11.6, never conflated):
+      1. ArtifactMissingError: artifact absent - friendly generation guidance;
+      2. structurally invalid / tampered manifest (e.g. wrong schema_version,
+         malformed entries) -> hard ArtifactManifestError, fail closed (tamper is
+         never downgraded to a compatibility message);
+         no manifest at all for the requested dataset -> explicit UserWarning
+         stating the load is UNVERIFIED legacy-path (class 2), then proceed
+         (documented deliberate legacy behavior, never silent);
+      3. ArtifactHashMismatchError: present artifact hash/size mismatch - hard failure.
     """
     r = _resolve_root(root)
     # locate manifest for dataset: if manifest_dataset provided, use that, else try both
-    manifest_candidates = []
     if manifest_dataset:
-        manifest_candidates.append(MANIFEST_PATHS[manifest_dataset])
+        manifest_candidates = [MANIFEST_PATHS[manifest_dataset]]
     else:
         # try FD001 then FD004
-        manifest_candidates.extend(MANIFEST_PATHS.values())
+        manifest_candidates = list(MANIFEST_PATHS.values())
     found_manifest = None
     found_data = None
     for mp in manifest_candidates:
         p = r / mp
-        if p.exists():
-            try:
-                data = load_manifest(p, root=r)
-                found_manifest = p
-                found_data = data
-                break
-            except ArtifactManifestError:
-                # legacy without current schema? treat as compatibility
-                raise ArtifactManifestError(
-                    f"legacy manifest without current schema at {p}: please rebuild with scripts/build_v2_2_artifact_manifests.py (compatibility message)"
-                )
+        if not p.exists():
+            continue
+        try:
+            data = load_manifest(p, root=r)
+        except ArtifactManifestError as e:
+            # structurally invalid or tampered manifest: fail closed (hard integrity
+            # error, NOT a legacy-compatibility path)
+            raise ArtifactManifestError(
+                f"manifest integrity violation at {p}: {e} (tampered or structurally "
+                f"invalid manifest - refusing unchecked load; rebuild with "
+                f"scripts/build_v2_2_artifact_manifests.py)"
+            ) from e
+        found_manifest = p
+        found_data = data
+        break
     if found_data is None:
-        # No manifest available: legacy path - allow but emit guidance? For hard requirement, we treat as legacy compatibility message
-        # But spec says "when manifest/metadata schema available, verify..."
-        # So if no manifest, we do not verify, allow legacy load (documented legacy path)
+        # No manifest available: documented legacy path (class 2) - proceed WITHOUT
+        # verification, but never silently.
+        warnings.warn(
+            f"UNVERIFIED legacy-path load of {posix_path}: no current artifact manifest "
+            f"found (searched {manifest_candidates} under {r}); proceeding WITHOUT "
+            f"integrity verification (documented class-2 legacy behavior)",
+            stacklevel=2,
+        )
         return
     # find artifact entry matching posix_path
     # posix_path may be absolute? Convert to posix relative

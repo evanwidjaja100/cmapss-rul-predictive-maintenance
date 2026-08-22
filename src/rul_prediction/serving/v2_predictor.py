@@ -48,6 +48,10 @@ UNCERTAINTY_DISCLOSURE = ("Prediction interval calibrated on held-out engines at
                           "trajectories is an engineering extrapolation.")
 
 
+class DeploymentConfigError(ValueError):
+    """Deployment-config contract violation (survives python -O; no bare assert)."""
+
+
 def load_deployment_q(alpha: float = ALPHA) -> float:
     """Final serving ``q`` from the TRACKED deployment config.
 
@@ -56,16 +60,31 @@ def load_deployment_q(alpha: float = ALPHA) -> float:
     """
     cfg = yaml.safe_load((ROOT / "configs" / "deployment_v2_2_fd001.yaml")
                          .read_text(encoding="utf-8"))
-    assert cfg["methodology_version"] == "2.2"
+    got_version = cfg.get("methodology_version")
+    if got_version != "2.2":
+        raise DeploymentConfigError(
+            f"deployment config methodology_version must be '2.2', got {got_version!r} "
+            f"in {ROOT / 'configs' / 'deployment_v2_2_fd001.yaml'}")
     u = cfg["uncertainty"]
-    assert u["method"] == "engine_cluster_conformal"
-    q = float(u["q_by_alpha"][str(alpha)])
+    got_method = u.get("method")
+    if got_method != "engine_cluster_conformal":
+        raise DeploymentConfigError(
+            f"deployment config uncertainty.method must be 'engine_cluster_conformal', "
+            f"got {got_method!r}")
+    q_by_alpha = u.get("q_by_alpha", {})
+    if str(alpha) not in q_by_alpha:
+        raise DeploymentConfigError(
+            f"deployment config uncertainty.q_by_alpha has no entry for alpha={alpha!r} "
+            f"(keys: {sorted(q_by_alpha)})")
+    q = float(q_by_alpha[str(alpha)])
     csv_path = ROOT / "experiments" / "v2_2" / "fd001_conformal_quantiles.csv"
     if csv_path.exists():
         table = pd.read_csv(csv_path)
         csv_q = float(table.set_index("alpha").loc[float(alpha), "q"])
-        assert abs(q - csv_q) < 1e-4, (
-            f"deployment config q={q} disagrees with audit CSV q={csv_q}")
+        if abs(q - csv_q) >= 1e-4:
+            raise DeploymentConfigError(
+                f"deployment config q={q} disagrees with audit CSV q={csv_q} "
+                f"for alpha={alpha} ({csv_path}; tolerance 1e-4)")
     return q
 
 
@@ -77,7 +96,11 @@ class V2Predictor:
 
         cfg = yaml.safe_load((ROOT / "configs" / "final_model_v2_2_fd001.yaml")
                              .read_text(encoding="utf-8"))
-        assert cfg["methodology_version"] == "2.2"
+        got_version = cfg.get("methodology_version")
+        if got_version != "2.2":
+            raise DeploymentConfigError(
+                f"final model config methodology_version must be '2.2', got "
+                f"{got_version!r} in {ROOT / 'configs' / 'final_model_v2_2_fd001.yaml'}")
         self.candidate = cfg["model"]["candidate_name"]
         self.model_version = f"v2.2-{self.candidate}"
         self.arch = self.candidate.split("_")[0]
@@ -92,7 +115,8 @@ class V2Predictor:
 
             loader = keras.models.load_model
         # load-time verification: when manifest available, verify hashes before deserialization
-        # ponytail: manifest gate keeps distinct errors (absent friendly, legacy compatibility, present mismatch hard)
+        # ponytail: manifest gate keeps distinct errors (absent friendly, absent-manifest warns UNVERIFIED legacy path,
+        # tampered/invalid manifest hard, present mismatch hard)
         from rul_prediction.artifact_manifest import verify_before_load
 
         rel_model_posix = f"models/v2_2/fd001_{self.candidate}.joblib" if self._model_name in ("rf", "xgboost") else f"models/v2_2/fd001_{self.candidate}.keras"
@@ -109,7 +133,7 @@ class V2Predictor:
                 f"scripts\\run_v2_2_freeze.py (needs data/raw; see README "
                 f"'Reproduction (V2.2)').") from None
         self._predict_one = make_predictor(self._model_name, self.model, self.scaler,
-                                           self.window)
+                                           window=self.window)
         self.q_cycles = load_deployment_q(alpha) if q_cycles is None else float(q_cycles)
         self.alpha = alpha
         self.calibration_method = CALIBRATION_METHOD

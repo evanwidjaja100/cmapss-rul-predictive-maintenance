@@ -155,7 +155,8 @@ def test_c_incomplete_candidate_fails_loudly():
     cands = [{"id": f"c{i}"} for i in range(8)]
     rows = _synthetic_fold_rows(
         {f"c{i}": [1, 2, 3, 4, 5] for i in range(8)} | {"c5": [1, 2, 3, 5]})
-    with pytest.raises(AssertionError, match="incomplete"):
+    # completeness gates raise explicit ValueError (must survive python -O)
+    with pytest.raises(ValueError, match="incomplete"):
         assert_cv_complete(rows, cands)
 
 
@@ -163,7 +164,7 @@ def test_c_missing_fold_detected():
     """rf_w60-style: only fold 1 present must fail."""
     cands = [{"id": "rf_w60"}]
     rows = _synthetic_fold_rows({"rf_w60": [1]})
-    with pytest.raises(AssertionError, match="folds \\[1\\]"):
+    with pytest.raises(ValueError, match="folds \\[1\\]"):
         assert_cv_complete(rows, cands)
 
 
@@ -336,3 +337,9 @@ def test_final_duration_rules():
                   "best_epoch": [None] * 5,
                   "best_iteration": [40, 44, 42, 41, 43]}).to_csv(p, index=False)
     assert final_duration_rule(p, "x")["n_estimators"] == 43  # round(median)+1
+    # completeness gate: fewer than 5 best-epoch rows must raise (survives python -O)
+    pd.DataFrame({"candidate_id": ["z"] * 4, "fold": [1, 2, 3, 4],
+                  "best_epoch": [12, 15, 14, 13],
+                  "best_iteration": [None] * 4}).to_csv(p, index=False)
+    with pytest.raises(ValueError, match="needs 5 best-epoch rows, got 4"):
+        final_duration_rule(p, "z")

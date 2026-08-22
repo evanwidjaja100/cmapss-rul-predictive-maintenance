@@ -1,8 +1,9 @@
 """Deterministic provenance and source hashing (Phase 3).
 
-Execution-input scope is explicit and versioned; hashing uses git-tracked files only
-via ``git ls-files -z``. Hash encoding is domain-separated, length-delimited and
-fail-closed (``cmapss-tracked-source-v1``).
+Execution-input scope is explicit and versioned; tracked files are enumerated via
+``git ls-files -z`` and their CURRENT WORKTREE bytes are hashed, so staged or
+unstaged tracked edits change the digest. Hash encoding is domain-separated,
+length-delimited and fail-closed (``cmapss-tracked-source-v1``).
 
 Dirty-state semantics distinguish whole-repository and execution-scope dirtiness
 using NUL-delimited status and binary diffs. Future freezes capture provenance
@@ -189,9 +190,10 @@ def _hash_execution_tree(root: Path, exec_files: list[str]) -> tuple[str, int]:
 
     Uses cmapss-tracked-source-v1 with type tag, path length, path bytes,
     content length, raw content per sorted POSIX path. No ambiguous
-    concatenation. Content is taken from HEAD blob via git show when possible
-    (so hash is stable across staged/unstaged dirty states); falls back to
-    filesystem for newly staged files not yet in HEAD. Fail-closed on unreadable.
+    concatenation. Content is ALWAYS the CURRENT WORKTREE bytes of each
+    enumerated tracked path, so staged or unstaged edits change the digest
+    (Python executes worktree bytes). Fail-closed on any read failure:
+    raises, never falls back to HEAD/index or skips silently.
     """
     h = hashlib.sha256()
     # domain separation
@@ -217,42 +219,13 @@ def _hash_execution_tree(root: Path, exec_files: list[str]) -> tuple[str, int]:
         h.update(b"F")
         h.update(struct.pack(">I", len(path_bytes)))
         h.update(path_bytes)
-        # content: try HEAD blob first for determinism across dirty states
-        content: bytes | None = None
-        # try HEAD
+        # content: ALWAYS current worktree bytes, so staged/unstaged tracked
+        # edits change the digest (Python executes worktree bytes, not HEAD).
+        # Fail-closed: any read failure raises, never falls back to HEAD/index.
         try:
-            out = subprocess.run(
-                ["git", "show", f"HEAD:{posix_path}"],
-                capture_output=True,
-                check=False,
-                cwd=str(root),
-            )
-            if out.returncode == 0:
-                content = out.stdout
-            else:
-                # try index (staged new file)
-                out2 = subprocess.run(
-                    ["git", "show", f":{posix_path}"],
-                    capture_output=True,
-                    check=False,
-                    cwd=str(root),
-                )
-                if out2.returncode == 0:
-                    content = out2.stdout
-        except Exception:
-            content = None
-        if content is None:
-            # fallback to filesystem if file exists (handles untracked staged new file not in HEAD/index yet, or normal clean file)
-            try:
-                if file_path.exists():
-                    content = file_path.read_bytes()
-                else:
-                    # file tracked but missing from working tree and not in HEAD/index (e.g., deleted and staged)
-                    # treat as empty and rely on dirty flag; but fail closed via HEAD check already handled
-                    # For deletion without HEAD, we should have gotten HEAD content; if not, error
-                    raise RuntimeError(f"unreadable execution input {posix_path}: file missing and not in HEAD")
-            except OSError as e:
-                raise RuntimeError(f"failed to read {posix_path}: {e}") from e
+            content = file_path.read_bytes()
+        except OSError as e:
+            raise RuntimeError(f"unreadable execution input {posix_path}: {e}") from e
         h.update(struct.pack(">Q", len(content)))
         h.update(content)
     return h.hexdigest(), len(exec_files)
@@ -264,7 +237,8 @@ def tracked_source_tree_details(root: Path | str | None = None) -> dict:
     Uses ``git ls-files -z`` only; ignores ignored/generated files.
     Hash encoding is domain-separated length-delimited (cmapss-tracked-source-v1)
     with type tag, path length, path bytes, content length, raw content per
-    sorted POSIX path; content from HEAD blob for stability across dirty states.
+    sorted POSIX path; content is the CURRENT WORKTREE bytes, so any staged or
+    unstaged tracked edit changes the hash. Fail-closed on unreadable inputs.
     Returns dict with at least hash, algorithm, file count, normalized file list.
     Canonical digest field remains ``source_tree_hash`` per spec.
     """
@@ -438,10 +412,39 @@ def _hash_bytes(data: bytes) -> str | None:
     return hashlib.sha256(data).hexdigest()
 
 
+def _list_untracked_under(root: Path, dir_posix: str) -> list[str]:
+    """List files inside an untracked directory via git (excludes ignored), sorted."""
+    out = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z", "--", dir_posix],
+        capture_output=True,
+        check=False,
+        cwd=str(root),
+    )
+    if out.returncode != 0:
+        raise RuntimeError(
+            f"git ls-files failed for untracked directory {dir_posix!r} in {root}: "
+            f"{out.stderr.decode(errors='replace')}"
+        )
+    files = []
+    for b in out.stdout.split(b"\x00"):
+        if not b:
+            continue
+        files.append(b.decode("utf-8"))
+    return sorted(files)
+
+
 def _relevant_untracked_inventory(root: Path, relevant: list[str]) -> list[dict]:
-    """Hash relevant untracked execution files, check traversal/symlink/size/secrets."""
+    """Hash relevant untracked execution files, check traversal/symlink/size/secrets.
+
+    Porcelain status collapses untracked directories (e.g. ``src/newpkg/``);
+    such entries are expanded via ``git ls-files --others --exclude-standard``
+    and every contained file is inventoried and hashed individually. A
+    directory with nothing listable is recorded as a skipped note entry
+    (``skipped: True``) instead of crashing; skipped entries carry no content.
+    """
     inv = []
-    for posix in relevant:
+
+    def _inventory_file(posix: str) -> dict:
         p = root / posix
         # traversal check
         if ".." in Path(posix).parts or posix.startswith("/") or posix.startswith("\\"):
@@ -483,16 +486,38 @@ def _relevant_untracked_inventory(root: Path, relevant: list[str]) -> list[dict]
                     break
         except Exception:
             pass
-        inv.append(
-            {
-                "path": posix,
-                "posix_path": posix,
-                "bytes": size,
-                "sha256": h,
-                "sensitive_flag": bool(sensitive_reason),
-                "sensitive_reason": sensitive_reason,
-            }
-        )
+        return {
+            "path": posix,
+            "posix_path": posix,
+            "bytes": size,
+            "sha256": h,
+            "sensitive_flag": bool(sensitive_reason),
+            "sensitive_reason": sensitive_reason,
+        }
+
+    for posix in relevant:
+        if posix.endswith("/"):
+            # untracked DIRECTORY entry: inventory each contained file individually
+            files = _list_untracked_under(root, posix)
+            if not files:
+                # empty (or only-ignored) directory: skip with a note, never crash
+                inv.append(
+                    {
+                        "path": posix,
+                        "posix_path": posix,
+                        "bytes": 0,
+                        "sha256": None,
+                        "sensitive_flag": False,
+                        "sensitive_reason": None,
+                        "skipped": True,
+                        "note": "empty untracked directory (git lists no files); skipped",
+                    }
+                )
+                continue
+            for f in files:
+                inv.append(_inventory_file(f))
+        else:
+            inv.append(_inventory_file(posix))
     return inv
 
 
@@ -541,42 +566,36 @@ def collect_git_provenance(
     # execution source hash = same as source_tree_hash (tracked execution inputs)
     execution_source_hash = details["source_tree_hash"]
 
-    # config hashes
+    # config hashes: hashing is evidence; unreadable input is a hard error
     cfg_file_sha = config_file_sha256
     cfg_canon_sha = config_canonical_sha256
     if config_path is not None and cfg_file_sha is None:
-        try:
-            cfg_file_sha = sha256_file(Path(config_path) if Path(config_path).is_absolute() else r / Path(config_path))
-        except Exception:
-            cfg_file_sha = None
+        cfg_file_sha = sha256_file(Path(config_path) if Path(config_path).is_absolute() else r / Path(config_path))
 
-    # split hashes
+    # split hashes: fail closed on read errors (missing file is recorded as not exists)
     split_info = {}
     if split_paths:
         for k, v in split_paths.items():
-            try:
-                p = Path(v)
-                if not p.is_absolute():
-                    p = r / p
-                h = sha256_file(p) if p.exists() else None
-                split_info[k] = {"path": str(v), "sha256": h, "exists": p.exists()}
-            except Exception as e:
-                split_info[k] = {"path": str(v), "error": str(e)}
-
-    # constraints
-    constraints_info = {}
-    if constraints_path is not None:
-        try:
-            p = Path(constraints_path)
+            p = Path(v)
             if not p.is_absolute():
                 p = r / p
-            constraints_info = {
-                "path": str(constraints_path),
+            split_info[k] = {
+                "path": str(v),
                 "sha256": sha256_file(p) if p.exists() else None,
                 "exists": p.exists(),
             }
-        except Exception as e:
-            constraints_info = {"path": str(constraints_path), "error": str(e)}
+
+    # constraints: fail closed on read errors
+    constraints_info = {}
+    if constraints_path is not None:
+        p = Path(constraints_path)
+        if not p.is_absolute():
+            p = r / p
+        constraints_info = {
+            "path": str(constraints_path),
+            "sha256": sha256_file(p) if p.exists() else None,
+            "exists": p.exists(),
+        }
 
     # package versions
     versions: dict[str, str] = {}
@@ -600,6 +619,7 @@ def collect_git_provenance(
         "source_tree_hash": details["source_tree_hash"],
         "source_tree_algorithm": details["algorithm"],
         "source_tree_file_count": details["file_count"],
+        "file_count": details["file_count"],  # alias matching tracked_source_tree_details
         "source_tree_files": details["files"],
         "execution_source_hash": execution_source_hash,
         "execution_source_algorithm": CANONICAL_ALGO,
@@ -640,6 +660,8 @@ def assert_reproducible_run_state(
     - Permits dirty execution only with explicit flag, nonempty reason, durable snapshot destination.
     - Stores binary patch, copies of relevant untracked files, inventory, snapshot hash.
     - Rejects path traversal, repo-escaping symlinks, unreadable inputs, incomplete snapshot.
+    - Rejects snapshot destinations under execution-scope dirs (src/, scripts/) outright;
+      destinations under tracked evidence (experiments/, configs/) require explicit confirmation.
     - Never invents destination, never auto-stages/commits, rejects oversized, scans secrets.
 
     Returns provenance dict (as collect_git_provenance) if clean or allowed dirty.
@@ -681,6 +703,14 @@ def assert_reproducible_run_state(
         try:
             snap_resolved.relative_to(repo_resolved)
             # inside repo
+            # Hard-reject execution-scope dirs (src/, scripts/): a snapshot there
+            # would seed future runs' untracked inventory (self-perpetuating dirt).
+            if "src" in snap_resolved.parts or "scripts" in snap_resolved.parts:
+                raise DirtyExecutionError(
+                    f"snapshot destination {snap_resolved} rejected: inside execution-scope "
+                    "directory (src/ or scripts/); snapshots must not be placed where they "
+                    "can seed future runs' untracked execution inventory."
+                )
             if "experiments" in snap_resolved.parts or "configs" in snap_resolved.parts:
                 # Require explicit token, not weak substring, and include risk summary after inventory is available.
                 # We check for explicit tokens "confirm_tracked_evidence" or "approved_tracked_evidence"
@@ -739,6 +769,8 @@ def assert_reproducible_run_state(
         status_path.write_bytes(status_raw)
         # copy relevant untracked files
         for item in inv:
+            if item.get("skipped"):
+                continue  # note entry (e.g. empty untracked dir): no content to copy
             src = r / item["path"]
             dst = snap / item["path"]
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -760,6 +792,8 @@ def assert_reproducible_run_state(
     h.update(diff_bytes)
     h.update(status_raw)
     for item in sorted(inv, key=lambda x: x["path"]):
+        if item.get("skipped"):
+            continue  # note entry carries no content
         p = snap / item["path"]
         try:
             h.update(p.read_bytes())
@@ -797,9 +831,10 @@ def git_provenance(root: Path | str | None = None) -> dict:
     return collect_git_provenance(root=root)
 
 
-def source_tree_hash(root: Path | str | None = None) -> str | None:
-    """Compatibility: return only the hash string (old API)."""
-    try:
-        return tracked_source_tree_details(root)["source_tree_hash"]
-    except Exception:
-        return None
+def source_tree_hash(root: Path | str | None = None) -> str:
+    """Compatibility: return only the hash string (old API).
+
+    Fail-closed: propagates the underlying error on any hashing failure
+    (never returns None in place of evidence).
+    """
+    return tracked_source_tree_details(root)["source_tree_hash"]

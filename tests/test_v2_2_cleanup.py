@@ -147,21 +147,23 @@ def test_xgboost_freeze_applies_plan_params_to_model(tmp_path, monkeypatch):
 
 @pytest.mark.unit
 def test_fd004_config_controls_freeze_parameters(tmp_path):
+    import yaml
+
+    from rul_prediction.benchmark.v2 import ROOT as _ROOT
     from scripts.run_v2_2_fd004_freeze import resolve_model_config
-    cfg = {
-        "methodology_version": "2.2",
-        "dataset": "FD004",
-        "model": {"candidate_name": "gru_w47_huber_condC", "architecture": "gru",
-                  "window": 47, "units": [128, 64], "dropout": 0.4, "loss": "huber",
-                  "learning_rate": 0.002, "batch_size": 128, "seed": 7,
-                  "fixed_epochs": 13},
-        "condition_preprocessing": {
-            "variant": "C",
-            "clustering": {"method": "kmeans", "n_clusters": 6,
-                           "random_state": 42, "n_init": 10},
-        },
-        "training": {"validation_data_in_final_fit": False},
-    }
+    # strict typed validation requires the full contract; start from production
+    # YAML and override with deliberately non-default values
+    cfg = yaml.safe_load(
+        (_ROOT / "configs" / "final_model_v2_2_fd004.yaml").read_text(encoding="utf-8")
+    )
+    cfg["model"]["candidate_name"] = "gru_w47_huber_condC"
+    cfg["model"]["window"] = 47
+    cfg["model"]["dropout"] = 0.4
+    cfg["model"]["learning_rate"] = 0.002
+    cfg["model"]["batch_size"] = 128
+    cfg["model"]["seed"] = 7
+    cfg["model"]["fixed_epochs"] = 13
+    cfg["variant_results"]["C"]["best_epoch"] = 13
     r = resolve_model_config(cfg)
     assert r["window"] == 47
     assert r["units"] == (128, 64)
@@ -175,6 +177,8 @@ def test_fd004_config_controls_freeze_parameters(tmp_path):
     assert r["n_clusters"] == 6
     assert r["cluster_seed"] == 42
     assert r["n_init"] == 10
+    assert r["optimizer_name"] == "adam"
+    assert r["optimizer_clipnorm"] == 1.0
 
 
 @pytest.mark.static_contract
@@ -335,6 +339,83 @@ def test_serving_q_reads_from_tracked_config_without_experiment_folder(tmp_path,
         (ROOT / "configs" / "deployment_v2_2_fd001.yaml").read_text(encoding="utf-8"),
         encoding="utf-8")
     assert abs(v2_predictor.load_deployment_q(0.1) - 66.2097) < 1e-4
+
+
+@pytest.mark.unit
+def test_deployment_config_contracts_raise_not_assert(tmp_path, monkeypatch):
+    """Deployment-config contracts must raise explicit errors carrying the
+    offending values (no bare assert; survive python -O by construction)."""
+    from rul_prediction.benchmark import v2 as bench_v2
+    from rul_prediction.serving import v2_predictor
+    monkeypatch.setattr(v2_predictor, "ROOT", tmp_path)
+    monkeypatch.setattr(bench_v2, "ROOT", tmp_path)
+    cfg_dir = tmp_path / "configs"
+    cfg_dir.mkdir()
+    good = yaml.safe_load((ROOT / "configs" / "deployment_v2_2_fd001.yaml")
+                          .read_text(encoding="utf-8"))
+
+    def write_cfg(mutated):
+        (cfg_dir / "deployment_v2_2_fd001.yaml").write_text(yaml.safe_dump(mutated),
+                                                            encoding="utf-8")
+
+    # wrong methodology_version
+    bad = json.loads(json.dumps(good))
+    bad["methodology_version"] = "9.9"
+    write_cfg(bad)
+    with pytest.raises(v2_predictor.DeploymentConfigError, match="methodology_version.*9\\.9"):
+        v2_predictor.load_deployment_q(0.1)
+    # wrong uncertainty method
+    bad = json.loads(json.dumps(good))
+    bad["uncertainty"]["method"] = "something_else"
+    write_cfg(bad)
+    with pytest.raises(v2_predictor.DeploymentConfigError,
+                       match="engine_cluster_conformal.*something_else"):
+        v2_predictor.load_deployment_q(0.1)
+    # unknown alpha
+    write_cfg(good)
+    with pytest.raises(v2_predictor.DeploymentConfigError, match="alpha=0.99"):
+        v2_predictor.load_deployment_q(0.99)
+    # q disagrees with the audit CSV
+    csv_dir = tmp_path / "experiments" / "v2_2"
+    csv_dir.mkdir(parents=True)
+    (csv_dir / "fd001_conformal_quantiles.csv").write_text(
+        "alpha,q\n0.1,999.0\n0.2,44.7955\n0.3,30.0\n", encoding="utf-8")
+    with pytest.raises(v2_predictor.DeploymentConfigError, match="disagrees"):
+        v2_predictor.load_deployment_q(0.1)
+
+
+@pytest.mark.unit
+def test_final_model_config_methodology_contract_raises(tmp_path, monkeypatch):
+    """V2Predictor must reject a non-2.2 final-model config with an explicit
+    error (not a bare assert) before touching any model artifacts."""
+    from rul_prediction.serving import v2_predictor
+    monkeypatch.setattr(v2_predictor, "ROOT", tmp_path)
+    cfg_dir = tmp_path / "configs"
+    cfg_dir.mkdir(parents=True)
+    (cfg_dir / "final_model_v2_2_fd001.yaml").write_text(
+        yaml.safe_dump({"methodology_version": "1.0",
+                        "model": {"candidate_name": "xgb_w90_d6", "window": 90}}),
+        encoding="utf-8")
+    with pytest.raises(v2_predictor.DeploymentConfigError,
+                       match="methodology_version.*1\\.0"):
+        v2_predictor.V2Predictor()
+
+
+@pytest.mark.unit
+def test_make_predictor_window_keyword_only_positive():
+    """Plan §9.5: make_predictor window is keyword-only, validated positive int."""
+    from rul_prediction.benchmark.v2 import make_predictor
+
+    class _M:
+        value = 12.0
+
+    with pytest.raises(TypeError):
+        make_predictor("mean", _M(), object(), 90)  # positional window rejected
+    for bad in (0, -3, 1.5, None, True):
+        with pytest.raises(ValueError, match="window must be a positive int"):
+            make_predictor("mean", _M(), object(), window=bad)
+    p = make_predictor("mean", _M(), object(), window=90)
+    assert p(None, 0) == 12.0
 
 
 # ---- 9. Streamlit referenced report paths exist -----------------------------

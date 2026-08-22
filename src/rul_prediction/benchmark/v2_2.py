@@ -215,21 +215,19 @@ def git_provenance(root: str | Path | None = None) -> dict:
     return collect_git_provenance(root=root)
 
 
-def source_tree_hash(root: str | Path | None = None) -> str | None:
+def source_tree_hash(root: str | Path | None = None) -> str:
     """Deterministic Git-tracked execution-input hash (reproducibility).
 
     Enumerates tracked execution inputs via git ls-files -z (src/**, scripts/**,
     configs/**, app_v2.py, .github/workflows/**, pyproject.toml, requirements*),
     sorts POSIX paths, and hashes with domain-separated length-delimited format
     cmapss-tracked-source-v1 (path length, path bytes, content length, content).
-    Ignored/cached/generated files do not affect the hash. Fail-closed on read errors.
+    Ignored/cached/generated files do not affect the hash. Fails closed: errors
+    propagate from the canonical implementation instead of degrading to None.
     """
     from rul_prediction.reproducibility import tracked_source_tree_details
 
-    try:
-        return tracked_source_tree_details(root)["source_tree_hash"]
-    except Exception:
-        return None
+    return tracked_source_tree_details(root)["source_tree_hash"]
 
 
 def run_metadata(dataset: str, candidate: str, fold: int, control: dict,
@@ -275,17 +273,35 @@ def run_cv_fold(candidate: dict, fold: dict, frame: pd.DataFrame, cal_ids: set[i
     outer_train, outer_eval = fold["outer_train"], fold["outer_eval"]
     inner_fit, inner_stop = inner_early_stop_split(outer_train, fold["fold"])
 
-    # ---- V2.2 outer-fold assertions (V2_2_REPAIR_PLAN.md, required) ----
-    assert outer_train.isdisjoint(outer_eval), "outer train/eval overlap"
-    assert inner_fit.isdisjoint(inner_stop), "inner fit/stop overlap"
-    assert inner_fit | inner_stop == outer_train, "inner split must cover outer train"
-    assert cal_ids.isdisjoint(outer_train), "calibration engines in outer training"
-    assert cal_ids.isdisjoint(outer_eval), "calibration engines in outer evaluation"
-    assert outer_eval.isdisjoint(inner_fit) and outer_eval.isdisjoint(inner_stop)
+    # ---- V2.2 outer-fold falsification gates (V2_2_REPAIR_PLAN.md, required;
+    #      explicit exceptions so they survive python -O) ----
+    if not outer_train.isdisjoint(outer_eval):
+        raise ValueError(f"fold {fold['fold']} leakage gate: outer train/eval overlap "
+                         f"({sorted(outer_train & outer_eval)})")
+    if not inner_fit.isdisjoint(inner_stop):
+        raise ValueError(f"fold {fold['fold']} leakage gate: inner fit/stop overlap "
+                         f"({sorted(inner_fit & inner_stop)})")
+    if inner_fit | inner_stop != outer_train:
+        raise ValueError(f"fold {fold['fold']} leakage gate: inner split must cover outer "
+                         f"train (missing {sorted(outer_train - (inner_fit | inner_stop))}, "
+                         f"extra {sorted((inner_fit | inner_stop) - outer_train)})")
+    if not cal_ids.isdisjoint(outer_train):
+        raise ValueError(f"fold {fold['fold']} leakage gate: calibration engines in outer "
+                         f"training ({sorted(cal_ids & outer_train)})")
+    if not cal_ids.isdisjoint(outer_eval):
+        raise ValueError(f"fold {fold['fold']} leakage gate: calibration engines in outer "
+                         f"evaluation ({sorted(cal_ids & outer_eval)})")
+    if not (outer_eval.isdisjoint(inner_fit) and outer_eval.isdisjoint(inner_stop)):
+        raise ValueError(f"fold {fold['fold']} leakage gate: outer eval engines leak into "
+                         f"inner splits ({sorted(outer_eval & (inner_fit | inner_stop))})")
 
     manifest = load_manifest(Path(splits_dir) /
                              f"fd001_v2_2_outer_fold{fold['fold']}_cutoffs.csv")
-    assert len(manifest) == len(outer_eval) * 5 == 85
+    if not (len(manifest) == len(outer_eval) * 5 == 85):
+        raise ValueError(
+            f"fold {fold['fold']} completeness gate: outer-fold cutoff manifest must have "
+            f"len(outer_eval) * 5 == 85 rows, got {len(manifest)} "
+            f"(len(outer_eval)={len(outer_eval)})")
     trajectories = {
         int(e): g for e, g in frame[frame["engine_id"].isin(outer_eval)].groupby("engine_id")
     }
@@ -317,7 +333,8 @@ def run_cv_fold(candidate: dict, fold: dict, frame: pd.DataFrame, cal_ids: set[i
     training_time = round(time.perf_counter() - start, 2)
 
     pred = evaluate_manifest(manifest, trajectories,
-                             make_predictor(candidate["model"], model, scaler, window))
+                             make_predictor(candidate["model"], model, scaler,
+                                            window=window))
     y_true = manifest["true_raw_rul"].to_numpy()
     engine_rows = engine_level_metrics(manifest, pred, candidate["id"], fold["fold"])
     row = {
@@ -375,16 +392,27 @@ def engine_level_metrics(manifest: pd.DataFrame, pred: np.ndarray,
 
 
 def assert_cv_complete(fold_rows: list[dict], candidates: list[dict] | None = None) -> int:
-    """Hard completeness gate: every declared candidate must have folds {1..5}."""
+    """Hard completeness gate: every declared candidate must have folds {1..5}.
+
+    Raises ValueError (never a bare assert, survives python -O) on incompleteness —
+    this is an external-data falsification gate.
+    """
     candidates = candidates or CV_CANDIDATES
     df = pd.DataFrame(fold_rows)
     for cid in [c["id"] for c in candidates]:
         folds = sorted(int(f) for f in df[df.candidate_id == cid]["fold"].unique())
-        assert folds == [1, 2, 3, 4, 5], (
-            f"candidate {cid} incomplete: folds {folds} (requires [1, 2, 3, 4, 5])")
-        assert len(df[df.candidate_id == cid]) == 5
+        if folds != [1, 2, 3, 4, 5]:
+            raise ValueError(
+                f"candidate {cid} incomplete: folds {folds} (requires [1, 2, 3, 4, 5])")
+        if len(df[df.candidate_id == cid]) != 5:
+            raise ValueError(
+                f"candidate {cid} incomplete: {len(df[df.candidate_id == cid])} fold rows "
+                f"(requires exactly 5)")
     n = len(df)
-    assert n == len(candidates) * 5, f"{n} candidate-fold rows (requires {len(candidates) * 5})"
+    if n != len(candidates) * 5:
+        raise ValueError(
+            f"CV completeness gate failed: {n} candidate-fold rows "
+            f"(requires {len(candidates) * 5})")
     return n
 
 
@@ -446,7 +474,10 @@ def final_duration_rule(best_epochs_csv: str | Path, candidate_id: str) -> dict:
     """Deterministic aggregate of development-only best epochs (V2.2 rule)."""
     df = pd.read_csv(best_epochs_csv)
     rows = df[df.candidate_id == candidate_id]
-    assert len(rows) == 5, f"{candidate_id} needs 5 best-epoch rows, got {len(rows)}"
+    # external-data completeness gate: explicit exception (survives python -O)
+    if len(rows) != 5:
+        raise ValueError(
+            f"{candidate_id} needs 5 best-epoch rows, got {len(rows)} in {best_epochs_csv}")
     if rows.iloc[0]["best_iteration"] is not None and pd.notna(rows.iloc[0]["best_iteration"]):
         n = round(float(np.median(rows["best_iteration"].to_numpy(dtype=float)))) + 1
         return {"rule": "n_estimators = round(median(best_iteration)) + 1",

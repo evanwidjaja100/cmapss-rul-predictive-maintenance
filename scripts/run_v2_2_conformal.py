@@ -60,7 +60,7 @@ def calibration_scores(model, scaler, window: int, candidate: str) -> pd.DataFra
     """15 engine-level scores: max |error| over the 5 checkpoints per engine."""
     model_name = candidate.split("_")[0]
     model_name = "xgboost" if model_name == "xgb" else model_name
-    predictor = make_predictor(model_name, model, scaler, window)
+    predictor = make_predictor(model_name, model, scaler, window=window)
     frame = load_train("FD001")
     cal = pd.read_csv(SPLITS_DIR / "fd001_v2_2_calibration_cutoffs.csv")
     cal_ids = set(cal["engine_id"].unique())
@@ -135,7 +135,7 @@ def main() -> None:
     test_manifest = pd.DataFrame({"engine_id": list(observed),
                                   "cutoff_cycle": list(observed.values())})
     pred = evaluate_manifest(test_manifest, test_traj, make_predictor(
-        "xgboost" if arch == "xgb" else arch, model, scaler, window))
+        "xgboost" if arch == "xgb" else arch, model, scaler, window=window))
     test_errors = pred - rul.astype(float)
     coverage_rows = []
     for alpha, q in qs.items():

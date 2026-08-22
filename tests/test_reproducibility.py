@@ -83,10 +83,9 @@ def test_staged_edit_detected():
         prov = collect_git_provenance(root=tmp)
         assert prov["git_is_dirty"] is True
         assert prov["git_is_dirty_execution"] is True
-        # hash still reflects tracked HEAD, not staged? Our hash is based on committed tracked files (git ls-files shows old content until commit), but dirty flag indicates dirty
-        # After staging, git ls-files still shows old blob until commit, so hash unchanged but dirty flag true
+        # hash hashes CURRENT WORKTREE bytes: staged edit MUST change it
         h1 = tracked_source_tree_details(tmp)["source_tree_hash"]
-        assert h1 == h0  # hash of committed content unchanged, but dirty detected via status/diff
+        assert h1 != h0
         with pytest.raises(Exception, match="dirty execution"):
             assert_reproducible_run_state(root=tmp)
 
@@ -96,11 +95,20 @@ def test_unstaged_edit_detected():
         tmp = pathlib.Path(td) / "repo"
         tmp.mkdir()
         _init_temp_repo(tmp)
+        h0 = tracked_source_tree_details(tmp)["source_tree_hash"]
         (tmp / "configs" / "c.yaml").write_text("k: changed\n", encoding="utf-8")
         prov = collect_git_provenance(root=tmp)
         assert prov["git_is_dirty_execution"] is True
-        with pytest.raises(Exception, match="dirty execution"):
-            assert_reproducible_run_state(root=tmp)
+        # unstaged edit MUST change the hash
+        h1 = tracked_source_tree_details(tmp)["source_tree_hash"]
+        assert h1 != h0
+        # restoring the original content restores the identical hash
+        (tmp / "configs" / "c.yaml").write_text("k: v\n", encoding="utf-8")
+        h2 = tracked_source_tree_details(tmp)["source_tree_hash"]
+        assert h2 == h0
+        # and the restored tree is execution-clean again
+        prov2 = collect_git_provenance(root=tmp)
+        assert prov2["git_is_dirty_execution"] is False
 
 
 def test_untracked_source_relevant():
@@ -124,6 +132,60 @@ def test_untracked_source_relevant():
             assert (snap / "inventory.json").exists()
             assert (snap / "src" / "new_module.py").exists()
             assert (snap / "src" / "new_module.py").read_text(encoding="utf-8") == "z=99\n"
+
+
+def test_untracked_directory_expanded_in_inventory():
+    import hashlib
+
+    from rul_prediction.reproducibility import _relevant_untracked_inventory
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td) / "repo"
+        tmp.mkdir()
+        _init_temp_repo(tmp)
+        pkg = tmp / "src" / "newpkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "mod.py").write_text("q=7\n", encoding="utf-8")
+        # porcelain collapses the untracked directory into a single dir entry
+        assert "src/newpkg/" in collect_git_provenance(root=tmp)["relevant_untracked"]
+        # inventory expands it into individual hashed files without crashing
+        inv = _relevant_untracked_inventory(tmp, ["src/newpkg/"])
+        by_path = {i["path"]: i for i in inv}
+        assert set(by_path) == {"src/newpkg/__init__.py", "src/newpkg/mod.py"}
+        # compare against actual on-disk bytes (Windows text mode writes CRLF)
+        raw = (pkg / "mod.py").read_bytes()
+        assert by_path["src/newpkg/mod.py"]["bytes"] == len(raw)
+        assert by_path["src/newpkg/mod.py"]["sha256"] == hashlib.sha256(raw).hexdigest()
+        assert by_path["src/newpkg/__init__.py"]["sha256"] == hashlib.sha256(b"").hexdigest()
+        # full provenance collection does not crash either
+        prov = collect_git_provenance(root=tmp)
+        paths = {i["path"] for i in prov["relevant_untracked_inventory"]}
+        assert {"src/newpkg/__init__.py", "src/newpkg/mod.py"} <= paths
+        # snapshot flow copies the expanded files
+        with tempfile.TemporaryDirectory() as td2:
+            snap = pathlib.Path(td2) / "snap"
+            assert_reproducible_run_state(
+                root=tmp, allow_dirty_execution=True, dirty_reason="untracked dir", snapshot_dir=snap
+            )
+            assert (snap / "src" / "newpkg" / "mod.py").read_text(encoding="utf-8") == "q=7\n"
+
+
+def test_empty_untracked_directory_skipped_with_note():
+    from rul_prediction.reproducibility import _relevant_untracked_inventory
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td) / "repo"
+        tmp.mkdir()
+        _init_temp_repo(tmp)
+        # a directory git cannot list any file under: skipped with a note
+        # entry, never a crash
+        inv = _relevant_untracked_inventory(tmp, ["src/ghost_dir/"])
+        assert len(inv) == 1
+        assert inv[0]["skipped"] is True
+        assert inv[0]["path"] == "src/ghost_dir/"
+        assert inv[0]["sha256"] is None
+        assert inv[0]["note"]
 
 
 def test_untracked_source_path_with_tab_is_relevant(monkeypatch):
@@ -160,14 +222,19 @@ def test_ignored_cache_does_not_affect_hash():
         assert prov["git_is_dirty_execution"] is False
 
 
-def test_tracked_deletion_detected():
+def test_tracked_deletion_fails_closed():
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td) / "repo"
         tmp.mkdir()
         _init_temp_repo(tmp)
+        # tracked execution file deleted from worktree but still enumerated by
+        # git ls-files: hashing is evidence, so this fails closed (no silent
+        # fallback to HEAD content)
         (tmp / "src" / "a.py").unlink()
-        prov = collect_git_provenance(root=tmp)
-        assert prov["git_is_dirty_execution"] is True
+        with pytest.raises(RuntimeError, match="unreadable execution input"):
+            tracked_source_tree_details(tmp)["source_tree_hash"]
+        with pytest.raises(RuntimeError, match="unreadable execution input"):
+            collect_git_provenance(root=tmp)
 
 
 def test_rename_detected():
@@ -234,6 +301,36 @@ def test_enumeration_order_deterministic():
         assert d["files"] == sorted(d["files"])
 
 
+def test_order_independence_across_repos():
+    # same final file contents added in different orders with different mtimes
+    # in two separate repos -> identical source_tree_hash (content-only)
+    contents = {
+        "src/z.py": "z=1\n",
+        "src/a.py": "a=2\n",
+        "src/m.py": "m=3\n",
+        "scripts/s.py": "s=4\n",
+    }
+    orders = [
+        ["src/z.py", "src/a.py", "src/m.py", "scripts/s.py"],
+        ["scripts/s.py", "src/m.py", "src/a.py", "src/z.py"],
+    ]
+    hashes = []
+    for order in orders:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td) / "repo"
+            tmp.mkdir()
+            _init_temp_repo(tmp)
+            for i, rel in enumerate(order):
+                p = tmp / rel
+                p.write_text(contents[rel], encoding="utf-8")
+                os.utime(p, (1700000000 + i, 1700000000 + i))
+                _run(["git", "add", rel], tmp)
+            _run(["git", "commit", "-m", "files"], tmp)
+            hashes.append(tracked_source_tree_details(tmp)["source_tree_hash"])
+    assert hashes[0] is not None
+    assert hashes[0] == hashes[1]
+
+
 def test_unicode_content():
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td) / "repo"
@@ -266,22 +363,34 @@ def test_missing_unreadable_fails_closed():
         # missing file via direct sha256_file should raise (fail-closed, not silently skip)
         with pytest.raises((FileNotFoundError, OSError, RuntimeError)):
             sha256_file(tmp / "nonexistent.py")
-        # deletion scenario: tracked file removed from working tree but still in HEAD
-        # Our implementation hashes HEAD blob for stability across dirty states, so
-        # tracked_source_tree_details remains stable and does NOT raise; instead
-        # dirty is reported via provenance flags. This is documented behavior:
-        # hash is of committed HEAD content (cmapss-tracked-source-v1), dirty
-        # detection via NUL-delimited status + binary diff, not via hash failure.
+        # deletion scenario: tracked execution file removed from working tree but
+        # still enumerated by git ls-files. The canonical digest hashes CURRENT
+        # WORKTREE bytes and is evidence, so this fails closed with a hard error
+        # (no silent fallback to HEAD/index content).
         (tmp / "src" / "a.py").unlink()
-        # should not raise; provenance should report execution dirty
-        prov = collect_git_provenance(root=tmp)
-        assert prov["git_is_dirty_execution"] is True
-        # hash stays of HEAD content
-        d = tracked_source_tree_details(tmp)
-        assert d["source_tree_hash"] is not None
-        # direct filesystem read for missing file should still fail closed if we try sha256_file
+        with pytest.raises(RuntimeError, match="unreadable execution input"):
+            tracked_source_tree_details(tmp)
+        with pytest.raises(RuntimeError, match="unreadable execution input"):
+            collect_git_provenance(root=tmp)
+        # direct filesystem read for missing file should also fail closed
         with pytest.raises((FileNotFoundError, OSError, RuntimeError)):
             sha256_file(tmp / "src" / "a.py")
+
+
+def test_tracked_path_replaced_by_directory_raises():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td) / "repo"
+        tmp.mkdir()
+        _init_temp_repo(tmp)
+        # replace an enumerated tracked file's path with a DIRECTORY of the same
+        # name (deletion unstaged, so the path stays enumerated by ls-files).
+        # Tree hashing must fail closed; no reliance on OS chmod (Windows-safe).
+        (tmp / "src" / "a.py").unlink()
+        (tmp / "src" / "a.py").mkdir()
+        with pytest.raises(RuntimeError, match="unreadable execution input"):
+            tracked_source_tree_details(tmp)["source_tree_hash"]
+        with pytest.raises(RuntimeError, match="unreadable execution input"):
+            collect_git_provenance(root=tmp)
 
 
 def test_dirty_snapshot_reconstruction():
@@ -329,6 +438,24 @@ def test_path_traversal_rejected():
             with pytest.raises(Exception, match="must not contain"):
                 assert_reproducible_run_state(
                     root=tmp, allow_dirty_execution=True, dirty_reason="traversal", snapshot_dir=snap
+                )
+
+
+def test_snapshot_under_execution_scope_dirs_rejected():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td) / "repo"
+        tmp.mkdir()
+        _init_temp_repo(tmp)
+        (tmp / "src" / "a.py").write_text("x=dirty\n", encoding="utf-8")
+        # snapshots under src/ or scripts/ would seed future runs' untracked
+        # inventory: rejected outright with a reason-naming error
+        for dest in (tmp / "src" / "snapshot", tmp / "scripts" / "snapshot"):
+            with pytest.raises(DirtyExecutionError, match="execution-scope"):
+                assert_reproducible_run_state(
+                    root=tmp,
+                    allow_dirty_execution=True,
+                    dirty_reason="bad destination",
+                    snapshot_dir=dest,
                 )
 
 

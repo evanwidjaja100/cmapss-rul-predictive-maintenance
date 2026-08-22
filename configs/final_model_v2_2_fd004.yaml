@@ -49,7 +49,7 @@ condition_preprocessing:
     rows transform-only
   official_test_rows: transform-only (never fit/refit/update)
 splits:
-  provenance: experiments/splits/fd004_v2_seed42.json
+  provenance: experiments/splits/FD004_v2_seed42.json
   development_engine_count: 175
   validation_engine_count: 37
   calibration_engine_count: 37
@@ -57,6 +57,10 @@ splits:
   development_engine_ids_sha256: 42b25262c1ca39865b680ea86bc7fec7ed8351c8d49e33897b1bb0379a03c5b0
   validation_engine_ids_sha256: ab78e219698ce277da836eab80081514b516c3cc8dc1c8f248e6b6567acf0912
   calibration_engine_ids_sha256: 9269bffcd698f07a9603b33f9cde1669d081de49a2010de3feeed58130a567d9
+  # Raw exact-file digests (CRLF->LF normalized text hashing; never compared
+  # to the canonical engine-ID hashes above).
+  split_provenance_file_sha256: 9ace791439f39071f19449f744512447ce2881d0e6fea5f44cc32b2fffb3c28c
+  validation_cutoff_manifest_file_sha256: 337cd23bcaa8680e77fcf6d7be76de72c5147d389525610e1bb719f94e4139fb
   validation_manifest: experiments/splits/fd004_v2_1_validation_cutoffs.csv
 training:
   final_engine_count: 212

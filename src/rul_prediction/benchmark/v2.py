@@ -119,8 +119,15 @@ def train_model(model_name: str, window: int, n_features: int, overrides: dict |
     raise ValueError(f"unknown model: {model_name}")
 
 
-def make_predictor(model_name: str, model, scaler, window: int):
-    """predict_one(history, cutoff) compatible with evaluate_manifest."""
+def make_predictor(model_name: str, model, scaler, *, window: int):
+    """predict_one(history, cutoff) compatible with evaluate_manifest.
+
+    ``window`` is keyword-only (plan §9.5) and feeds BOTH build_window and
+    window_mask in the sequence path; validated as a positive int so the
+    contract survives python -O.
+    """
+    if not isinstance(window, int) or isinstance(window, bool) or window <= 0:
+        raise ValueError(f"window must be a positive int, got {window!r}")
     if model_name == "mean":
         return lambda history, cutoff: model.value
     if model_name in ("linear", "rf", "xgboost"):
@@ -156,7 +163,8 @@ def evaluate_official_test(model_name: str, model, scaler, window: int,
         "cutoff_cycle": [int(test[test["engine_id"] == e]["cycle"].max()) for e in engines],
     })
     trajectories = {int(e): g.sort_values("cycle") for e, g in test.groupby("engine_id")}
-    pred = evaluate_manifest(manifest, trajectories, make_predictor(model_name, model, scaler, window))
+    pred = evaluate_manifest(manifest, trajectories,
+                             make_predictor(model_name, model, scaler, window=window))
     y_true = rul.astype(float)
     assert np.isfinite(pred).all(), "non-finite official-test predictions"
     total = nasa_score(y_true, pred)
@@ -202,7 +210,8 @@ def run_experiment(experiment_id: str, model_name: str, window: int, overrides: 
         epochs=epochs, batch_size=batch_size, patience=patience)
     training_time = round(time.perf_counter() - start, 2)
 
-    pred = evaluate_manifest(manifest, trajectories, make_predictor(model_name, model, scaler, window))
+    pred = evaluate_manifest(manifest, trajectories,
+                             make_predictor(model_name, model, scaler, window=window))
     assert pred.shape == (len(manifest),)
     y_true = manifest["true_raw_rul"].to_numpy()
     total = nasa_score(y_true, pred)
