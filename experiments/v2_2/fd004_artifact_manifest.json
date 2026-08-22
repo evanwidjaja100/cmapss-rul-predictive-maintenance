@@ -154,8 +154,8 @@
     }
   ],
   "dataset": "FD004",
-  "generated_at_utc": "2026-08-22T13:32:29Z",
-  "generated_from_commit": "0df6dc2ef5c8fa8f05deb5f0ce92d85c6ba8333c",
+  "generated_at_utc": "2026-08-22T14:11:23Z",
+  "generated_from_commit": "5634e430c3031f1524da88c1eab763b79ab9127a",
   "historical_training_provenance": {
     "historical_commit": null,
     "note_config_hash_distinction": "config_file_sha256 vs config_canonical_sha256; new YAML is post-training normalized (structured optimizer) and behaviorally equivalent, raw hash is not historical training hash (not historical training hash)",
@@ -259,10 +259,10 @@
   "source_integrity": {
     "algorithm": "cmapss-tracked-source-v1",
     "file_count": 90,
-    "git_commit": "0df6dc2ef5c8fa8f05deb5f0ce92d85c6ba8333c",
+    "git_commit": "5634e430c3031f1524da88c1eab763b79ab9127a",
     "git_is_dirty_execution": false,
     "git_is_dirty_whole": true,
     "note": "Manifest generation time is not training time; this source_tree_hash is current generation-time hash, not historical training hash",
-    "source_tree_hash": "eb549e4c04d35b87acee48bbf28e6417a7c42cce908d5c7175bd8a186d9aa329"
+    "source_tree_hash": "67af33f67067aee5547758a349118f1ceb9fc19dad5b7ee71b430a0799586469"
   }
 }
