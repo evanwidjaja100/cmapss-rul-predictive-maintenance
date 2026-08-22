@@ -761,10 +761,13 @@ def test_canonical_guard_bypass_via_absolute_path(tmp_path):
 def test_save_refuses_overwriting_historical_condition_baseline(tmp_path, monkeypatch):
     import scripts.run_v2_2_fd004_freeze as freeze_mod
     cfg = load_fd004_final_config(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+    # artifact-free gate: point the baseline constant at bytes we control so the
+    # test never depends on gitignored frozen binaries
     baseline_file = tmp_path / "fd004_conditionC.joblib"
-    real_bytes = (ROOT / "models" / "v2_2" / "fd004_conditionC.joblib").read_bytes()
-    assert sha256_file(ROOT / "models" / "v2_2" / "fd004_conditionC.joblib") == HISTORICAL_CONDITION_JOBLIB_SHA256
-    baseline_file.write_bytes(real_bytes)
+    synthetic = b"synthetic historical baseline payload"
+    synthetic_sha = hashlib.sha256(synthetic).hexdigest()
+    monkeypatch.setattr(freeze_mod, "HISTORICAL_CONDITION_JOBLIB_SHA256", synthetic_sha)
+    baseline_file.write_bytes(synthetic)
     monkeypatch.setattr(FD004FinalConfig, "condition_artifact_path", lambda self, root=None: baseline_file)
     monkeypatch.setattr(FD004FinalConfig, "model_artifact_path", lambda self, root=None: tmp_path / "m.keras")
     split_plan = {"final_ids": {1}, "cal_ids": {2}}
@@ -776,6 +779,27 @@ def test_save_refuses_overwriting_historical_condition_baseline(tmp_path, monkey
     baseline_file.write_bytes(b"not the baseline")
     with pytest.raises(FD004ConfigError, match="overwrite-existing"):
         freeze_mod.save_fd004_final_artifacts(cfg, None, pre, split_plan, root=tmp_path)
+
+
+@pytest.mark.needs_artifacts
+def test_save_refuses_real_historical_condition_baseline(tmp_path, monkeypatch):
+    """Same gate against the REAL frozen artifact bytes (local full gate only)."""
+    real_cond = ROOT / "models" / "v2_2" / "fd004_conditionC.joblib"
+    if not real_cond.exists():
+        pytest.skip("local frozen artifacts absent")
+    assert sha256_file(real_cond).lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower()
+    import scripts.run_v2_2_fd004_freeze as freeze_mod
+    cfg = load_fd004_final_config(ROOT / "configs" / "final_model_v2_2_fd004.yaml")
+    baseline_file = tmp_path / "fd004_conditionC.joblib"
+    baseline_file.write_bytes(real_cond.read_bytes())
+    monkeypatch.setattr(FD004FinalConfig, "condition_artifact_path", lambda self, root=None: baseline_file)
+    monkeypatch.setattr(FD004FinalConfig, "model_artifact_path", lambda self, root=None: tmp_path / "m.keras")
+    split_plan = {"final_ids": {1}, "cal_ids": {2}}
+    pre = {"global_scaler": None, "kmeans": object(), "cluster_scalers": {}, "settings_scaler": object()}
+    with pytest.raises(FD004ConfigError, match="immutable historical"):
+        freeze_mod.save_fd004_final_artifacts(cfg, None, pre, split_plan, root=tmp_path, allow_overwrite=True)
+    # byte-identical afterwards: nothing wrote to the copy
+    assert sha256_file(baseline_file).lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower()
 
 
 def test_save_refuses_existing_model_without_flag(tmp_path, monkeypatch):

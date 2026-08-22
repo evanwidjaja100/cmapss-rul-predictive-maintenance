@@ -611,8 +611,11 @@ def test_load_time_verification_normalizes_windows_text_line_endings(tmp_path):
     manifest_dir.mkdir(parents=True)
     config_dir.mkdir()
     shutil.copy2(REPO_ROOT / MANIFEST_PATHS["FD004"], manifest_dir / "fd004_artifact_manifest.json")
+    # normalize to LF first: an autocrlf checkout already contains CRLF, so a
+    # naive \n->\r\n replace would double-convert
     config = (REPO_ROOT / "configs" / "final_model_v2_2_fd004.yaml").read_bytes()
-    (config_dir / "final_model_v2_2_fd004.yaml").write_bytes(config.replace(b"\n", b"\r\n"))
+    crlf = config.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    (config_dir / "final_model_v2_2_fd004.yaml").write_bytes(crlf)
     verify_before_load(
         "configs/final_model_v2_2_fd004.yaml",
         root=tmp_path,
