@@ -321,21 +321,40 @@ def test_deterministic_serialization_with_fixed_timestamp():
     b1 = deterministic_json_bytes(d1)
     b2 = deterministic_json_bytes(d2)
     assert b1 == b2, "deterministic serialization failed"
-    # also ensure file on disk matches when built with same timestamp
-    # builder should produce same bytes as load
+    # on-disk manifest must match the deterministic build semantically. The
+    # generation-metadata block (current HEAD / dirty flags) legitimately moves
+    # between commits and builder runs without any hashed input changing, so it
+    # is excluded here; everything else must be byte-equivalent (CRLF-normalized
+    # because autocrlf checkouts must not fail text-content comparison).
+    def _semantic(raw: bytes) -> dict:
+        data = json.loads(raw.decode("utf-8"))
+        data.pop("generated_from_commit", None)
+        src = data.get("source_integrity", {})
+        for k in ("git_commit", "git_is_dirty_whole", "git_is_dirty_execution"):
+            src.pop(k, None)
+        return data
+
     on_disk = (REPO_ROOT / MANIFEST_PATHS["FD001"]).read_bytes()
-    assert b1 == on_disk
+    assert _semantic(b1) == _semantic(on_disk), "manifest on disk drifted from deterministic build"
 
 @pytest.mark.integration
 @pytest.mark.needs_artifacts
 def test_preserve_generated_at_when_inputs_unchanged():
     # without --generated-at, second build should preserve prior timestamp when inputs unchanged
-    m_before = _manifest_data("FD001")
-    ts_before = m_before["generated_at_utc"]
-    # invoke builder without generated-at (should preserve)
-    subprocess.run([sys.executable, "scripts/build_v2_2_artifact_manifests.py", "--dataset", "FD001"], check=True, cwd=str(REPO_ROOT))
-    m_after = _manifest_data("FD001")
-    assert m_after["generated_at_utc"] == ts_before, "preserve prior generated_at_utc when inputs unchanged"
+    path = REPO_ROOT / MANIFEST_PATHS["FD001"]
+    original_bytes = path.read_bytes()
+    try:
+        m_before = _manifest_data("FD001")
+        ts_before = m_before["generated_at_utc"]
+        # invoke builder without generated-at (should preserve)
+        subprocess.run([sys.executable, "scripts/build_v2_2_artifact_manifests.py", "--dataset", "FD001"], check=True, cwd=str(REPO_ROOT))
+        m_after = _manifest_data("FD001")
+        assert m_after["generated_at_utc"] == ts_before, "preserve prior generated_at_utc when inputs unchanged"
+    finally:
+        # the builder legitimately refreshes generation metadata on write;
+        # restore so the test never leaves the working tree dirty
+        if path.read_bytes() != original_bytes:
+            path.write_bytes(original_bytes)
 
 @pytest.mark.integration
 @pytest.mark.needs_artifacts

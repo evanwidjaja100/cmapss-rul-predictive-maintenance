@@ -113,7 +113,9 @@ def build_one(dataset: str, root: Path, generated_at: str | None, check: bool = 
         # Spec: --check performs validation and deterministic regeneration comparison without rewriting
         # Means if inputs unchanged and timestamp preserved, bytes must match; if inputs changed, check should indicate drift?
         # We implement: if new_bytes == prior_bytes => ok; else if inputs actually changed (hash diff) we still consider check failure because manifest not yet updated? But spec says check compares deterministic regeneration; if inputs changed, checksum will differ -> fail until manifest updated.
-        if new_bytes != prior_bytes:
+        # CRLF-normalize the on-disk text before byte comparison: autocrlf
+        # checkouts must not make a content-identical manifest look changed.
+        if new_bytes != prior_bytes.replace(b"\r\n", b"\n"):
             # Provide diff hint: check if inputs changed vs formatting drift
             # Compare without timestamp: rebuild both with same ts and compare
             prior_inputs_ts = prior_dict.get("generated_at_utc")
