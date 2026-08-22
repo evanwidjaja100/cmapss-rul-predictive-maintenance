@@ -85,7 +85,7 @@ prediction CSVs (falsification pass).
 
 ## 6. Environment
 
-- Target Python: 3.11; **used: 3.12** (TensorFlow wheels), deviation documented.
+- Python: 3.12.10 (pinned in CI and V2.2 configs; local venvs must match).
 - All libraries are installed inside `<project>/.venv`. Global pip is not used.
 
 ## 7. Roadmap

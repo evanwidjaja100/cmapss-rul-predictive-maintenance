@@ -149,7 +149,7 @@ classification anywhere.
 
 ## 10. Testing / CI
 
-CI is authoritative for current branch health. Tests are organized intotiers (see `pyproject.toml` / `conftest.py`):
+CI is authoritative for current branch health. Tests are organized into tiers (see `pyproject.toml` / `conftest.py`):
 
 - `static_contract` — repository-integrity, config/provenance/manifest contracts
 - `unit` — pure, synthetic, fast
