@@ -315,17 +315,18 @@ def test_model_binaries_unchanged():
 @pytest.mark.integration
 @pytest.mark.needs_artifacts
 def test_deterministic_serialization_with_fixed_timestamp():
-    # identical inputs + fixed timestamp => byte-identical
-    d1 = build_manifest_dict("FD001", root=REPO_ROOT, generated_at_utc="2026-08-21T00:00:00Z")
-    d2 = build_manifest_dict("FD001", root=REPO_ROOT, generated_at_utc="2026-08-21T00:00:00Z")
+    # identical inputs + the manifest's own fixed timestamp => byte-identical
+    # regeneration (CRLF-normalized; volatile HEAD/dirty generation metadata
+    # excluded because it legitimately moves across commits without any hashed
+    # input changing)
+    on_disk_raw = (REPO_ROOT / MANIFEST_PATHS["FD001"]).read_bytes()
+    fixed_ts = json.loads(on_disk_raw.decode("utf-8"))["generated_at_utc"]
+    d1 = build_manifest_dict("FD001", root=REPO_ROOT, generated_at_utc=fixed_ts)
+    d2 = build_manifest_dict("FD001", root=REPO_ROOT, generated_at_utc=fixed_ts)
     b1 = deterministic_json_bytes(d1)
     b2 = deterministic_json_bytes(d2)
     assert b1 == b2, "deterministic serialization failed"
-    # on-disk manifest must match the deterministic build semantically. The
-    # generation-metadata block (current HEAD / dirty flags) legitimately moves
-    # between commits and builder runs without any hashed input changing, so it
-    # is excluded here; everything else must be byte-equivalent (CRLF-normalized
-    # because autocrlf checkouts must not fail text-content comparison).
+
     def _semantic(raw: bytes) -> dict:
         data = json.loads(raw.decode("utf-8"))
         data.pop("generated_from_commit", None)
@@ -334,8 +335,7 @@ def test_deterministic_serialization_with_fixed_timestamp():
             src.pop(k, None)
         return data
 
-    on_disk = (REPO_ROOT / MANIFEST_PATHS["FD001"]).read_bytes()
-    assert _semantic(b1) == _semantic(on_disk), "manifest on disk drifted from deterministic build"
+    assert _semantic(b1) == _semantic(on_disk_raw), "manifest on disk drifted from deterministic build"
 
 @pytest.mark.integration
 @pytest.mark.needs_artifacts
@@ -504,8 +504,17 @@ def test_builder_and_verifier_accept_root_override():
         with pytest.raises(ArtifactHashMismatchError):
             verify_manifest_file(tmp / MANIFEST_PATHS["FD001"], root=tmp, mode="tracked")
         assert real_fd001.read_bytes() == real_bytes_before
-    # builder CLI accepts explicit root override (REPO_ROOT itself) and is deterministic
-    subprocess.run([sys.executable, str(REPO_ROOT / "scripts/build_v2_2_artifact_manifests.py"), "--root", str(REPO_ROOT), "--generated-at", "2026-08-21T00:00:00Z", "--dataset", "FD001"], check=True)
+    # builder CLI accepts explicit root override on a disposable git clone
+    # (never rewrites the real repository)
+    with tempfile.TemporaryDirectory(prefix="builder_root_") as td2:
+        clone = Path(td2) / "repo"
+        subprocess.run(["git", "clone", "--quiet", "--no-hardlinks", str(REPO_ROOT), str(clone)], check=True)
+        # local (gitignored) frozen binaries must be present for manifest builds
+        import shutil
+
+        shutil.copytree(REPO_ROOT / "models" / "v2_2", clone / "models" / "v2_2", dirs_exist_ok=True)
+        subprocess.run([sys.executable, str(REPO_ROOT / "scripts/build_v2_2_artifact_manifests.py"), "--root", str(clone), "--generated-at", "2026-08-21T00:00:00Z", "--dataset", "FD001"], check=True)
+        assert (clone / MANIFEST_PATHS["FD001"]).exists()
     # library API root override
     d = build_manifest_dict("FD001", root=str(REPO_ROOT), generated_at_utc="2026-08-21T00:00:00Z")
     assert d["dataset"] == "FD001"
