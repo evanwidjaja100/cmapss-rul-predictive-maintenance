@@ -208,20 +208,20 @@ must update this table with a concise evidence reference before final handoff.
 
 | ID | Severity | Issue | Primary owner | Status | Completion evidence |
 |---|---|---|---|---|---|
-| RI-01 | Critical | Four audit/repair plans deleted; current CI fails | History/integrity agent | OPEN | |
-| RI-02 | Critical | FD004 architecture is read but ignored; inference window remains hardcoded | FD004 agent | OPEN | |
-| RI-03 | High | FD004 config does not validate optimizer, clustering method, split paths, identity, or payload compatibility | FD004 agent | OPEN | |
-| RI-04 | High | Source hash includes ignored/generated files and is not fail-closed | Provenance agent | OPEN | |
-| RI-05 | High | Dirty/staged/untracked provenance is incomplete; freeze provenance is captured too late | Provenance agent | OPEN | |
-| RI-06 | High | Frozen binaries have no checked-in integrity anchor or full lineage manifest | Manifest agent | OPEN | |
-| RI-07 | High | Permanent "current" test counts are stale after later commits | History/integrity agent | OPEN | |
-| RI-08 | High | Local-reference checking is narrow and hand-maintained | History/integrity agent | OPEN | |
-| RI-09 | Medium | `app_v2` performs model/UI/data work at import and initializes TensorFlow unnecessarily | App agent | OPEN | |
-| RI-10 | Medium | Tracked text contains mojibake/replacement-character corruption | History/integrity agent | OPEN | |
-| RI-11 | Medium | Registered unit/integration markers are unused; artifact needs are inconsistently expressed | CI/test agent | OPEN | |
-| RI-12 | High | CI ignores pinned constraints and Python/environment wording drifts | CI/dependency agent | OPEN | |
-| RI-13 | Medium | FD004 partial/resumed runs can produce incomplete config or overwrite best-epoch rows | FD004 agent | OPEN | |
-| RI-14 | Medium | FD004 lacks a canonical experiment-side official-prediction file | Manifest agent | OPEN | |
+| RI-01 | Critical | Four audit/repair plans deleted; current CI fails | History/integrity agent | DONE | 4 files restored byte-identical to `23cc934` blobs (`f5c1e79`, `2631a59`, `bbd55cd`, `2b82d83`); both baseline reference tests green; integrity checker OK (14 anchors) |
+| RI-02 | Critical | FD004 architecture is read but ignored; inference window remains hardcoded | FD004 agent | DONE | `fd004_config.py` gru-only fail-closed; `make_predictor(*, window)` keyword-only in FD004 + shared benchmark path (14 callers updated); window=47 tensor/mask test |
+| RI-03 | High | FD004 config does not validate optimizer, clustering method, split paths, identity, or payload compatibility | FD004 agent | DONE | Typed contract validates optimizer `{name, clipnorm}`, KMeans-only, split paths/counts/canonical hashes/disjointness + RAW file hashes, candidate identity, payload schema/identity/dims |
+| RI-04 | High | Source hash includes ignored/generated files and is not fail-closed | Provenance agent | DONE | `tracked_source_tree_details` via `git ls-files -z` only; `cmapss-tracked-source-v1` length-delimited; worktree bytes hashed; read failures raise (29 falsification tests) |
+| RI-05 | High | Dirty/staged/untracked provenance is incomplete; freeze provenance is captured too late | Provenance agent | DONE | Whole-vs-execution dirty flags, staged/unstaged/untracked-dir expansion, snapshot policy with traversal/symlink/size/secret guards; `assert_reproducible_run_state` wired into variant-run/freeze/posthoc before training/loading |
+| RI-06 | High | Frozen binaries have no checked-in integrity anchor or full lineage manifest | Manifest agent | DONE | `fd001_artifact_manifest.json` (25 artifacts), `fd004_artifact_manifest.json` (14); tracked+full verification green; deterministic `--check`; tamper tests via temp root override |
+| RI-07 | High | Permanent "current" test counts are stale after later commits | History/integrity agent | DONE | README/PROJECT_SPEC carry no mutable current counts; dated snapshot at `23cc934` in CHANGELOG; `test_documentation_truth.py` guard |
+| RI-08 | High | Local-reference checking is narrow and hand-maintained | History/integrity agent | DONE | `scripts/check_repository_integrity.py`: git-tracked enumeration, root/dir/basename resolution, unused-exception failure, encoding checks; 7 narrow used exceptions |
+| RI-09 | Medium | `app_v2` performs model/UI/data work at import and initializes TensorFlow unnecessarily | App agent | DONE | Import side-effect free (subprocess tests), TF lazy in neural branch only, headless smoke `app_smoke+needs_artifacts` green with traceback scan |
+| RI-10 | Medium | Tracked text contains mojibake/replacement-character corruption | History/integrity agent | DONE | Encoding checker rejects U+FFFD + 11 mojibake sequences; fixes applied in CHANGELOG/AUDIT_V2/tests; byte-frozen historical plan excepted with justified entry |
+| RI-11 | Medium | Registered unit/integration markers are unused; artifact needs are inconsistently expressed | CI/test agent | DONE | 6 markers registered; conftest enforces exactly-one-primary-marker; `test_marker_audit.py`; nested-collection test removed |
+| RI-12 | High | CI ignores pinned constraints and Python/environment wording drifts | CI/dependency agent | DONE | CI pins Python 3.12.10 + pip 26.2.1, platform-selected constraints via `-c`, `pip check`; dependency-consistency checker; PROJECT_SPEC wording pinned to 3.12.10 |
+| RI-13 | Medium | FD004 partial/resumed runs can produce incomplete config or overwrite best-epoch rows | FD004 agent | DONE | Canonical write refused unless all A/B/C/D rows (resolved-path guard); best-epoch merge collision raises; duplicates rejected; 37×5 prediction requirement enforced |
+| RI-14 | Medium | FD004 lacks a canonical experiment-side official-prediction file | Manifest agent | DONE | `experiments/v2_2/fd004_official_predictions.csv` byte-identical to report mirror; manifest enforces hash equality; `--check` never creates it |
 
 ---
 

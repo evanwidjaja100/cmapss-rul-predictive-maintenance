@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## Repository integrity review wave — 2026-08-22
+
+> Adversarial-review hardening pass on top of the 2026-08-21 implementation
+> (`8529ecf`..`8ec6a00`). No retraining, no reruns; all four frozen binary
+> hashes unchanged (`23bd460c…`, `d1b02cfc…`, `9b39a059…`, `f22ef718…`).
+> Two independent read-only reviews (repository/CI/docs and
+> provenance/manifest/FD004) reported 0 P0, 8 P1, ~16 P2 findings; all P1/P2
+> items are fixed or explicitly documented below.
+
+- **Provenance hash semantics (P1):** `source_tree_hash` now hashes current
+  worktree bytes for git-tracked execution inputs — staged/unstaged edits
+  change the digest (Python executes worktree bytes, not HEAD). Untracked
+  directories no longer crash collection; hashing failures are fail-closed.
+- **Dirty-run policy wired in (P1):** FD004 variant-run, freeze, and post-hoc
+  entrypoints call `assert_reproducible_run_state()` before any training,
+  loading, or output write; dirty execution requires `--allow-dirty-reason`
+  plus `--allow-dirty-snapshot-dir`. Snapshot destinations inside `src/` or
+  `scripts/` are rejected outright.
+- **FD004 freeze fail-closed gates (P1):** lenient config fallback deleted;
+  immutable-baseline gate refuses overwriting a condition joblib whose bytes
+  match historical SHA `f22ef718…`; canonical-config guard compares resolved
+  absolute paths so absolute-path invocations cannot bypass the A/B/C/D
+  completeness requirement.
+- **Split evidence portability (P1):** config and scripts now reference the
+  exact tracked case `experiments/splits/FD004_v2_seed42.json`; split loading
+  validates exact-case names (Linux clean clones) and separately named RAW
+  file hashes (`split_provenance_file_sha256`,
+  `validation_cutoff_manifest_file_sha256`) pin exact split/cutoff bytes
+  alongside the canonical engine-ID digests. Numerical values unchanged.
+- **Contracts survive `python -O` (P1):** deployment-config asserts in
+  `serving/v2_predictor.py`, leakage/completeness gates in `benchmark/v2_2.py`
+  replaced with explicit exceptions; shared `benchmark.v2.make_predictor`
+  requires keyword-only positive-int `window` (14 call sites updated).
+- **Manifest verification classes (P2):** tampered/structurally invalid
+  manifests are a hard integrity failure; absent manifests load with an
+  explicit UNVERIFIED legacy warning (never silent); `--check` never writes
+  (including the FD004 canonical predictions CSV); builder/verifier
+  dirty-tree asymmetry documented.
+- **Test infrastructure honesty:** manifest determinism/preservation tests no
+  longer mutate the live repository (builder root-override test uses a
+  disposable clone); CRLF-normalized comparisons so `autocrlf` checkouts do
+  not produce false drift; headless Streamlit smoke scans output for
+  tracebacks instead of relying on an alive-only timing criterion.
+
 ## V2.2 final repository freeze — 2026-08-18
 
 > Audit/freeze pass (`V2_2_FINAL_FREEZE_PLAN.md`; master instruction is
