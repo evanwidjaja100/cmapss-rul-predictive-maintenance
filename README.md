@@ -4,6 +4,8 @@
 
 A reproducible RUL prediction system for turbofan-engine prognostics built with strict leakage safety: engine-level validation splits, training-engine-only preprocessing fitting, fixed pseudo-test manifests for model selection, nested cross-validation with genuinely held-out evaluation engines, and post-hoc evaluation on the official test sets.
 
+> Naming: methodologies were renamed — **M1** (formerly V2), **M2** (formerly V2.1), **M3** (formerly V2.2, current). Older reports and git history may use the old names.
+
 ---
 
 ## 1. Current methodology — M3
