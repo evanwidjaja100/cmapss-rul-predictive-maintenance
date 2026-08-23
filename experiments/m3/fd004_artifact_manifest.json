@@ -37,21 +37,21 @@
       "storage_class": "git"
     },
     {
-      "bytes": 4205,
+      "bytes": 4203,
       "hash_kind": "raw_sha256",
       "path": "requirements-lock.txt",
       "required_in_clean_clone": true,
       "role": "constraints_lock",
-      "sha256": "3e24e2aaf79f8137e5e26284a7ce5ce31d8dd283c3de713cd5223efd6f60a7dc",
+      "sha256": "56697bf2c735657ea0ff08bd8eb9e7a83b914bdba13ae9b2ca4af1b5da1e6707",
       "storage_class": "git"
     },
     {
-      "bytes": 3780,
+      "bytes": 3778,
       "hash_kind": "raw_sha256",
       "path": "configs/final_model_m3_fd004.yaml",
       "required_in_clean_clone": true,
       "role": "final_config",
-      "sha256": "4484da896eaadcb88cc3f5c5548359f24ffec8ff7a26a4c25ce14cbc11e90bf3",
+      "sha256": "0041305fecd291ba116d992a10235a12918938a0b1b94e0bfbf9ce881c1cf014",
       "storage_class": "git"
     },
     {
@@ -64,12 +64,12 @@
       "storage_class": "git"
     },
     {
-      "bytes": 436,
+      "bytes": 434,
       "hash_kind": "raw_sha256",
       "path": "experiments/m3/fd004_final_metrics.json",
       "required_in_clean_clone": true,
       "role": "final_metrics",
-      "sha256": "db800334dcd00781eaa98061830f38719c5df4ecea62c987d63e8117360cb678",
+      "sha256": "fb6eceff75175d56f5bfa979faea329a49adfad354bf4a8906459fbc04ebf923",
       "storage_class": "git"
     },
     {
@@ -96,7 +96,7 @@
       "path": "experiments/splits/FD004_m1_seed42.json",
       "required_in_clean_clone": true,
       "role": "split_json",
-      "sha256": "9ace791439f39071f19449f744512447ce2881d0e6fea5f44cc32b2fffb3c28c",
+      "sha256": "3e14a817068303e0b6e1847c9753b05807e61e1b1e2f9f769d95ecf0bcf5210b",
       "storage_class": "git"
     },
     {
@@ -130,7 +130,7 @@
   "config_integrity": {
     "canonical_algo": "cmapss-fd004-config-canonical-v1",
     "config_canonical_sha256": "19f97575f8b7e5df567be92d8a3080535072177f0322255a37c703ab2aa4e1a1",
-    "config_file_sha256": "4484da896eaadcb88cc3f5c5548359f24ffec8ff7a26a4c25ce14cbc11e90bf3",
+    "config_file_sha256": "0041305fecd291ba116d992a10235a12918938a0b1b94e0bfbf9ce881c1cf014",
     "model_id": "gru_w45_huber_condC",
     "note": "config_file_sha256 is raw-byte integrity; config_canonical_sha256 is versioned semantic identity (post-training normalization 2026-08-21); neither is historical training hash (not historical training hash)",
     "path": "configs/final_model_m3_fd004.yaml"
@@ -145,17 +145,17 @@
       "storage_class": "git"
     },
     {
-      "bytes": 4205,
+      "bytes": 4203,
       "hash_kind": "raw_sha256",
       "path": "requirements-lock.txt",
       "required_in_clean_clone": true,
-      "sha256": "3e24e2aaf79f8137e5e26284a7ce5ce31d8dd283c3de713cd5223efd6f60a7dc",
+      "sha256": "56697bf2c735657ea0ff08bd8eb9e7a83b914bdba13ae9b2ca4af1b5da1e6707",
       "storage_class": "git"
     }
   ],
   "dataset": "FD004",
-  "generated_at_utc": "2026-08-23T03:55:11Z",
-  "generated_from_commit": "e872df0c15028ac935c8752b8cef410237a827a9",
+  "generated_at_utc": "2026-08-23T04:17:47Z",
+  "generated_from_commit": "7c1c449f92bb0f22a0589f8ac0c1baa656576f4a",
   "historical_training_provenance": {
     "historical_commit": null,
     "note_config_hash_distinction": "config_file_sha256 vs config_canonical_sha256; new YAML is post-training normalized (structured optimizer) and behaviorally equivalent, raw hash is not historical training hash (not historical training hash)",
@@ -258,11 +258,11 @@
   "schema_version": "cmapss-artifact-manifest-v1",
   "source_integrity": {
     "algorithm": "cmapss-tracked-source-v1",
-    "file_count": 90,
-    "git_commit": "e872df0c15028ac935c8752b8cef410237a827a9",
-    "git_is_dirty_execution": true,
+    "file_count": 89,
+    "git_commit": "7c1c449f92bb0f22a0589f8ac0c1baa656576f4a",
+    "git_is_dirty_execution": false,
     "git_is_dirty_whole": true,
     "note": "Manifest generation time is not training time; this source_tree_hash is current generation-time hash, not historical training hash",
-    "source_tree_hash": "0eb3b4f9ca50d7a3a3ed3e7895c89ef487cf933f3ebe69c777cf3e9815143a2d"
+    "source_tree_hash": "3c24f59e088c855053432b71810d4a704b53fe4809b704b4f12c182b2fd95544"
   }
 }
