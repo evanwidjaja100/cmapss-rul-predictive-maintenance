@@ -208,7 +208,7 @@ def test_non_default_config_reaches_all_runtimes_via_spies(monkeypatch, tmp_path
     split_path = tmp_path / "fd004_m1_seed42.json"
     val_manifest = tmp_path / "fd004_m2_validation_cutoffs.csv"
     # copy real split but write to temp
-    real_split = json.loads((ROOT / "experiments/splits/fd004_m1_seed42.json").read_text())
+    real_split = json.loads((ROOT / "experiments/splits/FD004_m1_seed42.json").read_text())
     split_path.write_text(json.dumps(real_split), encoding="utf-8")
     (ROOT / "experiments/splits/fd004_m2_validation_cutoffs.csv").read_text()
     val_manifest.write_text((ROOT / "experiments/splits/fd004_m2_validation_cutoffs.csv").read_text(), encoding="utf-8")
