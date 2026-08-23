@@ -6,6 +6,8 @@ A reproducible RUL prediction system for turbofan-engine prognostics built with 
 
 > Naming: methodologies were renamed — **M1** (formerly V2), **M2** (formerly V2.1), **M3** (formerly V2.2, current). Older reports and git history may use the old names.
 
+> Historical documents: completed methodology and audit records (`AUDIT_M1.md`, `M2_REPAIR_PLAN.md`, `M3_REPAIR_PLAN.md`, `M3_FINAL_CLEANUP_PLAN.md`, `M3_FINAL_FREEZE_PLAN.md`, `C_MAPSS_REPOSITORY_INTEGRITY_IMPLEMENTATION_PLAN.md`) live under [`docs/history/`](docs/history).
+
 ---
 
 ## 1. Current methodology — M3

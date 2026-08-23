@@ -6,23 +6,23 @@
 
 exceptions:
   # Historical plan byte-identical preservation — mojibake retained
-  - source: "M3_REPAIR_PLAN.md"
+  - source: "docs/history/M3_REPAIR_PLAN.md"
     pattern: "mojibake"
     reason: "historical byte-identical preservation per plan Section 8; file is restored from 23cc934 and must remain unchanged"
   # Historical plans contain references to files that were renamed or were session-only (byte-identical, cannot edit)
-  - source: "M2_REPAIR_PLAN.md"
+  - source: "docs/history/M2_REPAIR_PLAN.md"
     target: "scripts/explain_m1_shap.py"
     reason: "historical reference to renamed script; file is M2 historical record, must remain byte-identical"
-  - source: "M3_FINAL_CLEANUP_PLAN.md"
+  - source: "docs/history/M3_FINAL_CLEANUP_PLAN.md"
     target: "reports/m3_methodology.md"
     reason: "historical documentation of broken link; file is restored historical record, cannot be edited"
-  - source: "M3_FINAL_FREEZE_PLAN.md"
+  - source: "docs/history/M3_FINAL_FREEZE_PLAN.md"
     target: "C_MAPSS_M3_FINAL_REPOSITORY_FREEZE_AGENT_PLAN.md"
     reason: "session-only master instruction, intentionally not committed per plan Section 8"
-  - source: "M3_FINAL_FREEZE_PLAN.md"
+  - source: "docs/history/M3_FINAL_FREEZE_PLAN.md"
     target: "C_MAPSS_M3_FINAL_CLEANUP_AGENT_PLAN.md"
     reason: "historical broken reference documented in plan; file is historical record"
-  - source: "M3_REPAIR_PLAN.md"
+  - source: "docs/history/M3_REPAIR_PLAN.md"
     target: "reports/m3_conformal.md"
     reason: "historical reference to report that was later renamed; file must remain byte-identical"
   # Test that intentionally verifies a missing file must not be flagged

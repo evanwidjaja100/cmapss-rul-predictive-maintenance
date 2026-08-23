@@ -686,8 +686,8 @@ def test_run_metadata_helper_supports_source_tree_hash():
 @pytest.mark.static_contract
 def test_required_tracked_local_references_exist():
     required = [
-        "M3_FINAL_CLEANUP_PLAN.md",
-        "M3_FINAL_FREEZE_PLAN.md",
+        "docs/history/M3_FINAL_CLEANUP_PLAN.md",
+        "docs/history/M3_FINAL_FREEZE_PLAN.md",
         "reports/m3_final_report.md",
         "configs/final_model_m3_fd001.yaml",
         "configs/final_model_m3_fd004.yaml",
@@ -704,7 +704,7 @@ def test_no_broken_master_cleanup_plan_references():
     """C_MAPSS_M3_FINAL_CLEANUP_AGENT_PLAN.md does not exist and must not be referenced."""
     if (ROOT / "C_MAPSS_M3_FINAL_CLEANUP_AGENT_PLAN.md").exists():
         return  # Option A: committed plan may be referenced
-    for rel in ("CHANGELOG.md", "M3_FINAL_CLEANUP_PLAN.md",
+    for rel in ("CHANGELOG.md", "docs/history/M3_FINAL_CLEANUP_PLAN.md",
                 "reports/m3_final_report.md"):
         src = (ROOT / rel).read_text(encoding="utf-8")
         assert "C_MAPSS_M3_FINAL_CLEANUP_AGENT_PLAN" not in src, f"broken ref in {rel}"

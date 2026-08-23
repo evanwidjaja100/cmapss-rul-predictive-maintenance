@@ -21,10 +21,10 @@ ROOT = Path(__file__).resolve().parents[1]
 # (current path, historical name at 23cc934) — files were renamed M1/M2/M3 in 2026-08;
 # content changed as part of that rename, so only historical existence is pinned.
 REQUIRED_RESTORED_PLANS = [
-    ("M2_REPAIR_PLAN.md", "V2_1_REPAIR_PLAN.md"),
-    ("M3_REPAIR_PLAN.md", "V2_2_REPAIR_PLAN.md"),
-    ("M3_FINAL_CLEANUP_PLAN.md", "V2_2_FINAL_CLEANUP_PLAN.md"),
-    ("M3_FINAL_FREEZE_PLAN.md", "V2_2_FINAL_FREEZE_PLAN.md"),
+    ("docs/history/M2_REPAIR_PLAN.md", "V2_1_REPAIR_PLAN.md"),
+    ("docs/history/M3_REPAIR_PLAN.md", "V2_2_REPAIR_PLAN.md"),
+    ("docs/history/M3_FINAL_CLEANUP_PLAN.md", "V2_2_FINAL_CLEANUP_PLAN.md"),
+    ("docs/history/M3_FINAL_FREEZE_PLAN.md", "V2_2_FINAL_FREEZE_PLAN.md"),
 ]
 
 REQUIRED_M3_EVIDENCE = [

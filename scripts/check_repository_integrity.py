@@ -55,10 +55,10 @@ ENCODING_EXTS = {".md", ".py", ".toml", ".yaml", ".yml", ".txt"}
 
 # Required anchors (small explicit list per spec)
 REQUIRED_ANCHORS = [
-    "M2_REPAIR_PLAN.md",
-    "M3_REPAIR_PLAN.md",
-    "M3_FINAL_CLEANUP_PLAN.md",
-    "M3_FINAL_FREEZE_PLAN.md",
+    "docs/history/M2_REPAIR_PLAN.md",
+    "docs/history/M3_REPAIR_PLAN.md",
+    "docs/history/M3_FINAL_CLEANUP_PLAN.md",
+    "docs/history/M3_FINAL_FREEZE_PLAN.md",
     "reports/m3_final_report.md",
     "configs/final_model_m3_fd001.yaml",
     "configs/final_model_m3_fd004.yaml",
@@ -92,7 +92,7 @@ IGNORED_PREFIXES = [
 PLACEHOLDER_KEYWORDS = ["...", "example", "placeholder", "path/to", "your_", "my_", "<", ">", "*", "???"]
 
 REPO_PREFIXES = [
-    "M1_", "C_MAPSS", "configs/", "experiments/", "reports/", "scripts/", "src/", "tests/",
+    "M1_", "C_MAPSS", "configs/", "experiments/", "reports/", "scripts/", "src/", "tests/", "docs/",
     "notebooks/", "requirements", "pyproject", ".github/", "LICENSE", "README", "PROJECT_SPEC",
     "CHANGELOG", "AUDIT", "THIRD_PARTY",
 ]
