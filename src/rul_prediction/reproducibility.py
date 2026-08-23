@@ -255,7 +255,7 @@ def tracked_source_tree_details(root: Path | str | None = None) -> dict:
     }
 
 
-def _git_status_porcelain_v2_z(root: Path) -> tuple[bytes, str]:
+def _git_status_porcelain_m1_z(root: Path) -> tuple[bytes, str]:
     """Run git status --porcelain=v2 -z and return (raw_bytes, decoded_text)."""
     out = subprocess.run(
         ["git", "status", "--porcelain=v2", "-z"],
@@ -284,7 +284,7 @@ def _git_diff_binary(root: Path) -> bytes:
 
 def _parse_status_for_dirty(root: Path) -> dict:
     """Parse NUL-delimited v2 status into whole-repo vs execution-scope dirtiness."""
-    raw, text = _git_status_porcelain_v2_z(root)
+    raw, text = _git_status_porcelain_m1_z(root)
     if not raw:
         return {
             "whole_dirty": False,
@@ -546,7 +546,7 @@ def collect_git_provenance(
     except Exception:
         commit = None
 
-    status_raw, status_text = _git_status_porcelain_v2_z(r)
+    status_raw, status_text = _git_status_porcelain_m1_z(r)
     diff_bytes = _git_diff_binary(r)
     parsed = _parse_status_for_dirty(r)
     details = tracked_source_tree_details(r)
@@ -759,7 +759,7 @@ def assert_reproducible_run_state(
 
     # Store binary patch
     diff_bytes = _git_diff_binary(r)
-    status_raw, _ = _git_status_porcelain_v2_z(r)
+    status_raw, _ = _git_status_porcelain_m1_z(r)
     patch_path = snap / "dirty_snapshot.patch"
     status_path = snap / "dirty_status.txt"
     inventory_path = snap / "inventory.json"
