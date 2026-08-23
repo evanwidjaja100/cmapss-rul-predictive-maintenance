@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rul-prediction"
 version = "0.1.0"
 description = "Leakage-safe Remaining Useful Life prediction for predictive maintenance using NASA C-MAPSS"
-requires-python = ">=3.11,<3.13"  # TensorFlow has no Windows wheels for 3.13; tested on 3.12.10 (V2.2 configs record 3.12.10, CI pinned to 3.12.10)
+requires-python = ">=3.11,<3.13"  # TensorFlow has no Windows wheels for 3.13; tested on 3.12.10 (M3 configs record 3.12.10, CI pinned to 3.12.10)
 license = { text = "MIT" }
 dependencies = [
     "numpy",
@@ -35,7 +35,7 @@ addopts = "-q"
 markers = [
     "unit: pure, synthetic, fast",
     "static_contract: source/config/reference/encoding contracts",
-    "tracked_artifacts: committed CSV/JSON/YAML evidence (experiments/v2_2, configs tracked)",
+    "tracked_artifacts: committed CSV/JSON/YAML evidence (experiments/m3, configs tracked)",
     "integration: multi-component tests without gitignored artifacts",
     "app_smoke: app import/startup behavior",
     "needs_artifacts: supplemental requirement for gitignored data/model/processed files",

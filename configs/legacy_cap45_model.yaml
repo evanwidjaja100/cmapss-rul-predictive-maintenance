@@ -9,7 +9,7 @@
 # The same model evaluated against raw official NASA RUL produces approximately
 # RMSE 50.37 / MAE 39.05 / R2 -0.47 / NASA 19261.8 - see
 # experiments/FD001_final_test_results.json (metrics_raw_rul).
-# Methodology V2 (see AUDIT_V2.md) uses RAW RUL as the primary target.
+# Methodology M1 (see AUDIT_M1.md) uses RAW RUL as the primary target.
 
 # FINAL MODEL CONFIGURATION - frozen BEFORE any official test-set contact (Phase 9)
 # Selected on VALIDATION ENGINES ONLY in Phase 8 ablations (seed 42, 80/20 engine split).
@@ -41,5 +41,5 @@ validation_metrics:
   nasa_score: 326.486
 
 # Guardrails
-test_usage: LEGACY EXPERIMENT - official test set evaluated after config freeze (see AUDIT_V2.md for corrected contact history)
+test_usage: LEGACY EXPERIMENT - official test set evaluated after config freeze (see AUDIT_M1.md for corrected contact history)
 scaler_fit: TRAINING ENGINES ONLY (test never used for fitting or tuning)

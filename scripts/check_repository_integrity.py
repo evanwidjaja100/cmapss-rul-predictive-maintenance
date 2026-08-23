@@ -15,7 +15,7 @@ Reference behavior:
   - Excludes URLs, anchors, templates/placeholders, gitignored artifacts
   - Exceptions in configs/repository_integrity.yaml (source, target/pattern, reason)
   - Fails on unused exceptions
-  - Small required-anchor assertion for 4 restored plans + key V2.2 evidence
+  - Small required-anchor assertion for 4 restored plans + key M3 evidence
 
 Encoding behavior:
   - Strict UTF-8 decode for tracked .md .py .toml .yaml .yml .txt
@@ -55,20 +55,20 @@ ENCODING_EXTS = {".md", ".py", ".toml", ".yaml", ".yml", ".txt"}
 
 # Required anchors (small explicit list per spec)
 REQUIRED_ANCHORS = [
-    "V2_1_REPAIR_PLAN.md",
-    "V2_2_REPAIR_PLAN.md",
-    "V2_2_FINAL_CLEANUP_PLAN.md",
-    "V2_2_FINAL_FREEZE_PLAN.md",
-    "reports/v2_2_final_report.md",
-    "configs/final_model_v2_2_fd001.yaml",
-    "configs/final_model_v2_2_fd004.yaml",
-    "configs/deployment_v2_2_fd001.yaml",
-    "experiments/v2_2/fd001_outer_fold_results.csv",
-    "experiments/v2_2/selection_decision.json",
-    "experiments/v2_2/fd001_conformal_engine_scores.csv",
-    "experiments/v2_2/fd001_conformal_quantiles.csv",
-    "experiments/v2_2/fd001_official_predictions.csv",
-    "experiments/v2_2/fd004_variant_results.csv",
+    "M2_REPAIR_PLAN.md",
+    "M3_REPAIR_PLAN.md",
+    "M3_FINAL_CLEANUP_PLAN.md",
+    "M3_FINAL_FREEZE_PLAN.md",
+    "reports/m3_final_report.md",
+    "configs/final_model_m3_fd001.yaml",
+    "configs/final_model_m3_fd004.yaml",
+    "configs/deployment_m3_fd001.yaml",
+    "experiments/m3/fd001_outer_fold_results.csv",
+    "experiments/m3/selection_decision.json",
+    "experiments/m3/fd001_conformal_engine_scores.csv",
+    "experiments/m3/fd001_conformal_quantiles.csv",
+    "experiments/m3/fd001_official_predictions.csv",
+    "experiments/m3/fd004_variant_results.csv",
 ]
 
 # Gitignored prefixes (from .gitignore) to exclude from reference checking
@@ -86,13 +86,13 @@ IGNORED_PREFIXES = [
     "dist/",
     ".opencode/",
 ]
-# Allowed exceptions for ignored: experiments/* except splits/v2_1/v2_2
+# Allowed exceptions for ignored: experiments/* except splits/m2/m3
 # We handle via function is_ignored_path
 
 PLACEHOLDER_KEYWORDS = ["...", "example", "placeholder", "path/to", "your_", "my_", "<", ">", "*", "???"]
 
 REPO_PREFIXES = [
-    "V2_", "C_MAPSS", "configs/", "experiments/", "reports/", "scripts/", "src/", "tests/",
+    "M1_", "C_MAPSS", "configs/", "experiments/", "reports/", "scripts/", "src/", "tests/",
     "notebooks/", "requirements", "pyproject", ".github/", "LICENSE", "README", "PROJECT_SPEC",
     "CHANGELOG", "AUDIT", "THIRD_PARTY",
 ]
@@ -179,7 +179,7 @@ def _is_ignored_path(token: str) -> bool:
             return True
     # Handle experiments/* exception
     if token.startswith("experiments/"):
-        if not (token.startswith("experiments/splits/") or token.startswith("experiments/v2_1/") or token.startswith("experiments/v2_2/")):
+        if not (token.startswith("experiments/splits/") or token.startswith("experiments/m2/") or token.startswith("experiments/m3/")):
             # e.g., experiments/results.csv, experiments/FD001_final_test_results.json are ignored
             return True
     # Check for *.egg-info, *.pyc etc
@@ -319,7 +319,7 @@ def _extract_markdown_link_targets(line: str):
 
 def _extract_path_tokens(text: str):
     # Path-like tokens with supported extensions
-    # This matches strings like `reports/v2_2_final_report.md` or `configs/final_model.yaml`
+    # This matches strings like `reports/m3_final_report.md` or `configs/final_model.yaml`
     # Allow backticks, quotes around
     # Use regex for path with extension
     exts = "|".join(re.escape(e.lstrip(".")) for e in sorted(REF_EXTS, key=lambda x: -len(x)))

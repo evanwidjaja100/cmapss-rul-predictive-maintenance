@@ -1,10 +1,10 @@
-"""Split-conformal helpers for Methodology V2 / V2.1 uncertainty calibration.
+"""Split-conformal helpers for Methodology M1 / M2 uncertainty calibration.
 
 Inductive conformal prediction: nonconformity scores (absolute residuals) are
 computed on a fixed calibration set, and the prediction interval is
 ``y_hat +/- q`` where ``q`` is the finite-sample quantile.
 
-Methodology V2.1 (see V2_1_REPAIR_PLAN.md, R9/R10) calibrates at the ENGINE
+Methodology M2 (see M2_REPAIR_PLAN.md, R9/R10) calibrates at the ENGINE
 level: one score per calibration engine, taken as the maximum absolute error
 across its five fixed lifecycle checkpoints. The finite-sample quantile index
 is ``k = ceil((n + 1) * (1 - alpha))`` clamped to ``1 <= k <= n`` (1-indexed
@@ -22,8 +22,8 @@ import numpy as np
 def conformal_quantile(scores: np.ndarray, alpha: float) -> float:
     """Finite-sample ICP quantile of scores (alpha in (0, 1)).
 
-    V2 behavior preserved for compatibility: level = (n+1)*(1-alpha)/n with
-    the 'higher' interpolation. V2.1 code should use
+    M1 behavior preserved for compatibility: level = (n+1)*(1-alpha)/n with
+    the 'higher' interpolation. M2 code should use
     ``finite_sample_quantile_index`` + ordered scores instead.
     """
     assert 0 < alpha < 1

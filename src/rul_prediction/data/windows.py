@@ -2,7 +2,7 @@
 
 Used identically by training, validation, calibration, serving and official
 test inference so that the representation seen at inference time always
-appears during training (Methodology V2, Issue 6 fix).
+appears during training (Methodology M1, Issue 6 fix).
 
 Convention: rows are sorted by cycle; row index ``cycle - 1``. Padding uses
 zeros (scaled sensor means are ~0); a binary mask marks observed timesteps

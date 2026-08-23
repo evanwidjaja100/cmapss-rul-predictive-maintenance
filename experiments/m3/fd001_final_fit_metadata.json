@@ -1,0 +1,32 @@
+{
+  "methodology_version": "2.2",
+  "dataset": "FD001",
+  "candidate": "xgb_w90_d6",
+  "architecture": "xgboost",
+  "window": 90,
+  "fixed_epoch_count": null,
+  "fixed_n_estimators": 92,
+  "training_engine_count": 85,
+  "calibration_engine_count": 15,
+  "calibration_contact_in_fitting": false,
+  "validation_data_in_final_fit": false,
+  "training_time": 3.18,
+  "train_ids_sha256": "f24b5e014f7b7f9270c9ea248c05853cc99487071e36b0636507f2820b6cbccf",
+  "cal_ids_sha256": "ec25abf191469417cf7ee442736232478ff87b9485f9a5a725ac43e92087127d",
+  "model_path": "models\\m3\\fd001_xgb_w90_d6.joblib",
+  "scaler_path": "models\\m3\\fd001_scaler.joblib",
+  "provenance": {
+    "git_commit": "53e50d87b2402da5a6014d5ba4fb0adb635e1d71",
+    "git_is_dirty": true,
+    "git_diff_hash": "174038c32da0de91ea787afd5621f77d8ac273015a9bea29716e62837f810180",
+    "timestamp_utc": "2026-08-17T01:42:52+00:00"
+  },
+  "model_params": {
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "n_estimators": 92,
+    "early_stopping_rounds": null
+  }
+}

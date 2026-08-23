@@ -1,0 +1,2 @@
+experiment_id,model,target_mode,window,parameters,training_time,validation_RMSE,validation_MAE,validation_R2,validation_NASA_total,validation_NASA_mean,official_test_engine_count,official_test_RMSE,official_test_MAE,official_test_R2,official_test_NASA_total,official_test_NASA_mean
+m1_frozen_gru_w45_huber,gru,raw,45,m1_gru;loss=huber;bs=256;es_patience=8,535.04,13.7406,9.6908,0.8768,200.01,2.6668,100,29.0377,19.1715,0.5117,77387.53,773.8753

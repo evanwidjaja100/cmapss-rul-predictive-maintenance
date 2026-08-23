@@ -75,7 +75,7 @@ replacement characters, and known mojibake sequences.
 
 ### Goal G7 - Make the Streamlit application import-safe
 
-`import app_v2` must not instantiate a predictor, load a model or scaler, read raw
+`import app_m1` must not instantiate a predictor, load a model or scaler, read raw
 data, initialize TensorFlow for an XGBoost deployment, render Streamlit UI, or emit
 bare-Streamlit warnings. Real Streamlit execution must retain current behavior.
 
@@ -83,7 +83,7 @@ bare-Streamlit warnings. Real Streamlit execution must retain current behavior.
 
 Every test must have one primary tier. Tests that require gitignored data, models, or
 generated artifacts must also carry `needs_artifacts`. Tests reading committed
-`experiments/v2_2` evidence must continue to run in CI and in a clean clone.
+`experiments/m3` evidence must continue to run in CI and in a clean clone.
 
 ### Goal G9 - Align dependencies and CI
 
@@ -138,10 +138,10 @@ The implementation agent must independently recheck this baseline before editing
   stage, and commit this plan as part of the implementation.
 - User-owned untracked file: `session-ses_feb9.md`.
 - Commit `6151773` deleted:
-  - `V2_1_REPAIR_PLAN.md`
-  - `V2_2_REPAIR_PLAN.md`
-  - `V2_2_FINAL_CLEANUP_PLAN.md`
-  - `V2_2_FINAL_FREEZE_PLAN.md`
+  - `M2_REPAIR_PLAN.md`
+  - `M3_REPAIR_PLAN.md`
+  - `M3_FINAL_CLEANUP_PLAN.md`
+  - `M3_FINAL_FREEZE_PLAN.md`
 - All four files exist at commit `23cc934`.
 - Current full test result: 162 passed, 2 failed, 16 warnings.
 - Current artifact-free local result: 157 passed, 2 failed, 5 deselected,
@@ -184,13 +184,13 @@ top-level objects: `capture`, `repository`, `binaries`, `configs`,
 `scientific_evidence`, `tests`, `environment`, and `tracked_experiment_files`.
 Include at least:
 
-- baseline commit and `git status --porcelain=v2`;
+- baseline commit and `git status --porcelain=m1`;
 - the four binary hashes above;
 - hashes of the FD001 and FD004 final configs;
 - hashes of selection, conformal, official prediction, and final metric files;
 - the current test results;
 - Python and the six core ML package versions;
-- the list of tracked `experiments/v2_2` files.
+- the list of tracked `experiments/m3` files.
 
 Each hashed entry must contain repository-relative path, SHA-256, byte size, and
 existence/storage status. Each test entry must contain command, exit code, counts,
@@ -216,12 +216,12 @@ must update this table with a concise evidence reference before final handoff.
 | RI-06 | High | Frozen binaries have no checked-in integrity anchor or full lineage manifest | Manifest agent | DONE | `fd001_artifact_manifest.json` (25 artifacts), `fd004_artifact_manifest.json` (14); tracked+full verification green; deterministic `--check`; tamper tests via temp root override |
 | RI-07 | High | Permanent "current" test counts are stale after later commits | History/integrity agent | DONE | README/PROJECT_SPEC carry no mutable current counts; dated snapshot at `23cc934` in CHANGELOG; `test_documentation_truth.py` guard |
 | RI-08 | High | Local-reference checking is narrow and hand-maintained | History/integrity agent | DONE | `scripts/check_repository_integrity.py`: git-tracked enumeration, root/dir/basename resolution, unused-exception failure, encoding checks; 7 narrow used exceptions |
-| RI-09 | Medium | `app_v2` performs model/UI/data work at import and initializes TensorFlow unnecessarily | App agent | DONE | Import side-effect free (subprocess tests), TF lazy in neural branch only, headless smoke `app_smoke+needs_artifacts` green with traceback scan |
-| RI-10 | Medium | Tracked text contains mojibake/replacement-character corruption | History/integrity agent | DONE | Encoding checker rejects U+FFFD + 11 mojibake sequences; fixes applied in CHANGELOG/AUDIT_V2/tests; byte-frozen historical plan excepted with justified entry |
+| RI-09 | Medium | `app_m1` performs model/UI/data work at import and initializes TensorFlow unnecessarily | App agent | DONE | Import side-effect free (subprocess tests), TF lazy in neural branch only, headless smoke `app_smoke+needs_artifacts` green with traceback scan |
+| RI-10 | Medium | Tracked text contains mojibake/replacement-character corruption | History/integrity agent | DONE | Encoding checker rejects U+FFFD + 11 mojibake sequences; fixes applied in CHANGELOG/AUDIT_M1/tests; byte-frozen historical plan excepted with justified entry |
 | RI-11 | Medium | Registered unit/integration markers are unused; artifact needs are inconsistently expressed | CI/test agent | DONE | 6 markers registered; conftest enforces exactly-one-primary-marker; `test_marker_audit.py`; nested-collection test removed |
 | RI-12 | High | CI ignores pinned constraints and Python/environment wording drifts | CI/dependency agent | DONE | CI pins Python 3.12.10 + pip 26.2.1, platform-selected constraints via `-c`, `pip check`; dependency-consistency checker; PROJECT_SPEC wording pinned to 3.12.10 |
 | RI-13 | Medium | FD004 partial/resumed runs can produce incomplete config or overwrite best-epoch rows | FD004 agent | DONE | Canonical write refused unless all A/B/C/D rows (resolved-path guard); best-epoch merge collision raises; duplicates rejected; 37×5 prediction requirement enforced |
-| RI-14 | Medium | FD004 lacks a canonical experiment-side official-prediction file | Manifest agent | DONE | `experiments/v2_2/fd004_official_predictions.csv` byte-identical to report mirror; manifest enforces hash equality; `--check` never creates it |
+| RI-14 | Medium | FD004 lacks a canonical experiment-side official-prediction file | Manifest agent | DONE | `experiments/m3/fd004_official_predictions.csv` byte-identical to report mirror; manifest enforces hash equality; `--check` never creates it |
 
 ---
 
@@ -241,7 +241,7 @@ Owns:
 - `scripts/check_repository_integrity.py`;
 - `configs/repository_integrity.yaml`, if exceptions are genuinely required;
 - `tests/test_repository_integrity.py`;
-- mojibake corrections in `CHANGELOG.md`, `AUDIT_V2.md`, and affected tests.
+- mojibake corrections in `CHANGELOG.md`, `AUDIT_M1.md`, and affected tests.
 
 It must not edit FD004 runtime code, provenance code, dependency files, or the
 Streamlit application.
@@ -251,12 +251,12 @@ Streamlit application.
 Owns:
 
 - the shared FD004 config module;
-- `configs/final_model_v2_2_fd004.yaml`;
-- `scripts/run_v2_2_fd004.py`;
-- `scripts/run_v2_2_fd004_freeze.py`;
-- `scripts/run_v2_2_fd004_posthoc.py`;
+- `configs/final_model_m3_fd004.yaml`;
+- `scripts/run_m3_fd004.py`;
+- `scripts/run_m3_fd004_freeze.py`;
+- `scripts/run_m3_fd004_posthoc.py`;
 - FD004-related changes in `src/rul_prediction/data/condition.py` and
-  `src/rul_prediction/models/v2_models.py`;
+  `src/rul_prediction/models/m1_models.py`;
 - focused FD004 configuration and round-trip tests.
 
 It must not retrain, rerun variants, edit tracked results, or alter historical
@@ -267,7 +267,7 @@ metrics.
 Owns:
 
 - the new reproducibility module;
-- compatibility re-exports in `benchmark/v2_2.py`;
+- compatibility re-exports in `benchmark/m3.py`;
 - provenance unit and falsification tests.
 
 It must not edit freeze scripts concurrently with Sub-agent B. It should provide a
@@ -279,7 +279,7 @@ After the first wave is integrated, reuse sub-agent slots for:
 
 #### Sub-agent D - Artifact manifests
 
-Owns the manifest library, builder/verifier scripts, two V2.2 manifest files,
+Owns the manifest library, builder/verifier scripts, two M3 manifest files,
 canonical FD004 official predictions, and manifest tests.
 
 #### Sub-agent E - CI, dependency constraints, and test taxonomy
@@ -291,7 +291,7 @@ concurrently.
 
 #### Sub-agent F - Import-safe application
 
-Owns `app_v2.py`, lazy serving imports in `v2_predictor.py`, and app smoke tests.
+Owns `app_m1.py`, lazy serving imports in `m1_predictor.py`, and app smoke tests.
 
 ### 6.3 Required independent review wave
 
@@ -346,8 +346,8 @@ findings.
 ```powershell
 git status --short --branch
 git log --oneline -8
-git ls-files experiments/v2_2
-.\.venv\Scripts\python.exe -m pytest tests\test_v2_2_cleanup.py -q
+git ls-files experiments/m3
+.\.venv\Scripts\python.exe -m pytest tests\test_m3_cleanup.py -q
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m pytest -q -m "not needs_artifacts"
 ```
@@ -366,10 +366,10 @@ continuing.
 ### Actions
 
 1. Restore exactly these paths from commit `23cc934`:
-   - `V2_1_REPAIR_PLAN.md`
-   - `V2_2_REPAIR_PLAN.md`
-   - `V2_2_FINAL_CLEANUP_PLAN.md`
-   - `V2_2_FINAL_FREEZE_PLAN.md`
+   - `M2_REPAIR_PLAN.md`
+   - `M3_REPAIR_PLAN.md`
+   - `M3_FINAL_CLEANUP_PLAN.md`
+   - `M3_FINAL_FREEZE_PLAN.md`
 2. Do not restore obsolete continuation checklists or session-only master agent
    instructions.
 3. Restore all four files byte-for-byte and do not annotate or edit them. Put any
@@ -384,15 +384,15 @@ continuing.
 
 ```powershell
 git diff --name-status
-git rev-parse '23cc934:V2_1_REPAIR_PLAN.md'
-git hash-object V2_1_REPAIR_PLAN.md
-git rev-parse '23cc934:V2_2_REPAIR_PLAN.md'
-git hash-object V2_2_REPAIR_PLAN.md
-git rev-parse '23cc934:V2_2_FINAL_CLEANUP_PLAN.md'
-git hash-object V2_2_FINAL_CLEANUP_PLAN.md
-git rev-parse '23cc934:V2_2_FINAL_FREEZE_PLAN.md'
-git hash-object V2_2_FINAL_FREEZE_PLAN.md
-.\.venv\Scripts\python.exe -m pytest tests\test_v2_2_cleanup.py -q `
+git rev-parse '23cc934:M2_REPAIR_PLAN.md'
+git hash-object M2_REPAIR_PLAN.md
+git rev-parse '23cc934:M3_REPAIR_PLAN.md'
+git hash-object M3_REPAIR_PLAN.md
+git rev-parse '23cc934:M3_FINAL_CLEANUP_PLAN.md'
+git hash-object M3_FINAL_CLEANUP_PLAN.md
+git rev-parse '23cc934:M3_FINAL_FREEZE_PLAN.md'
+git hash-object M3_FINAL_FREEZE_PLAN.md
+.\.venv\Scripts\python.exe -m pytest tests\test_m3_cleanup.py -q `
   -k "required_tracked_local_references or broken_master_cleanup"
 ```
 
@@ -413,7 +413,7 @@ command as the pre-staging content check.
 
 ### 9.1 Design decision
 
-Keep V2.2 FD004 deployment explicitly GRU-only in this repair. Accept
+Keep M3 FD004 deployment explicitly GRU-only in this repair. Accept
 `architecture: gru`; reject any other architecture before side effects. Do not
 pretend that unselected LSTM or TCN deployment is supported.
 
@@ -507,7 +507,7 @@ Reject before side effects:
 
 ### 9.4 Runtime propagation
 
-Update `run_v2_2_fd004_freeze.py` so all behavior is delegated through testable
+Update `run_m3_fd004_freeze.py` so all behavior is delegated through testable
 functions, such as:
 
 - `load_and_validate_split(config, frame)`;
@@ -572,7 +572,7 @@ closed.
 
 ### 9.6 Variant-run/config-writer consistency
 
-Refactor `run_v2_2_fd004.py` so one explicit experiment recipe supplies values to
+Refactor `run_m3_fd004.py` so one explicit experiment recipe supplies values to
 training and to config writing. Do not reconstruct the final YAML from scattered
 literals.
 
@@ -587,7 +587,7 @@ Also fix these consistency risks without running the experiment:
 
 ### 9.7 Behavioral tests
 
-Add `tests/test_v2_2_fd004_config.py` or an equivalently focused module. Tests must
+Add `tests/test_m3_fd004_config.py` or an equivalently focused module. Tests must
 include:
 
 1. Production YAML parses to the expected contract.
@@ -629,7 +629,7 @@ authority.
 ### 10.1 New reproducibility module
 
 Create `src/rul_prediction/reproducibility.py` or a small package with equivalent
-ownership. Preserve compatibility imports in `benchmark/v2_2.py`.
+ownership. Preserve compatibility imports in `benchmark/m3.py`.
 
 Implement:
 
@@ -646,7 +646,7 @@ Execution-input scope must be explicit and versioned, including at least:
 - `src/**`
 - `scripts/**`
 - `configs/**`
-- `app_v2.py`
+- `app_m1.py`
 - `.github/workflows/**`
 - `pyproject.toml`
 - `requirements.txt`
@@ -759,11 +759,11 @@ dirty-snapshot reconstruction in temporary repositories.
 Create:
 
 - `src/rul_prediction/artifact_manifest.py`;
-- `scripts/build_v2_2_artifact_manifests.py`;
-- `scripts/verify_v2_2_artifacts.py`;
-- `experiments/v2_2/fd001_artifact_manifest.json`;
-- `experiments/v2_2/fd004_artifact_manifest.json`;
-- `experiments/v2_2/fd004_official_predictions.csv` derived from the existing
+- `scripts/build_m3_artifact_manifests.py`;
+- `scripts/verify_m3_artifacts.py`;
+- `experiments/m3/fd001_artifact_manifest.json`;
+- `experiments/m3/fd004_artifact_manifest.json`;
+- `experiments/m3/fd004_official_predictions.csv` derived from the existing
   tracked report table without model inference or retraining;
 - focused manifest tests.
 
@@ -894,7 +894,7 @@ gitignored generated artifacts. Any unavoidable exception must be stored in
 reason. Fail on unused exceptions so the list cannot become permanent clutter.
 
 Retain a small explicit required-anchor assertion for the four restored plans and
-key V2.2 evidence files.
+key M3 evidence files.
 
 ### 12.3 Encoding behavior
 
@@ -905,7 +905,7 @@ transformations.
 
 Known replacements include corrupted em/en dashes, arrows, ellipses,
 multiplication signs, plus/minus, squared, alpha, minus, approximately, and section
-sign sequences. Inspect `CHANGELOG.md`, `tests/test_v2_2_cleanup.py`, `AUDIT_V2.md`,
+sign sequences. Inspect `CHANGELOG.md`, `tests/test_m3_cleanup.py`, `AUDIT_M1.md`,
 the restored plans, and all other hits.
 
 Optionally add `.editorconfig` and narrowly scoped `.gitattributes` only if doing so
@@ -960,13 +960,13 @@ passed" or mutable measured-count blocks.
 
 ## 14. Phase 7 - Import-Safe Streamlit Application
 
-Refactor `app_v2.py` around:
+Refactor `app_m1.py` around:
 
 ```python
 @st.cache_resource
 def get_predictor():
-    from rul_prediction.serving.v2_predictor import V2Predictor
-    return V2Predictor()
+    from rul_prediction.serving.m1_predictor import M1Predictor
+    return M1Predictor()
 
 
 def main():
@@ -982,10 +982,10 @@ Keep only lightweight definitions/imports at module scope. Move data loading,
 predictor construction, rendering, and predictions into `main()` or its called
 functions.
 
-In `V2Predictor.__init__`, import TensorFlow/Keras only in the neural-model branch.
+In `M1Predictor.__init__`, import TensorFlow/Keras only in the neural-model branch.
 The current XGBoost deployment must use joblib without initializing TensorFlow.
 
-Add `tests/test_app_v2.py` covering:
+Add `tests/test_app_m1.py` covering:
 
 - artifact-free subprocess import succeeds;
 - `main` and `get_predictor` exist;
@@ -1029,7 +1029,7 @@ Enforce this with a collection hook or marker-audit test.
 
 - Tests opening `data/raw`, `data/processed`, `models`, or other gitignored generated
   files require `needs_artifacts`.
-- Tests reading tracked `experiments/v2_2` evidence use `tracked_artifacts` and remain
+- Tests reading tracked `experiments/m3` evidence use `tracked_artifacts` and remain
   active in CI.
 - Known missing artifacts must be represented by markers, not opportunistic runtime
   skips.
@@ -1082,7 +1082,7 @@ CI.
 ## 16. Phase 9 - Dependency and CI Reproducibility
 
 The current `requirements-lock.txt` is a Windows Python 3.12.6 `pip freeze`, while
-the V2.2 configs record Python 3.12.10 and CI currently requests floating 3.12.
+the M3 configs record Python 3.12.10 and CI currently requests floating 3.12.
 Treat the file as pinned constraints unless/until a cross-platform lock is generated.
 
 ### Minimal-churn implementation
@@ -1134,7 +1134,7 @@ install correct. Record any sensible extras split as a separate follow-up.
 3. Record Python, pip, selected constraints path/hash, and platform, then run
    `pip check`.
 4. Compare TensorFlow, NumPy, pandas, scikit-learn, XGBoost, and joblib to the
-   documented V2.2 versions.
+   documented M3 versions.
 5. Run repository-integrity, unit, tracked-artifact, app-import, and artifact-free
    suites.
 6. Repeat in Linux CI.
@@ -1159,7 +1159,7 @@ After code and tests stabilize, the lead agent alone reconciles:
 - `README.md`;
 - `PROJECT_SPEC.md`;
 - `CHANGELOG.md`;
-- `reports/v2_2_final_report.md`;
+- `reports/m3_final_report.md`;
 - historical-snapshot explanations outside the byte-identical restored plan files;
 - this plan's issue tracker.
 
@@ -1294,7 +1294,7 @@ Only after the implementation is committed:
 4. Run repository integrity.
 5. Run tracked-manifest verification.
 6. Run the exact CI artifact-free commands.
-7. Run side-effect-free `import app_v2` without models/raw data.
+7. Run side-effect-free `import app_m1` without models/raw data.
 8. Record commit, OS, Python, commands, date, and results.
 9. Clean up only the exact verified temporary directory.
 10. If any failure occurs, fix in the source repository, commit, and repeat against
@@ -1330,7 +1330,7 @@ Suggested commits:
 1. `docs(audit): restore methodology repair and freeze plans`
 2. `fix(fd004): enforce one authoritative final configuration contract`
 3. `feat(repro): add deterministic source provenance and dirty-run policy`
-4. `feat(artifacts): add V2.2 integrity manifests and verification`
+4. `feat(artifacts): add M3 integrity manifests and verification`
 5. `test(integrity): add reference encoding and test-tier gates`
 6. `refactor(app): make Streamlit import side-effect free`
 7. `ci(deps): install with validated pinned constraints`
@@ -1354,10 +1354,10 @@ Do not declare completion until every applicable item is checked.
 
 ### Historical integrity
 
-- [ ] `V2_1_REPAIR_PLAN.md` restored and tracked.
-- [ ] `V2_2_REPAIR_PLAN.md` restored and tracked.
-- [ ] `V2_2_FINAL_CLEANUP_PLAN.md` restored and tracked.
-- [ ] `V2_2_FINAL_FREEZE_PLAN.md` restored and tracked.
+- [ ] `M2_REPAIR_PLAN.md` restored and tracked.
+- [ ] `M3_REPAIR_PLAN.md` restored and tracked.
+- [ ] `M3_FINAL_CLEANUP_PLAN.md` restored and tracked.
+- [ ] `M3_FINAL_FREEZE_PLAN.md` restored and tracked.
 - [ ] All four restored blob IDs equal their `23cc934:<path>` blob IDs.
 - [ ] Restored plan files are byte-identical and contain no new annotations.
 - [ ] No unrelated deleted/session-only plan restored.
@@ -1429,7 +1429,7 @@ Do not declare completion until every applicable item is checked.
 
 ### Application, tests, dependencies, and CI
 
-- [ ] `import app_v2` is artifact-free and side-effect free.
+- [ ] `import app_m1` is artifact-free and side-effect free.
 - [ ] XGBoost serving does not initialize TensorFlow.
 - [ ] Headless Streamlit smoke passes with local artifacts.
 - [ ] Every test has exactly one primary tier.

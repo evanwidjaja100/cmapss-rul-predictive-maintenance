@@ -1,4 +1,4 @@
-"""Methodology V2 fixed pseudo-test manifests.
+"""Methodology M1 fixed pseudo-test manifests.
 
 The official C-MAPSS test problem produces ONE terminal prediction per test
 engine. Validation therefore uses a fixed, deterministic set of terminal
@@ -19,9 +19,9 @@ import pandas as pd
 # any performance is observed. Do not tune these against validation metrics.
 LIFECYCLE_FRACTIONS: tuple[float, ...] = (0.50, 0.65, 0.80, 0.90, 0.95)
 
-# Methodology V2.1 fractions: balanced across early / mid / late life.
-# Fixed BEFORE any model comparison (V2.1 repair plan, issue R6).
-V2_1_LIFECYCLE_FRACTIONS: tuple[float, ...] = (0.25, 0.45, 0.65, 0.80, 0.95)
+# Methodology M2 fractions: balanced across early / mid / late life.
+# Fixed BEFORE any model comparison (M2 repair plan, issue R6).
+M2_LIFECYCLE_FRACTIONS: tuple[float, ...] = (0.25, 0.45, 0.65, 0.80, 0.95)
 
 MANIFEST_COLUMNS = ["engine_id", "full_lifetime", "cutoff_cycle", "true_raw_rul", "fraction"]
 

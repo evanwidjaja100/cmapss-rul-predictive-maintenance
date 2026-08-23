@@ -1,4 +1,4 @@
-"""Artifact manifests for V2.2 lineage verification (Phase 4).
+"""Artifact manifests for M3 lineage verification (Phase 4).
 
 Manifests record schema/methodology version, dataset, model ID,
 historical training-provenance status, repo-relative POSIX paths only,
@@ -54,60 +54,60 @@ FD001_TRAINING_STATUS = "historical_dirty_partial"
 FD004_TRAINING_STATUS = "historical_incomplete"
 
 MANIFEST_PATHS = {
-    "FD001": "experiments/v2_2/fd001_artifact_manifest.json",
-    "FD004": "experiments/v2_2/fd004_artifact_manifest.json",
+    "FD001": "experiments/m3/fd001_artifact_manifest.json",
+    "FD004": "experiments/m3/fd004_artifact_manifest.json",
 }
 
 # ponytail: explicit artifact specs, no globs. Each entry defines role/path/storage.
 FD001_ARTIFACT_SPECS: list[dict[str, Any]] = [
     # configs
-    {"role": "final_config", "path": "configs/final_model_v2_2_fd001.yaml", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "deployment_config", "path": "configs/deployment_v2_2_fd001.yaml", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "final_config", "path": "configs/final_model_m3_fd001.yaml", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "deployment_config", "path": "configs/deployment_m3_fd001.yaml", "storage_class": "git", "hash_kind": "raw_sha256"},
     # models local
-    {"role": "model", "path": "models/v2_2/fd001_xgb_w90_d6.joblib", "storage_class": "local", "hash_kind": "raw_sha256"},
-    {"role": "scaler", "path": "models/v2_2/fd001_scaler.joblib", "storage_class": "local", "hash_kind": "raw_sha256"},
+    {"role": "model", "path": "models/m3/fd001_xgb_w90_d6.joblib", "storage_class": "local", "hash_kind": "raw_sha256"},
+    {"role": "scaler", "path": "models/m3/fd001_scaler.joblib", "storage_class": "local", "hash_kind": "raw_sha256"},
     # metadata
-    {"role": "final_metadata", "path": "experiments/v2_2/fd001_final_fit_metadata.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "final_metadata", "path": "experiments/m3/fd001_final_fit_metadata.json", "storage_class": "git", "hash_kind": "raw_sha256"},
     # splits
-    {"role": "outer_split_manifest", "path": "experiments/v2_2/fd001_outer_split_manifest.json", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "outer_fold1_cutoffs", "path": "experiments/splits/fd001_v2_2_outer_fold1_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "outer_fold2_cutoffs", "path": "experiments/splits/fd001_v2_2_outer_fold2_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "outer_fold3_cutoffs", "path": "experiments/splits/fd001_v2_2_outer_fold3_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "outer_fold4_cutoffs", "path": "experiments/splits/fd001_v2_2_outer_fold4_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "outer_fold5_cutoffs", "path": "experiments/splits/fd001_v2_2_outer_fold5_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "calibration_cutoffs", "path": "experiments/splits/fd001_v2_2_calibration_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_split_manifest", "path": "experiments/m3/fd001_outer_split_manifest.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_fold1_cutoffs", "path": "experiments/splits/fd001_m3_outer_fold1_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_fold2_cutoffs", "path": "experiments/splits/fd001_m3_outer_fold2_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_fold3_cutoffs", "path": "experiments/splits/fd001_m3_outer_fold3_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_fold4_cutoffs", "path": "experiments/splits/fd001_m3_outer_fold4_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_fold5_cutoffs", "path": "experiments/splits/fd001_m3_outer_fold5_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "calibration_cutoffs", "path": "experiments/splits/fd001_m3_calibration_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
     # cv results
-    {"role": "fold_results", "path": "experiments/v2_2/fd001_outer_fold_results.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "outer_predictions", "path": "experiments/v2_2/fd001_outer_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "engine_level_results", "path": "experiments/v2_2/fd001_outer_engine_level.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "cv_summary", "path": "experiments/v2_2/fd001_cv_summary.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "best_iterations", "path": "experiments/v2_2/fd001_best_epochs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "selection_decision", "path": "experiments/v2_2/selection_decision.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "fold_results", "path": "experiments/m3/fd001_outer_fold_results.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "outer_predictions", "path": "experiments/m3/fd001_outer_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "engine_level_results", "path": "experiments/m3/fd001_outer_engine_level.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "cv_summary", "path": "experiments/m3/fd001_cv_summary.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "best_iterations", "path": "experiments/m3/fd001_best_epochs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "selection_decision", "path": "experiments/m3/selection_decision.json", "storage_class": "git", "hash_kind": "raw_sha256"},
     # conformal
-    {"role": "conformal_scores", "path": "experiments/v2_2/fd001_conformal_engine_scores.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "conformal_quantiles", "path": "experiments/v2_2/fd001_conformal_quantiles.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "conformal_calibration", "path": "experiments/v2_2/conformal_calibration.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "conformal_scores", "path": "experiments/m3/fd001_conformal_engine_scores.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "conformal_quantiles", "path": "experiments/m3/fd001_conformal_quantiles.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "conformal_calibration", "path": "experiments/m3/conformal_calibration.json", "storage_class": "git", "hash_kind": "raw_sha256"},
     # official predictions & metrics
-    {"role": "official_predictions", "path": "experiments/v2_2/fd001_official_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "final_metrics", "path": "experiments/v2_2/fd001_final_metrics.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "official_predictions", "path": "experiments/m3/fd001_official_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "final_metrics", "path": "experiments/m3/fd001_final_metrics.json", "storage_class": "git", "hash_kind": "raw_sha256"},
     # constraints
     {"role": "constraints", "path": "requirements.txt", "storage_class": "git", "hash_kind": "raw_sha256"},
     {"role": "constraints_lock", "path": "requirements-lock.txt", "storage_class": "git", "hash_kind": "raw_sha256"},
 ]
 
 FD004_ARTIFACT_SPECS: list[dict[str, Any]] = [
-    {"role": "final_config", "path": "configs/final_model_v2_2_fd004.yaml", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "model", "path": "models/v2_2/fd004_gru_w45_huber_condC.keras", "storage_class": "local", "hash_kind": "raw_sha256"},
-    {"role": "condition_preprocessor", "path": "models/v2_2/fd004_conditionC.joblib", "storage_class": "local", "hash_kind": "raw_sha256"},
-    {"role": "final_metadata", "path": "experiments/v2_2/fd004_final_fit_metadata.json", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "split_json", "path": "experiments/splits/FD004_v2_seed42.json", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "validation_cutoffs", "path": "experiments/splits/fd004_v2_1_validation_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "variant_results", "path": "experiments/v2_2/fd004_variant_results.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "variant_predictions", "path": "experiments/v2_2/fd004_variant_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "best_epochs", "path": "experiments/v2_2/fd004_best_epochs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "canonical_official_predictions", "path": "experiments/v2_2/fd004_official_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "report_table_mirror", "path": "reports/tables/v2_2_fd004_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
-    {"role": "final_metrics", "path": "experiments/v2_2/fd004_final_metrics.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "final_config", "path": "configs/final_model_m3_fd004.yaml", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "model", "path": "models/m3/fd004_gru_w45_huber_condC.keras", "storage_class": "local", "hash_kind": "raw_sha256"},
+    {"role": "condition_preprocessor", "path": "models/m3/fd004_conditionC.joblib", "storage_class": "local", "hash_kind": "raw_sha256"},
+    {"role": "final_metadata", "path": "experiments/m3/fd004_final_fit_metadata.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "split_json", "path": "experiments/splits/FD004_m1_seed42.json", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "validation_cutoffs", "path": "experiments/splits/fd004_m2_validation_cutoffs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "variant_results", "path": "experiments/m3/fd004_variant_results.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "variant_predictions", "path": "experiments/m3/fd004_variant_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "best_epochs", "path": "experiments/m3/fd004_best_epochs.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "canonical_official_predictions", "path": "experiments/m3/fd004_official_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "report_table_mirror", "path": "reports/tables/m3_fd004_predictions.csv", "storage_class": "git", "hash_kind": "raw_sha256"},
+    {"role": "final_metrics", "path": "experiments/m3/fd004_final_metrics.json", "storage_class": "git", "hash_kind": "raw_sha256"},
     {"role": "constraints", "path": "requirements.txt", "storage_class": "git", "hash_kind": "raw_sha256"},
     {"role": "constraints_lock", "path": "requirements-lock.txt", "storage_class": "git", "hash_kind": "raw_sha256"},
 ]
@@ -397,11 +397,11 @@ def _source_integrity_context(root: Path) -> dict[str, Any]:
 
 def _config_integrity_context(root: Path, dataset: str) -> dict[str, Any]:
     if dataset == "FD001":
-        cfg_path = root / "configs" / "final_model_v2_2_fd001.yaml"
+        cfg_path = root / "configs" / "final_model_m3_fd001.yaml"
         if not cfg_path.exists():
             raise ArtifactMissingError(f"FD001 final config missing: {cfg_path}")
         # Use git blob for stability across autocrlf (LF vs CRLF)
-        file_sha, _ = _sha256_git_blob_or_file("configs/final_model_v2_2_fd001.yaml", root)
+        file_sha, _ = _sha256_git_blob_or_file("configs/final_model_m3_fd001.yaml", root)
         # canonical: yaml -> json canonical via sort_keys
         try:
             import yaml
@@ -412,7 +412,7 @@ def _config_integrity_context(root: Path, dataset: str) -> dict[str, Any]:
         except Exception as e:
             raise ArtifactManifestError(f"failed to compute FD001 config canonical hash: {e}") from e
         return {
-            "path": "configs/final_model_v2_2_fd001.yaml",
+            "path": "configs/final_model_m3_fd001.yaml",
             "config_file_sha256": file_sha,
             "config_canonical_sha256": canonical_sha,
             "canonical_algo": canonical_algo,
@@ -420,14 +420,14 @@ def _config_integrity_context(root: Path, dataset: str) -> dict[str, Any]:
         }
     elif dataset == "FD004":
         from rul_prediction.benchmark.fd004_config import load_fd004_final_config
-        cfg_path = root / "configs" / "final_model_v2_2_fd004.yaml"
+        cfg_path = root / "configs" / "final_model_m3_fd004.yaml"
         if not cfg_path.exists():
             raise ArtifactMissingError(f"FD004 final config missing: {cfg_path}")
-        file_sha, _ = _sha256_git_blob_or_file("configs/final_model_v2_2_fd004.yaml", root)
+        file_sha, _ = _sha256_git_blob_or_file("configs/final_model_m3_fd004.yaml", root)
         cfg = load_fd004_final_config(cfg_path, root=root)
         canonical_sha = cfg.config_canonical_sha256
         return {
-            "path": "configs/final_model_v2_2_fd004.yaml",
+            "path": "configs/final_model_m3_fd004.yaml",
             "config_file_sha256": file_sha,
             "config_canonical_sha256": canonical_sha,
             "canonical_algo": "cmapss-fd004-config-canonical-v1",
@@ -495,8 +495,8 @@ def build_manifest_dict(dataset: str, root: Path | str | None = None,
     lineage = FD001_LINEAGE if dataset == "FD001" else FD004_LINEAGE
     # special handling for FD004 canonical equality
     if dataset == "FD004":
-        canon = r / "experiments" / "v2_2" / "fd004_official_predictions.csv"
-        mirror = r / "reports" / "tables" / "v2_2_fd004_predictions.csv"
+        canon = r / "experiments" / "m3" / "fd004_official_predictions.csv"
+        mirror = r / "reports" / "tables" / "m3_fd004_predictions.csv"
         if not canon.exists():
             if not mirror.exists():
                 raise ArtifactMissingError(f"FD004 report mirror missing: {mirror}")
@@ -844,7 +844,7 @@ def verify_before_load(posix_path: str, root: Path | str | None = None, manifest
             raise ArtifactManifestError(
                 f"manifest integrity violation at {p}: {e} (tampered or structurally "
                 f"invalid manifest - refusing unchecked load; rebuild with "
-                f"scripts/build_v2_2_artifact_manifests.py)"
+                f"scripts/build_m3_artifact_manifests.py)"
             ) from e
         found_manifest = p
         found_data = data
@@ -886,7 +886,7 @@ def verify_before_load(posix_path: str, root: Path | str | None = None, manifest
     exists = p.exists()
     if not exists:
         raise ArtifactMissingError(
-            f"artifact absent: {rel_str} (role {entry['role']}). Generate it with scripts/build_v2_2_artifact_manifests.py or scripts/run_v2_2_freeze.py "
+            f"artifact absent: {rel_str} (role {entry['role']}). Generate it with scripts/build_m3_artifact_manifests.py or scripts/run_m3_freeze.py "
             f"(friendly guidance: ensure {rel_str} exists; for local artifacts run freeze)"
         )
     if storage == "git":

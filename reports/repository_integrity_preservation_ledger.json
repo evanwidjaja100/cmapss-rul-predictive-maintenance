@@ -4,7 +4,7 @@
     "captured_at_utc": "2026-08-21T02:49:54+00:00",
     "baseline_commit": "6151773773fbfc3e8e420dda01fd423e255be87d",
     "head_commit": "6151773773fbfc3e8e420dda01fd423e255be87d",
-    "git_status_porcelain_v2": "1 .M N... 100644 100644 100644 6c1aa1082fb3d44a6f74f455c5d77b546923724b 6c1aa1082fb3d44a6f74f455c5d77b546923724b configs/final_model_v2_2_fd004.yaml\n1 .M N... 100644 100644 100644 2d2626dbb7fe93b43305852331a365ac83361cd7 2d2626dbb7fe93b43305852331a365ac83361cd7 scripts/run_v2_2_fd004.py\n1 .M N... 100644 100644 100644 a7e4c2021c0aea178743ec2b282f88d3240abc64 a7e4c2021c0aea178743ec2b282f88d3240abc64 scripts/run_v2_2_fd004_freeze.py\n1 .M N... 100644 100644 100644 cf1240e61be7ca620ac11f29fc261645948e0a60 cf1240e61be7ca620ac11f29fc261645948e0a60 scripts/run_v2_2_fd004_posthoc.py\n1 .M N... 100644 100644 100644 e0b53446d31508690e6c3f95a919c2cda5e2289e e0b53446d31508690e6c3f95a919c2cda5e2289e src/rul_prediction/benchmark/v2_2.py\n1 .M N... 100644 100644 100644 4f61815fddc0c50986ebfdf7642e3e8e761f0aab 4f61815fddc0c50986ebfdf7642e3e8e761f0aab src/rul_prediction/models/v2_models.py\n? C_MAPSS_REPOSITORY_INTEGRITY_IMPLEMENTATION_PLAN.md\n? V2_1_REPAIR_PLAN.md\n? V2_2_FINAL_CLEANUP_PLAN.md\n? V2_2_FINAL_FREEZE_PLAN.md\n? V2_2_REPAIR_PLAN.md\n? src/rul_prediction/benchmark/fd004_config.py\n? src/rul_prediction/reproducibility.py\n? tests/test_v2_2_fd004_config.py\n",
+    "git_status_porcelain_m1": "1 .M N... 100644 100644 100644 6c1aa1082fb3d44a6f74f455c5d77b546923724b 6c1aa1082fb3d44a6f74f455c5d77b546923724b configs/final_model_m3_fd004.yaml\n1 .M N... 100644 100644 100644 2d2626dbb7fe93b43305852331a365ac83361cd7 2d2626dbb7fe93b43305852331a365ac83361cd7 scripts/run_m3_fd004.py\n1 .M N... 100644 100644 100644 a7e4c2021c0aea178743ec2b282f88d3240abc64 a7e4c2021c0aea178743ec2b282f88d3240abc64 scripts/run_m3_fd004_freeze.py\n1 .M N... 100644 100644 100644 cf1240e61be7ca620ac11f29fc261645948e0a60 cf1240e61be7ca620ac11f29fc261645948e0a60 scripts/run_m3_fd004_posthoc.py\n1 .M N... 100644 100644 100644 e0b53446d31508690e6c3f95a919c2cda5e2289e e0b53446d31508690e6c3f95a919c2cda5e2289e src/rul_prediction/benchmark/m3.py\n1 .M N... 100644 100644 100644 4f61815fddc0c50986ebfdf7642e3e8e761f0aab 4f61815fddc0c50986ebfdf7642e3e8e761f0aab src/rul_prediction/models/m1_models.py\n? C_MAPSS_REPOSITORY_INTEGRITY_IMPLEMENTATION_PLAN.md\n? M2_REPAIR_PLAN.md\n? M3_FINAL_CLEANUP_PLAN.md\n? M3_FINAL_FREEZE_PLAN.md\n? M3_REPAIR_PLAN.md\n? src/rul_prediction/benchmark/fd004_config.py\n? src/rul_prediction/reproducibility.py\n? tests/test_m3_fd004_config.py\n",
     "note": "Captured at repair time (2026-08-21), not training time. Historical training provenance remains historical."
   },
   "repository": {
@@ -12,36 +12,36 @@
     "baseline_short": "6151773",
     "historical_plans_commit": "23cc934",
     "historical_blob_ids": {
-      "V2_1_REPAIR_PLAN.md": "f5c1e7929ea2a5c7ea6f91337d21f2361f2c8803",
-      "V2_2_REPAIR_PLAN.md": "2631a59a4c6aa223c9da3ca970060c1072e1e90d",
-      "V2_2_FINAL_CLEANUP_PLAN.md": "bbd55cd1e977330c08bf1162f52c812f78d3a7f9",
-      "V2_2_FINAL_FREEZE_PLAN.md": "2b82d835c07631518dee77430b7cd1f7e03cbdb5"
+      "M2_REPAIR_PLAN.md": "f5c1e7929ea2a5c7ea6f91337d21f2361f2c8803",
+      "M3_REPAIR_PLAN.md": "2631a59a4c6aa223c9da3ca970060c1072e1e90d",
+      "M3_FINAL_CLEANUP_PLAN.md": "bbd55cd1e977330c08bf1162f52c812f78d3a7f9",
+      "M3_FINAL_FREEZE_PLAN.md": "2b82d835c07631518dee77430b7cd1f7e03cbdb5"
     }
   },
   "binaries": {
     "fd001_model": {
-      "path": "models/v2_2/fd001_xgb_w90_d6.joblib",
+      "path": "models/m3/fd001_xgb_w90_d6.joblib",
       "sha256": "23bd460cd447141d90fd045b863f1a33db02845b83ce9d4148791811ad5a9d6b",
       "bytes": 429226,
       "exists": true,
       "storage": "local"
     },
     "fd001_scaler": {
-      "path": "models/v2_2/fd001_scaler.joblib",
+      "path": "models/m3/fd001_scaler.joblib",
       "sha256": "d1b02cfc7043de8e68f9dd71bc1a99efbcd2754a921a59524a431647d0371a48",
       "bytes": 1071,
       "exists": true,
       "storage": "local"
     },
     "fd004_model": {
-      "path": "models/v2_2/fd004_gru_w45_huber_condC.keras",
+      "path": "models/m3/fd004_gru_w45_huber_condC.keras",
       "sha256": "9b39a059ea528b94f9d806533a69da596b7950254bbea1f11a232b2bb29ac87d",
       "bytes": 1215573,
       "exists": true,
       "storage": "local"
     },
     "fd004_preprocessor": {
-      "path": "models/v2_2/fd004_conditionC.joblib",
+      "path": "models/m3/fd004_conditionC.joblib",
       "sha256": "f22ef7189cda906ee4ea92c37df625023f136abb3fcd8a0a74e3a0fdf8b4a328",
       "bytes": 214473,
       "exists": true,
@@ -50,14 +50,14 @@
   },
   "configs": {
     "fd001_final": {
-      "path": "configs/final_model_v2_2_fd001.yaml",
+      "path": "configs/final_model_m3_fd001.yaml",
       "sha256": "acc8cf646c8862a511fb4800e11ec02bfa45bfd5c58c470cfbf116e98bd2db54",
       "bytes": 4613,
       "exists": true,
       "storage": "git"
     },
     "fd004_final": {
-      "path": "configs/final_model_v2_2_fd004.yaml",
+      "path": "configs/final_model_m3_fd004.yaml",
       "sha256": "0eecfc7655dd90c5fac7956335ce89b2854758a1343854368015b77e2e9a7c10",
       "bytes": 3453,
       "exists": true,
@@ -67,7 +67,7 @@
       "note": "cmapss-fd004-config-canonical-v1 via FD004FinalConfig.canonical_hash"
     },
     "deployment_fd001": {
-      "path": "configs/deployment_v2_2_fd001.yaml",
+      "path": "configs/deployment_m3_fd001.yaml",
       "sha256": "31986c1c0b8d5808f791d96b4f79b651e909ac0db55b41dc96b7feaebf663ffa",
       "bytes": 785,
       "exists": true,
@@ -76,91 +76,91 @@
   },
   "scientific_evidence": {
     "selection_decision": {
-      "path": "experiments/v2_2/selection_decision.json",
+      "path": "experiments/m3/selection_decision.json",
       "sha256": "9820dee4239bfcb51fbb942a7e5092454a1d0df34abcc7fa0edebc9b493eaa09",
       "bytes": 3713,
       "exists": true,
       "storage": "git"
     },
     "conformal_calibration": {
-      "path": "experiments/v2_2/conformal_calibration.json",
+      "path": "experiments/m3/conformal_calibration.json",
       "sha256": "cbed0694556ab2822efefd2042b5638c0a92caeaf679bf0325f1cf2acbbd4902",
       "bytes": 2805,
       "exists": true,
       "storage": "git"
     },
     "conformal_scores": {
-      "path": "experiments/v2_2/fd001_conformal_engine_scores.csv",
+      "path": "experiments/m3/fd001_conformal_engine_scores.csv",
       "sha256": "d3ffd76cabe6bdc39995082de1127c1f94b70e27e5140ce826ef9cecab19703f",
       "bytes": 203,
       "exists": true,
       "storage": "git"
     },
     "conformal_quantiles": {
-      "path": "experiments/v2_2/fd001_conformal_quantiles.csv",
+      "path": "experiments/m3/fd001_conformal_quantiles.csv",
       "sha256": "f3d1df897895513c3ab17d98d6edf2e3899acc991128e6814ba63f81b9181734",
       "bytes": 48,
       "exists": true,
       "storage": "git"
     },
     "fd001_official_predictions": {
-      "path": "experiments/v2_2/fd001_official_predictions.csv",
+      "path": "experiments/m3/fd001_official_predictions.csv",
       "sha256": "675f904911a1aa0116584cef16a24ff4aa5d0e412c8945bbf81556acf72a15dd",
       "bytes": 2798,
       "exists": true,
       "storage": "git"
     },
     "fd001_final_metrics": {
-      "path": "experiments/v2_2/fd001_final_metrics.json",
+      "path": "experiments/m3/fd001_final_metrics.json",
       "sha256": "e84d8f940e6b6c54e41caf8b1f4eb7e3ad30a31c5233edb1f3eb66c545812e2c",
       "bytes": 456,
       "exists": true,
       "storage": "git"
     },
     "fd004_final_metrics": {
-      "path": "experiments/v2_2/fd004_final_metrics.json",
+      "path": "experiments/m3/fd004_final_metrics.json",
       "sha256": "9bb92143520dc4cda4f1d1fe21d2c905cc7311215a58c54e4413db205eeb4359",
       "bytes": 448,
       "exists": true,
       "storage": "git"
     },
     "fd001_cv_summary": {
-      "path": "experiments/v2_2/fd001_cv_summary.csv",
+      "path": "experiments/m3/fd001_cv_summary.csv",
       "sha256": "1adcf749a51d00b413c4fe926a00262c3ac483d27ccf7378fe9668a727fcf00e",
       "bytes": 2334,
       "exists": true,
       "storage": "git"
     },
     "fd001_outer_fold_results": {
-      "path": "experiments/v2_2/fd001_outer_fold_results.csv",
+      "path": "experiments/m3/fd001_outer_fold_results.csv",
       "sha256": "fcd43ec5a1cac0da6ec2e01b7443f86fd89ff99fcd12278103b079b91d9c80d1",
       "bytes": 9436,
       "exists": true,
       "storage": "git"
     },
     "fd001_outer_predictions": {
-      "path": "experiments/v2_2/fd001_outer_predictions.csv",
+      "path": "experiments/m3/fd001_outer_predictions.csv",
       "sha256": "430b203b71a506d9b201b00eb36fa9b8b17f0c0dc558b61c19269d289db61d03",
       "bytes": 149251,
       "exists": true,
       "storage": "git"
     },
     "fd004_variant_results": {
-      "path": "experiments/v2_2/fd004_variant_results.csv",
+      "path": "experiments/m3/fd004_variant_results.csv",
       "sha256": "399dd33921561fb09b62e9d579ba5509956efc42dd8efe8e93e48e9934a3e134",
       "bytes": 602,
       "exists": true,
       "storage": "git"
     },
     "fd004_variant_predictions": {
-      "path": "experiments/v2_2/fd004_variant_predictions.csv",
+      "path": "experiments/m3/fd004_variant_predictions.csv",
       "sha256": "fca29f586a88b853be5adcba9bf19ecfa6e983122420cc5de709c11f6d7f55a3",
       "bytes": 25291,
       "exists": true,
       "storage": "git"
     },
     "fd004_best_epochs": {
-      "path": "experiments/v2_2/fd004_best_epochs.csv",
+      "path": "experiments/m3/fd004_best_epochs.csv",
       "sha256": "a8643a7b9ac60a499eb557cd29cfc432f697e04e24056a75fd967dd2f28fbf13",
       "bytes": 74,
       "exists": true,
@@ -194,147 +194,147 @@
   },
   "tracked_experiment_files": [
     {
-      "path": "experiments/v2_2/conformal_calibration.json",
+      "path": "experiments/m3/conformal_calibration.json",
       "sha256": "cbed0694556ab2822efefd2042b5638c0a92caeaf679bf0325f1cf2acbbd4902",
       "bytes": 2805,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/cv_run.err.log",
+      "path": "experiments/m3/cv_run.err.log",
       "sha256": "36c1ab477a7805bf4ca02018cda64379d760f060601c43b75845a37d666ff400",
       "bytes": 1929,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/cv_run.log",
+      "path": "experiments/m3/cv_run.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "bytes": 0,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_best_epochs.csv",
+      "path": "experiments/m3/fd001_best_epochs.csv",
       "sha256": "e1f5c61638e98b74d1611ca30bc82995f84bffaf815c90336344e812a7f15dcd",
       "bytes": 1069,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_conformal_engine_scores.csv",
+      "path": "experiments/m3/fd001_conformal_engine_scores.csv",
       "sha256": "d3ffd76cabe6bdc39995082de1127c1f94b70e27e5140ce826ef9cecab19703f",
       "bytes": 203,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_conformal_quantiles.csv",
+      "path": "experiments/m3/fd001_conformal_quantiles.csv",
       "sha256": "f3d1df897895513c3ab17d98d6edf2e3899acc991128e6814ba63f81b9181734",
       "bytes": 48,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_cv_summary.csv",
+      "path": "experiments/m3/fd001_cv_summary.csv",
       "sha256": "1adcf749a51d00b413c4fe926a00262c3ac483d27ccf7378fe9668a727fcf00e",
       "bytes": 2334,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_final_fit_metadata.json",
+      "path": "experiments/m3/fd001_final_fit_metadata.json",
       "sha256": "7f6993cb582e56fc8aa43bb2dbe87caaa49c689bd3c0593be8841d1a28284a9d",
       "bytes": 1111,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_final_metrics.json",
+      "path": "experiments/m3/fd001_final_metrics.json",
       "sha256": "e84d8f940e6b6c54e41caf8b1f4eb7e3ad30a31c5233edb1f3eb66c545812e2c",
       "bytes": 456,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_official_predictions.csv",
+      "path": "experiments/m3/fd001_official_predictions.csv",
       "sha256": "675f904911a1aa0116584cef16a24ff4aa5d0e412c8945bbf81556acf72a15dd",
       "bytes": 2798,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_outer_engine_level.csv",
+      "path": "experiments/m3/fd001_outer_engine_level.csv",
       "sha256": "6e9311e3b5f29fc5de46d990a06a0e3766156dde435c622452bda5fcd7757366",
       "bytes": 63320,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_outer_fold_results.csv",
+      "path": "experiments/m3/fd001_outer_fold_results.csv",
       "sha256": "fcd43ec5a1cac0da6ec2e01b7443f86fd89ff99fcd12278103b079b91d9c80d1",
       "bytes": 9436,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_outer_metadata.jsonl",
+      "path": "experiments/m3/fd001_outer_metadata.jsonl",
       "sha256": "2e41a59196ef9b939001f67d20b4fe540aa9949ebb37b0c0bb459d477ae2500a",
       "bytes": 41733,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_outer_predictions.csv",
+      "path": "experiments/m3/fd001_outer_predictions.csv",
       "sha256": "430b203b71a506d9b201b00eb36fa9b8b17f0c0dc558b61c19269d289db61d03",
       "bytes": 149251,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd001_outer_split_manifest.json",
+      "path": "experiments/m3/fd001_outer_split_manifest.json",
       "sha256": "4dced5fd57a2ee17679440abd464b5246147c7d72e788e9538237275a4058d51",
       "bytes": 8806,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd004_best_epochs.csv",
+      "path": "experiments/m3/fd004_best_epochs.csv",
       "sha256": "a8643a7b9ac60a499eb557cd29cfc432f697e04e24056a75fd967dd2f28fbf13",
       "bytes": 74,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd004_final_fit_metadata.json",
+      "path": "experiments/m3/fd004_final_fit_metadata.json",
       "sha256": "80bfc38a6e45291726e5434e140248fa8b2957f65cee8f99b8cc6a42c7d9c95a",
       "bytes": 2698,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd004_final_metrics.json",
+      "path": "experiments/m3/fd004_final_metrics.json",
       "sha256": "9bb92143520dc4cda4f1d1fe21d2c905cc7311215a58c54e4413db205eeb4359",
       "bytes": 448,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd004_variant_predictions.csv",
+      "path": "experiments/m3/fd004_variant_predictions.csv",
       "sha256": "fca29f586a88b853be5adcba9bf19ecfa6e983122420cc5de709c11f6d7f55a3",
       "bytes": 25291,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/fd004_variant_results.csv",
+      "path": "experiments/m3/fd004_variant_results.csv",
       "sha256": "399dd33921561fb09b62e9d579ba5509956efc42dd8efe8e93e48e9934a3e134",
       "bytes": 602,
       "exists": true,
       "storage": "git"
     },
     {
-      "path": "experiments/v2_2/selection_decision.json",
+      "path": "experiments/m3/selection_decision.json",
       "sha256": "9820dee4239bfcb51fbb942a7e5092454a1d0df34abcc7fa0edebc9b493eaa09",
       "bytes": 3713,
       "exists": true,

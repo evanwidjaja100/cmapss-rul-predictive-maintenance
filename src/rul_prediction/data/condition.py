@@ -1,12 +1,12 @@
-"""FD004 operating-condition preprocessing (Methodology V2.1, issue R13).
+"""FD004 operating-condition preprocessing (Methodology M2, issue R13).
 
 FD004 engines operate under several regimes (setting_2 drifts in bands,
 setting_3 in {60, 100}; engines switch regime mid-life). A single global
-scaler mixes regimes and was diagnosed as the cause of the V2-11 collapse
+scaler mixes regimes and was diagnosed as the cause of the M1-11 collapse
 to a constant prediction.
 
-V2.1 variants:
-    A  global scaler, 21 sensor inputs (reproduces V2-11 baseline)
+M2 variants:
+    A  global scaler, 21 sensor inputs (reproduces M1-11 baseline)
     B  global scaler on sensors + settings, 24 inputs
     C  per-regime scalers (KMeans k=6 on settings), 21 inputs
     D  C + settings features + one-hot regime, 30 inputs
@@ -24,7 +24,7 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-from rul_prediction.data.v2_preprocessing import SENSOR_COLUMNS
+from rul_prediction.data.m1_preprocessing import SENSOR_COLUMNS
 
 SETTING_COLUMNS = ["setting_1", "setting_2", "setting_3"]
 

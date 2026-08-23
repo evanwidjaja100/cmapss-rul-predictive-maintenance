@@ -45,7 +45,7 @@ def _init_temp_repo(tmp: pathlib.Path) -> pathlib.Path:
     (tmp / "src" / "a.py").write_text("x=1\n", encoding="utf-8")
     (tmp / "scripts" / "s.py").write_text("y=1\n", encoding="utf-8")
     (tmp / "configs" / "c.yaml").write_text("k: v\n", encoding="utf-8")
-    (tmp / "app_v2.py").write_text("import streamlit as st\n", encoding="utf-8")
+    (tmp / "app_m1.py").write_text("import streamlit as st\n", encoding="utf-8")
     (tmp / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
     (tmp / "requirements.txt").write_text("numpy\n", encoding="utf-8")
     (tmp / "requirements-lock.txt").write_text("numpy==1.0\n", encoding="utf-8")
@@ -194,7 +194,7 @@ def test_untracked_source_path_with_tab_is_relevant(monkeypatch):
     raw = b"? src/tab\tmodule.py" + bytes([0])
     monkeypatch.setattr(
         reproducibility,
-        "_git_status_porcelain_v2_z",
+        "_git_status_porcelain_m1_z",
         lambda _root: (raw, "? src/tab\tmodule.py"),
     )
     parsed = reproducibility._parse_status_for_dirty(pathlib.Path.cwd())

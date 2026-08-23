@@ -6,7 +6,7 @@ Ensures:
 - pyproject [project.dependencies] is subset of requirements.txt
 - Additional direct requirements classified in ML/app/test/notebook categories
 - CI consumes platform-selected constraints (requirements-lock.txt for Windows, requirements-ci-linux-py312.txt for Linux)
-- Python policy agrees (pyproject, CI, V2.2 configs)
+- Python policy agrees (pyproject, CI, M3 configs)
 - Pip version recorded and header present
 """
 import re
@@ -190,18 +190,18 @@ def check():
     if "pip==" not in ci_txt:
         errors.append("CI must install exact pip version via pip==<validated-version>, not floating")
     if 'python-version: "3.12.10"' not in ci_txt and "3.12.10" not in ci_txt:
-        errors.append("CI must pin Python to 3.12.10 (V2.2 configs record 3.12.10)")
+        errors.append("CI must pin Python to 3.12.10 (M3 configs record 3.12.10)")
 
-    # 5. Python policy agrees: pyproject, CI, V2.2 configs
+    # 5. Python policy agrees: pyproject, CI, M3 configs
     # pyproject requires-python should allow 3.12.10
     if 'requires-python' in py_txt:
         if '3.12' not in py_txt:
             warnings.append("pyproject requires-python may not include 3.12")
-    # Check V2.2 configs record Python 3.12.10?
+    # Check M3 configs record Python 3.12.10?
     # We know configs mention python version comment; check pyproject comment
     if "3.12.10" not in py_txt:
         warnings.append("pyproject.toml should mention Python 3.12.10 in comment for policy consistency")
-    # Also check V2.2 final configs? Not needed
+    # Also check M3 final configs? Not needed
 
     # 6. Header with role/generation command/Python version/platform/install command
     for rel in ["requirements-lock.txt", "requirements-ci-linux-py312.txt"]:

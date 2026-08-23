@@ -66,22 +66,22 @@ def read_split_file(path: str | Path) -> tuple[set[int], set[int]]:
     return train, validation
 
 
-# ---- Methodology V2: three-way engine split (70 train / 15 validation / 15 calibration) ----
+# ---- Methodology M1: three-way engine split (70 train / 15 validation / 15 calibration) ----
 
-V2_TRAIN_FRACTION = 0.70
-V2_VALIDATION_FRACTION = 0.15
-V2_CALIBRATION_FRACTION = 0.15
+M1_TRAIN_FRACTION = 0.70
+M1_VALIDATION_FRACTION = 0.15
+M1_CALIBRATION_FRACTION = 0.15
 
 
-def split_engine_ids_v2(
+def split_engine_ids_m1(
     engine_ids,
     seed: int = SEED,
-    train_fraction: float = V2_TRAIN_FRACTION,
-    validation_fraction: float = V2_VALIDATION_FRACTION,
+    train_fraction: float = M1_TRAIN_FRACTION,
+    validation_fraction: float = M1_VALIDATION_FRACTION,
 ) -> tuple[set[int], set[int], set[int]]:
     """Return (train, validation, calibration) engine IDs as pairwise-disjoint sets.
 
-    Methodology V2 split: calibration engines are reserved for uncertainty
+    Methodology M1 split: calibration engines are reserved for uncertainty
     calibration only and must never be used for model selection.
     """
     ids = sorted(int(e) for e in engine_ids)
@@ -99,25 +99,25 @@ def split_engine_ids_v2(
     return train, validation, calibration
 
 
-def write_v2_split_file(
+def write_m1_split_file(
     engine_ids,
     dataset: str,
     out_dir: str | Path = DEFAULT_SPLITS_DIR,
     seed: int = SEED,
-    train_fraction: float = V2_TRAIN_FRACTION,
-    validation_fraction: float = V2_VALIDATION_FRACTION,
+    train_fraction: float = M1_TRAIN_FRACTION,
+    validation_fraction: float = M1_VALIDATION_FRACTION,
 ) -> Path:
-    """Persist the Methodology V2 split as JSON (never overwrites legacy split files)."""
-    train, validation, calibration = split_engine_ids_v2(
+    """Persist the Methodology M1 split as JSON (never overwrites legacy split files)."""
+    train, validation, calibration = split_engine_ids_m1(
         engine_ids, seed, train_fraction, validation_fraction
     )
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{dataset}_v2_seed{seed}.json"
+    path = out_dir / f"{dataset}_m1_seed{seed}.json"
     payload = {
         "dataset": dataset,
         "seed": seed,
-        "methodology": "v2",
+        "methodology": "m1",
         "train_fraction": train_fraction,
         "validation_fraction": validation_fraction,
         "calibration_fraction": 1.0 - train_fraction - validation_fraction,
@@ -132,8 +132,8 @@ def write_v2_split_file(
     return path
 
 
-def read_v2_split_file(path: str | Path) -> tuple[set[int], set[int], set[int]]:
-    """Read a Methodology V2 split JSON -> (train, validation, calibration) engine ID sets."""
+def read_m1_split_file(path: str | Path) -> tuple[set[int], set[int], set[int]]:
+    """Read a Methodology M1 split JSON -> (train, validation, calibration) engine ID sets."""
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     train = set(payload["train_engine_ids"])
     validation = set(payload["validation_engine_ids"])

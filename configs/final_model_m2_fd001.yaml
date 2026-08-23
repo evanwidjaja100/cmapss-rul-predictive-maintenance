@@ -1,0 +1,53 @@
+# Methodology M2 final model configuration - FD001 (source of truth for scripts/run_m2_freeze.py)
+methodology: "m2"
+dataset: "FD001"
+task: "raw RUL regression"
+
+model:
+  architecture: "gru"
+  window: 45
+  units: [128, 64]
+  dropout: 0.3
+  loss: "huber"
+  learning_rate: 0.001
+  batch_size: 256
+  epochs: 60
+  patience: 8
+  seed: 42
+  n_features: 21
+
+splits:
+  development_engine_ids_sha256: "05ea70879d1efd8bdc573741c98e2e44066131461b23f795373f3ea2f0dbd3f4"
+  calibration_engine_ids_sha256: "2b6229c9ef254fd73ab073f17f294d0d89293b1d1182d38a83ee29b4c70c6c3f"
+  cv_manifest: "experiments/splits/fd001_m2_group_cv_seed42.json"
+  cv_manifest_sha256: "089705396A66087FB37DE096C99E5B5A64DEE1CF4F1771BE49C7F17E1811E063"
+  fractions: [0.25, 0.45, 0.65, 0.80, 0.95]
+
+selection:
+  cv: "5-fold engine-group cross-validation, seed 42, 68 train / 17 validation engines per fold"
+  candidates: 8
+  results_csv: "experiments/m2/fd001_cv_summary.csv"
+  cv_metrics:
+    RMSE_mean: 24.4526
+    RMSE_std: 3.6204
+    MAE_mean: 16.0038
+    R2_mean: 0.805
+    NASA_total_mean: 5827.836
+    NASA_total_std: 4451.0012
+    signed_bias_mean: -0.2477
+  runner_up: "xgb_w90_d6 (NASA_total_mean 5693.94 +- 2365.57; RMSE_mean 28.3933; signed_bias +14.08)"
+  rationale: >
+    gru_w45_huber wins RMSE/MAE/R2 and is approximately unbiased on the balanced
+    manifest; its NASA mean is within 2.3% of the runner-up, whose NASA edge is
+    within fold-level noise (group-mean comparison) and whose +14-cycle systematic
+    overprediction would skew conformal intervals. Matches M1's winner, now
+    validated by engine-group CV instead of a single 15-engine validation set.
+
+software:
+  python: "3.12.6"
+  tensorflow: "2.21.0"
+  keras: "3.15.1"
+  numpy: "2.5.2"
+  pandas: "3.0.5"
+  scikit_learn: "1.9.0"
+  xgboost: "3.4.0"

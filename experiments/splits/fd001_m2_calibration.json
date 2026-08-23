@@ -1,0 +1,31 @@
+{
+  "methodology": "m2",
+  "dataset": "FD001",
+  "calibration_engine_ids": [
+    22,
+    27,
+    31,
+    33,
+    34,
+    38,
+    46,
+    49,
+    50,
+    77,
+    81,
+    84,
+    88,
+    93,
+    97
+  ],
+  "provenance": "preserved from M1 split fd001_m1_seed42.json (used only for M1-8 conformal)",
+  "m1_split_sha256_prefix": "04c1ee19b934773a",
+  "development_sha256": "05ea70879d1efd8bdc573741c98e2e44066131461b23f795373f3ea2f0dbd3f4",
+  "fractions": [
+    0.25,
+    0.45,
+    0.65,
+    0.8,
+    0.95
+  ]
+}

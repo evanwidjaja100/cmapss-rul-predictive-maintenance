@@ -1,0 +1,13 @@
+{
+  "methodology_version": "2.2",
+  "dataset": "FD004",
+  "variant": "C",
+  "official_status": "post-hoc (FD004 official labels permanently post-hoc; never select or tune M3)",
+  "official_test_engine_count": 248,
+  "official_test_RMSE": 33.6579,
+  "official_test_MAE": 22.0687,
+  "official_test_R2": 0.6189,
+  "official_test_NASA_total": 1545798.52,
+  "official_test_NASA_mean": 6233.0586,
+  "official_test_prediction_std": 66.8366
+}

@@ -1,0 +1,13 @@
+{
+  "methodology_version": "2.2",
+  "dataset": "FD001",
+  "candidate": "xgb_w90_d6",
+  "official_status": "post-hoc (FD001 official labels permanently post-hoc; never select or tune M3)",
+  "official_test_engine_count": 100,
+  "official_test_RMSE": 26.2526,
+  "official_test_MAE": 21.2347,
+  "official_test_R2": 0.6009,
+  "official_test_NASA_total": 60963.79,
+  "official_test_NASA_mean": 609.6379,
+  "cv_RMSE_mean_std": "28.3529 +- 2.6856"
+}

@@ -11,7 +11,7 @@ Date: 2026-08-15
 
 ## Acceptance checks
 
-- **Golden-file test** (`tests/test_inference_golden.py`): serving predictions over the full official test file match the Phase 9 evaluation (`FD001_test_predictions.csv`) per unit within 1e-4. This is the anti-regression guarantee that serving never drifts from the frozen evaluation. (The Phase 9 evaluation is a **post-hoc official benchmark** in V2 terminology — labels were re-inspected during V2 audits; see `AUDIT_V2.md` Issue 7.)
+- **Golden-file test** (`tests/test_inference_golden.py`): serving predictions over the full official test file match the Phase 9 evaluation (`FD001_test_predictions.csv`) per unit within 1e-4. This is the anti-regression guarantee that serving never drifts from the frozen evaluation. (The Phase 9 evaluation is a **post-hoc official benchmark** in M1 terminology — labels were re-inspected during M1 audits; see `AUDIT_M1.md` Issue 7.)
 - Short-unit padding re-verified (shortest test unit → padded flag).
 - HTTP smoke test: `GET /health` OK; `POST /predict` with the full 13,096-row test file → 100 units, 26 padded, predictions consistent with Phase 9.
 - Batch mode on the official test file reproduces Phase 9 metrics exactly: **RMSE 2.4024 | MAE 1.4548 | R² 0.9619 | NASA 14.767**.

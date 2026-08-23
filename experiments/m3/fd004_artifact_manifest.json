@@ -1,0 +1,268 @@
+{
+  "artifacts": [
+    {
+      "bytes": 69,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/m3/fd004_best_epochs.csv",
+      "required_in_clean_clone": true,
+      "role": "best_epochs",
+      "sha256": "ea163a90f6a8cef74d0047a5fdb3ee95273804cb81deac5e60d10c03e25e3655",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 6800,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/m3/fd004_official_predictions.csv",
+      "required_in_clean_clone": true,
+      "role": "canonical_official_predictions",
+      "sha256": "95fde4e2f1c3caae12169c891ad88e2e54fda7a3a9fd6274c64fd432b90a64f3",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 214473,
+      "hash_kind": "raw_sha256",
+      "path": "models/m3/fd004_conditionC.joblib",
+      "required_in_clean_clone": false,
+      "role": "condition_preprocessor",
+      "sha256": "f22ef7189cda906ee4ea92c37df625023f136abb3fcd8a0a74e3a0fdf8b4a328",
+      "storage_class": "local"
+    },
+    {
+      "bytes": 129,
+      "hash_kind": "raw_sha256",
+      "path": "requirements.txt",
+      "required_in_clean_clone": true,
+      "role": "constraints",
+      "sha256": "c536fba54a3028f6b921260a6828ee6495abbf64bcc865176133114f4e161e6c",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 4205,
+      "hash_kind": "raw_sha256",
+      "path": "requirements-lock.txt",
+      "required_in_clean_clone": true,
+      "role": "constraints_lock",
+      "sha256": "3e24e2aaf79f8137e5e26284a7ce5ce31d8dd283c3de713cd5223efd6f60a7dc",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 3780,
+      "hash_kind": "raw_sha256",
+      "path": "configs/final_model_m3_fd004.yaml",
+      "required_in_clean_clone": true,
+      "role": "final_config",
+      "sha256": "4484da896eaadcb88cc3f5c5548359f24ffec8ff7a26a4c25ce14cbc11e90bf3",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 2436,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/m3/fd004_final_fit_metadata.json",
+      "required_in_clean_clone": true,
+      "role": "final_metadata",
+      "sha256": "b51c72a498a0bdaa4d9e9790099375002f256399234ff47722851a5b9326b074",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 436,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/m3/fd004_final_metrics.json",
+      "required_in_clean_clone": true,
+      "role": "final_metrics",
+      "sha256": "db800334dcd00781eaa98061830f38719c5df4ecea62c987d63e8117360cb678",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 1215573,
+      "hash_kind": "raw_sha256",
+      "path": "models/m3/fd004_gru_w45_huber_condC.keras",
+      "required_in_clean_clone": false,
+      "role": "model",
+      "sha256": "9b39a059ea528b94f9d806533a69da596b7950254bbea1f11a232b2bb29ac87d",
+      "storage_class": "local"
+    },
+    {
+      "bytes": 6800,
+      "hash_kind": "raw_sha256",
+      "path": "reports/tables/m3_fd004_predictions.csv",
+      "required_in_clean_clone": true,
+      "role": "report_table_mirror",
+      "sha256": "95fde4e2f1c3caae12169c891ad88e2e54fda7a3a9fd6274c64fd432b90a64f3",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 2455,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/FD004_m1_seed42.json",
+      "required_in_clean_clone": true,
+      "role": "split_json",
+      "sha256": "9ace791439f39071f19449f744512447ce2881d0e6fea5f44cc32b2fffb3c28c",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 3661,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/splits/fd004_m2_validation_cutoffs.csv",
+      "required_in_clean_clone": true,
+      "role": "validation_cutoffs",
+      "sha256": "337cd23bcaa8680e77fcf6d7be76de72c5147d389525610e1bb719f94e4139fb",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 24550,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/m3/fd004_variant_predictions.csv",
+      "required_in_clean_clone": true,
+      "role": "variant_predictions",
+      "sha256": "7e7996560ac36c6e9ff82fdeeda6b3c1e4ffd620f93bb76f5673aa082a10d18b",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 597,
+      "hash_kind": "raw_sha256",
+      "path": "experiments/m3/fd004_variant_results.csv",
+      "required_in_clean_clone": true,
+      "role": "variant_results",
+      "sha256": "660cd2dd6803c8d954b6f88d775974251eb6d7c10b208241e30e91beed322760",
+      "storage_class": "git"
+    }
+  ],
+  "config_integrity": {
+    "canonical_algo": "cmapss-fd004-config-canonical-v1",
+    "config_canonical_sha256": "19f97575f8b7e5df567be92d8a3080535072177f0322255a37c703ab2aa4e1a1",
+    "config_file_sha256": "4484da896eaadcb88cc3f5c5548359f24ffec8ff7a26a4c25ce14cbc11e90bf3",
+    "model_id": "gru_w45_huber_condC",
+    "note": "config_file_sha256 is raw-byte integrity; config_canonical_sha256 is versioned semantic identity (post-training normalization 2026-08-21); neither is historical training hash (not historical training hash)",
+    "path": "configs/final_model_m3_fd004.yaml"
+  },
+  "constraints_integrity": [
+    {
+      "bytes": 129,
+      "hash_kind": "raw_sha256",
+      "path": "requirements.txt",
+      "required_in_clean_clone": true,
+      "sha256": "c536fba54a3028f6b921260a6828ee6495abbf64bcc865176133114f4e161e6c",
+      "storage_class": "git"
+    },
+    {
+      "bytes": 4205,
+      "hash_kind": "raw_sha256",
+      "path": "requirements-lock.txt",
+      "required_in_clean_clone": true,
+      "sha256": "3e24e2aaf79f8137e5e26284a7ce5ce31d8dd283c3de713cd5223efd6f60a7dc",
+      "storage_class": "git"
+    }
+  ],
+  "dataset": "FD004",
+  "generated_at_utc": "2026-08-23T03:55:11Z",
+  "generated_from_commit": "e872df0c15028ac935c8752b8cef410237a827a9",
+  "historical_training_provenance": {
+    "historical_commit": null,
+    "note_config_hash_distinction": "config_file_sha256 vs config_canonical_sha256; new YAML is post-training normalized (structured optimizer) and behaviorally equivalent, raw hash is not historical training hash (not historical training hash)",
+    "note_generation_not_training": "Manifest generated_at_utc is generation time, not historical training time",
+    "note_historical_incomplete": "FD004 training provenance remains historical and incomplete; no new provenance retroactively added",
+    "note_model_binaries_immutable": "Model binaries must not change; fd004_conditionC.joblib is hash-gated legacy payload, remains byte-identical",
+    "note_new_source_not_historical": "Current source_tree_hash is generation-time value, not historical training source hash (not historical training hash)",
+    "status": "historical_incomplete"
+  },
+  "lineage": [
+    {
+      "from": "best_epochs",
+      "relation": "provides fixed_epochs",
+      "to": "final_metadata"
+    },
+    {
+      "from": "canonical_official_predictions",
+      "relation": "metrics from predictions",
+      "to": "final_metrics"
+    },
+    {
+      "from": "canonical_official_predictions",
+      "relation": "exactly equals mirror",
+      "to": "report_table_mirror"
+    },
+    {
+      "from": "condition_preprocessor",
+      "relation": "preprocesses",
+      "to": "canonical_official_predictions"
+    },
+    {
+      "from": "final_config",
+      "relation": "validated constraints",
+      "to": "constraints"
+    },
+    {
+      "from": "final_config",
+      "relation": "validated constraints",
+      "to": "constraints_lock"
+    },
+    {
+      "from": "final_config",
+      "relation": "configures final fit",
+      "to": "final_metadata"
+    },
+    {
+      "from": "final_config",
+      "relation": "references",
+      "to": "split_json"
+    },
+    {
+      "from": "final_config",
+      "relation": "references",
+      "to": "validation_cutoffs"
+    },
+    {
+      "from": "final_metadata",
+      "relation": "fitted from",
+      "to": "condition_preprocessor"
+    },
+    {
+      "from": "final_metadata",
+      "relation": "trained from",
+      "to": "model"
+    },
+    {
+      "from": "model",
+      "relation": "post-hoc predicts",
+      "to": "canonical_official_predictions"
+    },
+    {
+      "from": "split_json",
+      "relation": "provides train ids",
+      "to": "final_metadata"
+    },
+    {
+      "from": "validation_cutoffs",
+      "relation": "produces predictions",
+      "to": "variant_predictions"
+    },
+    {
+      "from": "validation_cutoffs",
+      "relation": "evaluated selection",
+      "to": "variant_results"
+    },
+    {
+      "from": "variant_results",
+      "relation": "records best epoch",
+      "to": "best_epochs"
+    }
+  ],
+  "methodology_version": "2.2",
+  "model_id": "gru_w45_huber_condC",
+  "notes": {
+    "hash_kind": "raw_sha256 is SHA-256 of exact raw file bytes (artifact integrity)",
+    "no_self_hash": "no manifest hashes itself",
+    "path_policy": "repo-relative POSIX paths only; absolute, .., duplicates, globs rejected",
+    "storage_classes": "git must exist in clean clone; local gitignored runtime artifact; tracked mode permits absent local"
+  },
+  "schema_version": "cmapss-artifact-manifest-v1",
+  "source_integrity": {
+    "algorithm": "cmapss-tracked-source-v1",
+    "file_count": 90,
+    "git_commit": "e872df0c15028ac935c8752b8cef410237a827a9",
+    "git_is_dirty_execution": true,
+    "git_is_dirty_whole": true,
+    "note": "Manifest generation time is not training time; this source_tree_hash is current generation-time hash, not historical training hash",
+    "source_tree_hash": "0eb3b4f9ca50d7a3a3ed3e7895c89ef487cf933f3ebe69c777cf3e9815143a2d"
+  }
+}

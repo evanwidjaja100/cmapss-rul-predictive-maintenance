@@ -24,14 +24,14 @@
   absolute paths so absolute-path invocations cannot bypass the A/B/C/D
   completeness requirement.
 - **Split evidence portability (P1):** config and scripts now reference the
-  exact tracked case `experiments/splits/FD004_v2_seed42.json`; split loading
+  exact tracked case `experiments/splits/FD004_m1_seed42.json`; split loading
   validates exact-case names (Linux clean clones) and separately named RAW
   file hashes (`split_provenance_file_sha256`,
   `validation_cutoff_manifest_file_sha256`) pin exact split/cutoff bytes
   alongside the canonical engine-ID digests. Numerical values unchanged.
 - **Contracts survive `python -O` (P1):** deployment-config asserts in
-  `serving/v2_predictor.py`, leakage/completeness gates in `benchmark/v2_2.py`
-  replaced with explicit exceptions; shared `benchmark.v2.make_predictor`
+  `serving/m1_predictor.py`, leakage/completeness gates in `benchmark/m3.py`
+  replaced with explicit exceptions; shared `benchmark.m1.make_predictor`
   requires keyword-only positive-int `window` (14 call sites updated).
 - **Manifest verification classes (P2):** tampered/structurally invalid
   manifests are a hard integrity failure; absent manifests load with an
@@ -44,9 +44,9 @@
   not produce false drift; headless Streamlit smoke scans output for
   tracebacks instead of relying on an alive-only timing criterion.
 
-## V2.2 final repository freeze — 2026-08-18
+## M3 final repository freeze — 2026-08-18
 
-> Audit/freeze pass (`V2_2_FINAL_FREEZE_PLAN.md`; master instruction is
+> Audit/freeze pass (`M3_FINAL_FREEZE_PLAN.md`; master instruction is
 > session-only and not committed). No retraining: FD004 YAML values verified
 > equal to the historical effective values (window 45, units (128,64),
 > dropout 0.3, loss huber, lr 1e-3, batch 256, seed 42, fixed_epochs 8,
@@ -58,15 +58,15 @@
   `n_init=10` / `k=6` / `seed=42` in `fit_condition_models`. Now
   `resolve_model_config` returns architecture/units/dropout/loss/lr/batch/
   seed/fixed_epochs/variant/n_clusters/cluster_seed/n_init, `fit_preprocessing`
-  threads k/seed/n_init, and `configs/final_model_v2_2_fd004.yaml` is
+  threads k/seed/n_init, and `configs/final_model_m3_fd004.yaml` is
   restructured (explicit `model.units`, `model.dropout`, `model.fixed_epochs`,
   `condition_preprocessing.clustering{method,n_clusters,random_state,n_init}`
   with numeric values) — every deployment-critical hyperparameter is
   config-resolved, no hidden defaults.
-- **FD001 feature metadata corrected (freeze-2):** `final_model_v2_2_fd001.yaml`
+- **FD001 feature metadata corrected (freeze-2):** `final_model_m3_fd001.yaml`
   now describes the real XGBoost path (engineered variable history via
-  `rul_prediction.features.v2_features.extract_v2_features`,
-  `sequence_padding_consumed_by_model: false`); `select_v2_2_model.py`
+  `rul_prediction.features.m1_features.extract_m1_features`,
+  `sequence_padding_consumed_by_model: false`); `select_m3_model.py`
   emits the same structured block.
 - **Real clean-clone QA (freeze-3):** the previous "clean public checkout"
   measurement was a simulated tree (robocopy). The QA is now a real
@@ -89,16 +89,16 @@
   markers.
 - **Broken references fixed (freeze-6):** the untracked master cleanup-plan
   filename was referenced by 4 files; all references replaced with the tracked
-  `V2_2_FINAL_CLEANUP_PLAN.md`.
+  `M3_FINAL_CLEANUP_PLAN.md`.
 - **Tests (freeze-7):** added config-authority, feature-path, provenance,
   conformal-q falsification, metric-falsification (tracked tables), and
-  broken-reference tests; 4 cleanup tests reading tracked `experiments/v2_2`
+  broken-reference tests; 4 cleanup tests reading tracked `experiments/m3`
   tables unmarked from `needs_artifacts` so CI exercises them.
 
-## V2.2 final cleanup — 2026-08-17
+## M3 final cleanup — 2026-08-17
 
 > Final reproducibility / auditability pass
-> (`V2_2_FINAL_CLEANUP_PLAN.md`). No full CV rerun; all headline numbers were
+> (`M3_FINAL_CLEANUP_PLAN.md`). No full CV rerun; all headline numbers were
 > recomputed from saved artifacts and reproduced unchanged (FD001 post-hoc
 > RMSE 26.2526 / NASA 60,963.79; FD004 post-hoc RMSE 33.6579; deployment
 > `xgb_w90_d6`).
@@ -106,25 +106,25 @@
 - **Selection wording corrected:** "pre-registered" claims in earlier entries
   were replaced by "pre-specified" (the rule is specified in the recorded
   development session; Git cannot prove formal pre-registration).
-- **Config truthfulness:** `configs/final_model_v2_2_fd001.yaml` regenerated
+- **Config truthfulness:** `configs/final_model_m3_fd001.yaml` regenerated
   as a model-type-specific XGBoost config (max_depth 6, learning_rate 0.05,
   subsample 0.8, colsample_bytree 0.8, n_estimators 92, random_state 42);
   FD001/FD004 freeze and post-hoc scripts now consume the YAML (no hidden
   window/loss/epochs constants).
 - **Serving cleaned:** empirical `RISK_OBSERVED_CYCLES` / short-history risk
   flag removed; uncertainty `q` read from tracked
-  `configs/deployment_v2_2_fd001.yaml`; only objective `history_is_padded`
-  remains; broken `v2_2_methodology.md` report link fixed.
+  `configs/deployment_m3_fd001.yaml`; only objective `history_is_padded`
+  remains; broken `m3_methodology.md` report link fixed.
 - **Sensitivity corrected:** prefix-only occlusion baseline (no future sensor
   leakage), deterministic (engine_id, cutoff_cycle) alignment; corrected
   ranking: sensors 4, 11, 3, 9, 12, 7, 20 (earlier order 4/11/12/9/3/20/7
   was based on the leaking baseline and is superseded).
-- **Conformal wording:** calibration engines were held out from V2.2 fitting
+- **Conformal wording:** calibration engines were held out from M3 fitting
   and model selection but inspected in earlier iterations → the interval is
   empirically calibrated, not a pristine one-shot external guarantee
   (`historical_caveat` in `fd001_conformal_calibration.json`).
 - **Provenance:** freeze metadata now records `git_commit`, `git_is_dirty`
-  (historical V2.2 runs were executed from a dirty worktree), `git_diff_hash`
+  (historical M3 runs were executed from a dirty worktree), `git_diff_hash`
   and `timestamp_utc`; the shared `run_metadata()` helper additionally
   supports `source_tree_hash` for future experiment runs (the committed
   freeze metadata does not contain it — see freeze-4 above).
@@ -134,181 +134,181 @@
 - **Test counts (real measurements):** full local artifact-rich suite
   **155 passed**; clean public checkout (no data/, models/, experiments
   artifacts, CI command `-m "not needs_artifacts"`) **135 passed, 11 skipped,
-  9 deselected**. Earlier "134 / 130" counts in the V2.2 entry below are
+  9 deselected**. Earlier "134 / 130" counts in the M3 entry below are
   superseded.
-- **Tracking:** `experiments/v2_2` audit artifacts (CV matrix, selection,
+- **Tracking:** `experiments/m3` audit artifacts (CV matrix, selection,
   conformal, post-hoc) are committed (`.gitignore` exception added).
 
-## Methodology V2.2 (repair) — 2026-08-17
+## Methodology M3 (repair) — 2026-08-17
 
-> V2.2 repairs the V2.1 audit findings (`V2_2_REPAIR_PLAN.md`, V2.2-1 …
-> V2.2-16). V2 and V2.1 remain historical record, labeled
-> `SUPERSEDED BY METHODOLOGY V2.2` where they conflict with current numbers.
+> M3 repairs the M2 audit findings (`M3_REPAIR_PLAN.md`, M3-1 …
+> M3-16). M1 and M2 remain historical record, labeled
+> `SUPERSEDED BY METHODOLOGY M3` where they conflict with current numbers.
 
-- **Calibration leakage in final FD001 fit fixed (V2.2-1):** the V2.1 freeze
+- **Calibration leakage in final FD001 fit fixed (M3-1):** the M2 freeze
   passed the 15 calibration engines as `validation_data` to `model.fit()`
-  (training control = weights/epochs touched by calibration labels). V2.2
+  (training control = weights/epochs touched by calibration labels). M3
   final fit runs on the 85 development engines only, fixed duration
   (XGBoost `n_estimators = round(median(best_iteration)) + 1 = 92`), zero
-  calibration contact (`run_v2_2_freeze.py`; `final_fit_metadata.json`).
-- **Outer-fold isolation fixed (V2.2-2):** V2.1 ran outer-fold early stopping
-  with the 17 outer-evaluation engines inside the training loop. V2.2 nested
+  calibration contact (`run_m3_freeze.py`; `final_fit_metadata.json`).
+- **Outer-fold isolation fixed (M3-2):** M2 ran outer-fold early stopping
+  with the 17 outer-evaluation engines inside the training loop. M3 nested
   CV: per fold 68 outer-train / 17 untouched outer-eval; inner 58/10 splits
   (seeds 4201–4205, `random.Random(4200+fold)` on sorted IDs, documented
   pre-run) control duration only; stage-2 retrains fixed-duration with NO
-  validation data. `src/rul_prediction/benchmark/v2_2.py`,
-  `experiments/v2_2/fd001_outer_fold_results.csv`.
-- **Complete CV matrix (V2.2-3):** V2.1's claimed 8×5 matrix had only 40/40
+  validation data. `src/rul_prediction/benchmark/m3.py`,
+  `experiments/m3/fd001_outer_fold_results.csv`.
+- **Complete CV matrix (M3-3):** M2's claimed 8×5 matrix had only 40/40
   requested but rf_w60 delivered fold 1 only (39/40) and was presented
-  complete. V2.2 runs all 8 candidates × 5 folds = **40/40**; summaries are
+  complete. M3 runs all 8 candidates × 5 folds = **40/40**; summaries are
   gated by `assert_cv_complete` (exact row count + fold coverage + manifest
   hashes) and a protocol test rejects partial matrices.
-- **Model-selection claims fixed (V2.2-4):** V2.1 named one winner
-  (gru_w45_huber) that was neither lowest-RMSE nor lowest-NASA. V2.2
+- **Model-selection claims fixed (M3-4):** M2 named one winner
+  (gru_w45_huber) that was neither lowest-RMSE nor lowest-NASA. M3
   pre-specified the rule (PRIMARY lowest mean NASA/engine; GUARDRAIL
   pooled-SE RMSE; TIE |bias|) and reports roles separately: accuracy champion
   `lstm_w60_huber` (RMSE 26.19±3.44), NASA-risk champion + deployment
   **`xgb_w90_d6`** (NASA/engine 368.02±160.40, RMSE 28.35±2.69).
-  `selection_decision.json`, `configs/final_model_v2_2_fd001.yaml`.
-- **Conformal rebuilt (V2.2-5):** recalibrated on the clean final model with
+  `selection_decision.json`, `configs/final_model_m3_fd001.yaml`.
+- **Conformal rebuilt (M3-5):** recalibrated on the clean final model with
   15 held-out calibration engines (one max-|error| score per engine over the
   predefined checkpoints); q(0.1)=66.21, q(0.2)=44.80, q(0.3)=41.42; formal
   coverage wording limited (exchangeability + predefined checkpoints);
   arbitrary-trajectory use labeled engineering extrapolation; post-hoc
   official coverage 99% at α=0.1.
-- **Configs drive training (V2.2-6):** freeze scripts consume
-  `configs/final_model_v2_2_fd001.yaml` / `_fd004.yaml`; protocol test E
+- **Configs drive training (M3-6):** freeze scripts consume
+  `configs/final_model_m3_fd001.yaml` / `_fd004.yaml`; protocol test E
   rejects any seed not derivable from config; F verifies canonical manifest
   hashes. `canonical_hash.py` (platform-independent canonical JSON/CSV).
-- **FD004 clean protocol (V2.2-7):** V2.1's variant comparison used
-  validation engines for early stopping (calibration contact). V2.2 runs
+- **FD004 clean protocol (M3-7):** M2's variant comparison used
+  validation engines for early stopping (calibration contact). M3 runs
   A/B/C/D under the two-stage protocol (150/25 inner split, seed 4201, eval
   on 37 untouched engines): A/B collapse (pred_std 0.0), C RMSE 29.83 /
   R² 0.789 / NASA 1,449 per engine, D RMSE 33.97 / NASA 81,963 per engine —
-  C selected (per NASA, then RMSE); D's V2.1 RMSE edge is gone under clean
+  C selected (per NASA, then RMSE); D's M2 RMSE edge is gone under clean
   control. Freeze on 212 (175+37); official post-hoc FD004: RMSE 33.66,
   R² 0.619, NASA 1,545,798.5.
-- **Sensitivity rerun (V2.2-8):** `explain_v2_2_sensitivity.py` occludes on
-  the frozen V2.2 model; sensors 4/11/3/9/12/7/20 most influential; constant
-  sensors (1/5/10/16/18/19) contribute zero; sensor 6 (V2's flag) nearly
-  inert now — reported as measured, not forced. `reports/v2_2_sensitivity.md`.
-- **Docs live (V2.2-9):** README/PROJECT_SPEC/CHANGELOG updated to V2.2-first
-  with stale V2.1 claims (winner, q=70.34, coverage 98%, "8 candidates x 5
-  folds", test counts) annotated; `app_v2.py` labels
-  "SUPERSEDED BY METHODOLOGY V2.2".
-- **Protocol tests (V2.2-10):** `tests/test_v2_2_protocol.py` (artifact-free,
+- **Sensitivity rerun (M3-8):** `explain_m3_sensitivity.py` occludes on
+  the frozen M3 model; sensors 4/11/3/9/12/7/20 most influential; constant
+  sensors (1/5/10/16/18/19) contribute zero; sensor 6 (M1's flag) nearly
+  inert now — reported as measured, not forced. `reports/m3_sensitivity.md`.
+- **Docs live (M3-9):** README/PROJECT_SPEC/CHANGELOG updated to M3-first
+  with stale M2 claims (winner, q=70.34, coverage 98%, "8 candidates x 5
+  folds", test counts) annotated; `app_m1.py` labels
+  "SUPERSEDED BY METHODOLOGY M3".
+- **Protocol tests (M3-10):** `tests/test_m3_protocol.py` (artifact-free,
   19 tests) — Tests A–H + duration rules.
-- **Serving (V2.2-11):** `v2_predictor.py` reads the V2.2 config YAML +
+- **Serving (M3-11):** `m1_predictor.py` reads the M3 config YAML +
   recalibrated quantiles; app shows model version / observed cycles /
   `history_is_padded`+count / interval / calibration method / disclosure.
 - Tests: 115 → **134 passing** (19 protocol + 4 rewritten serving + others);
-  artifact-free CI subset re-verified. *(counts superseded by the V2.2 final
+  artifact-free CI subset re-verified. *(counts superseded by the M3 final
   cleanup entry: 154 full local / clean checkout 134 passed, 11 skipped,
   9 deselected.)*
-- Artifacts under `experiments/v2_2/`, `models/v2_2/`, `reports/v2_2_*.md`,
-  `reports/tables/v2_2_*`; commit `v2.2` tag target.
+- Artifacts under `experiments/m3/`, `models/m3/`, `reports/m3_*.md`,
+  `reports/tables/m3_*`; commit `m3` tag target.
 
-## Methodology V2.1 (repair) — 2026-08-15 (`67a0e58` + follow-ups)
+## Methodology M2 (repair) — 2026-08-15 (`67a0e58` + follow-ups)
 
-> V2.1 repairs four audit findings (`V2_1_REPAIR_PLAN.md`, R1–R20). V2
-> conclusions that are superseded are labeled `SUPERSEDED BY METHODOLOGY V2.1`
-> in their reports; V2 remains historical record.
+> M2 repairs four audit findings (`M2_REPAIR_PLAN.md`, R1–R20). M1
+> conclusions that are superseded are labeled `SUPERSEDED BY METHODOLOGY M2`
+> in their reports; M1 remains historical record.
 
 - **Lifetime semantics corrected (R1/R2/R3/R4):** official test trajectories
   are truncated before failure, so `cycle.max()` is observed history, never
   lifetime. `implied_failure_cycle = observed_cycles + true_rul` is the
-  labeled quantity. The V2 claim "44 engines with lifetime < 128 carry 99.8%
+  labeled quantity. The M1 claim "44 engines with lifetime < 128 carry 99.8%
   of NASA" has **no lifetime-based counterpart — that group is empty on the
   official test**; it was an observed-history artifact. Serving no longer
   classifies OOD: `history_is_padded` (objective) + empirical short-history
-  risk flag. `reports/v2_1_error_analysis.md`.
+  risk flag. `reports/m2_error_analysis.md`.
 - **Engine-group 5-fold CV selection (R5/R6/R7/R8):** 85 development / 15
-  calibration engines (V2 calibration IDs preserved), 5-fold group CV
+  calibration engines (M1 calibration IDs preserved), 5-fold group CV
   (seed 42), balanced fractions 0.25/0.45/0.65/0.80/0.95 fixed pre-comparison,
   8 bounded candidates. Winner **gru_w45_huber** (RMSE 24.45±3.62, NASA
   5,828±4,451, bias −0.25). Frozen on 85 dev engines: official post-hoc
-  RMSE 23.04 / R² 0.693 / NASA 6,700.59 (11.5× vs V2's 77,387.53).
-  `configs/final_model_v2_1_fd001.yaml`, `reports/v2_1_cross_validation.md`.
+  RMSE 23.04 / R² 0.693 / NASA 6,700.59 (11.5× vs M1's 77,387.53).
+  `configs/final_model_m2_fd001.yaml`, `reports/m2_cross_validation.md`.
 - **Engine-cluster conformal (R9/R10/R11):** one max-|error| score per
   calibration engine over its 5 checkpoints (n=15), k = ceil((n+1)(1−α))
-  clamped; α=0.1 → q = 70.34; official coverage 98%. V2-8's n=75 row-level
-  q=24.10 superseded. `reports/v2_1_conformal.md`.
+  clamped; α=0.1 → q = 70.34; official coverage 98%. M1-8's n=75 row-level
+  q=24.10 superseded. `reports/m2_conformal.md`.
 - **FD004 condition-aware modeling (R13/R14):** A/B (global scaler ± settings)
   collapse reproduced (pred std 0.0, RMSE ~72); **C (KMeans k=6 per-regime
   scalers) restores variance** — RMSE 29.37, R² 0.795, NASA 46,165 (55× vs A);
   D (C + one-hot) RMSE-optimal (27.22) but NASA 68,981 — not selected. Frozen
   C official post-hoc: RMSE 33.83 / NASA 1,345,518 (1.9× better than the
-  V2-11 collapse). FD004 official = post-hoc by policy from V2.1 on.
-  `configs/final_model_v2_1_fd004.yaml`, `reports/v2_1_fd004.md`.
-- **Engineering (R15–R20):** `explain_v2_shap.py` renamed
-  `explain_v2_sensitivity.py` (occlusion, not SHAP); `pyproject.toml`
+  M1-11 collapse). FD004 official = post-hoc by policy from M2 on.
+  `configs/final_model_m2_fd004.yaml`, `reports/m2_fd004.md`.
+- **Engineering (R15–R20):** `explain_m1_shap.py` renamed
+  `explain_m1_sensitivity.py` (occlusion, not SHAP); `pyproject.toml`
   `requires-python = ">=3.11,<3.13"`; `THIRD_PARTY_NOTICES.md`; CI markers
-  declared; `experiments/splits/` + `experiments/v2_1/` un-ignored for
-  auditability; V2 reports bannered SUPERSEDED; README/PROJECT_SPEC updated.
-- Tests: 110 → **115 passing** (16 V2.1 methodology + 5 FD004 condition +
-  rewritten serving tests); app smoke `python -c "import app_v2"` passes.
+  declared; `experiments/splits/` + `experiments/m2/` un-ignored for
+  auditability; M1 reports bannered SUPERSEDED; README/PROJECT_SPEC updated.
+- Tests: 110 → **115 passing** (16 M2 methodology + 5 FD004 condition +
+  rewritten serving tests); app smoke `python -c "import app_m1"` passes.
 
-## Methodology V2 (Phases V2-0 … V2-12) — 2026-08-15
+## Methodology M1 (Phases M1-0 … M1-12) — 2026-08-15
 
-> **Correction (V2-12):** legacy entries below claim the official test set was
+> **Correction (M1-12):** legacy entries below claim the official test set was
 > "evaluated exactly once". The official FD001 labels were re-inspected during
-> the V2 audits, so from V2 onward all official FD001 results are labeled
-> **post-hoc** (see `AUDIT_V2.md` Issues 1 & 7).
+> the M1 audits, so from M1 onward all official FD001 results are labeled
+> **post-hoc** (see `AUDIT_M1.md` Issues 1 & 7).
 
-### V2-0 — Baseline audit (`c3c8694`)
+### M1-0 — Baseline audit (`c3c8694`)
 
-- `AUDIT_V2.md`: 11 confirmed issues (capped-target headline, "exactly once" claims, missing attribution, absolute lock path, skipped roadmap phases); legacy Phase 1–10 experiment labeled (`configs/legacy_cap45_model.yaml`, `reports/legacy/README.md`); no code or results modified.
+- `AUDIT_M1.md`: 11 confirmed issues (capped-target headline, "exactly once" claims, missing attribution, absolute lock path, skipped roadmap phases); legacy Phase 1–10 experiment labeled (`configs/legacy_cap45_model.yaml`, `reports/legacy/README.md`); no code or results modified.
 
-### V2-1 — Methodology setup (`2aedc42`)
+### M1-1 — Methodology setup (`2aedc42`)
 
-- V2 plan: primary target = **raw RUL** (no cap); 70/15/15 engine split (seed 42); fixed pseudo-test manifests (75 validation + 75 calibration rows, 5 lifecycle fractions); shared runner `src/rul_prediction/benchmark/v2.py`; consistent padded+masked history for train and inference.
+- M1 plan: primary target = **raw RUL** (no cap); 70/15/15 engine split (seed 42); fixed pseudo-test manifests (75 validation + 75 calibration rows, 5 lifecycle fractions); shared runner `src/rul_prediction/benchmark/m1.py`; consistent padded+masked history for train and inference.
 
-### V2-2 — V2 preprocessing (`2c93185`)
+### M1-2 — M1 preprocessing (`2c93185`)
 
-- `src/rul_prediction/data/v2_preprocessing.py` + `scripts/preprocess_v2.py`: raw-RUL targets, scaler fit on train engines only, artifacts under `data/processed/v2/FD001/raw/`.
+- `src/rul_prediction/data/m1_preprocessing.py` + `scripts/preprocess_m1.py`: raw-RUL targets, scaler fit on train engines only, artifacts under `data/processed/m1/FD001/raw/`.
 
-### V2-3 — Raw-RUL benchmark (`e88388b`)
+### M1-3 — Raw-RUL benchmark (`e88388b`)
 
 - mean/linear/rf/xgboost/lstm/gru/tcn on the fixed 75-row validation manifest; recurrent models dominate (gru w30: RMSE 24.66); linear regression unusable on raw RUL.
 
-### V2-4 — Window & hyperparameter ablations (`67664ce`)
+### M1-4 — Window & hyperparameter ablations (`67664ce`)
 
-- 45 runs (windows 15–90, loss, dropout, depth); **selection: GRU w45 huber — validation RMSE 13.74, MAE 9.69, R² 0.877, NASA 200.01**. `reports/v2_ablation.md`, `reports/tables/v2_ablation_results.csv`.
+- 45 runs (windows 15–90, loss, dropout, depth); **selection: GRU w45 huber — validation RMSE 13.74, MAE 9.69, R² 0.877, NASA 200.01**. `reports/m1_ablation.md`, `reports/tables/m1_ablation_results.csv`.
 
-### V2-5 — Freeze + post-hoc FD001 (`be9252a`)
+### M1-5 — Freeze + post-hoc FD001 (`be9252a`)
 
-- `models/v2_frozen_gru_w45_huber.keras`; validation reproduced bit-exact (13.7406); official FD001 post-hoc: RMSE 29.0377, MAE 19.1715, R² 0.5117, NASA 77,387.53; 5 late misses = 96.6% of NASA. `reports/v2_freeze.md`.
+- `models/m1_frozen_gru_w45_huber.keras`; validation reproduced bit-exact (13.7406); official FD001 post-hoc: RMSE 29.0377, MAE 19.1715, R² 0.5117, NASA 77,387.53; 5 late misses = 96.6% of NASA. `reports/m1_freeze.md`.
 
-### V2-6 — Error analysis (`b3742bc`)
+### M1-6 — Error analysis (`b3742bc`)
 
-- Training lifetime min 128; official engines below it (44/100) are missed late 80% of the time and carry 99.8% of NASA; in-range engines: mean error −4.3 cycles. `reports/v2_error_analysis.md`.
+- Training lifetime min 128; official engines below it (44/100) are missed late 80% of the time and carry 99.8% of NASA; in-range engines: mean error −4.3 cycles. `reports/m1_error_analysis.md`.
 
-### V2-7 — Explainability (`74b4ce2`)
+### M1-7 — Explainability (`74b4ce2`)
 
-- shap 0.52.0 (keras 3.15.1 breaks Deep/Gradient/Kernel explainers — documented); exact leave-one-sensor-out attribution; sensors 2/4/6/7/8 flip sign (late-miss overprediction); constant sensors ≈ 0 attribution; non-additivity disclosed. `reports/v2_explainability.md`.
+- shap 0.52.0 (keras 3.15.1 breaks Deep/Gradient/Kernel explainers — documented); exact leave-one-sensor-out attribution; sensors 2/4/6/7/8 flip sign (late-miss overprediction); constant sensors ≈ 0 attribution; non-additivity disclosed. `reports/m1_explainability.md`.
 
-### V2-8 — Conformal uncertainty (`3d3f644`)
+### M1-8 — Conformal uncertainty (`3d3f644`)
 
-- Split-conformal calibration on the 75 calibration rows; 90% interval width 24.10 cycles; coverage: calibration 92%, validation 88%, official 69% (85.7% in-range vs 47.7% OOD); lower-bound predictor cuts official NASA 3.2× at α=0.2. `reports/v2_conformal.md`.
+- Split-conformal calibration on the 75 calibration rows; 90% interval width 24.10 cycles; coverage: calibration 92%, validation 88%, official 69% (85.7% in-range vs 47.7% OOD); lower-bound predictor cuts official NASA 3.2× at α=0.2. `reports/m1_conformal.md`.
 
-### V2-9 — Streamlit serving (`815e718`)
+### M1-9 — Streamlit serving (`815e718`)
 
-- `app_v2.py` + `src/rul_prediction/serving/v2_predictor.py` (predictions bit-identical to the freeze, golden-tested); 90% conformal intervals, alarm lower bound, OOD flag; `reports/v2_serving.md`.
+- `app_m1.py` + `src/rul_prediction/serving/m1_predictor.py` (predictions bit-identical to the freeze, golden-tested); 90% conformal intervals, alarm lower bound, OOD flag; `reports/m1_serving.md`.
 
-### V2-10 — CI / dependency cleanup (`978b060`)
+### M1-10 — CI / dependency cleanup (`978b060`)
 
 - `requirements-lock.txt` regenerated (path-free editable line; includes shap/streamlit); Python version policy reconciled (>= 3.11, tested on 3.12); `needs_artifacts` marker registered; GitHub Actions workflow runs the artifact-free subset (78 passed, verified on an artifact-free tree).
 
-### V2-11 — FD004 generalization study (`27a3e64`)
+### M1-11 — FD004 generalization study (`27a3e64`)
 
-- FD004 acquired (Kaggle mirror; NASA S3 403 for all probed paths); **sealed-labels gate**: repo-wide grep proved no code reads `RUL_FD004.txt`, sha256 pinned at download and re-verified before the first-ever label read. The exact GRU recipe **does not transfer**: collapses to a constant (official RMSE 64.42, R² −0.40, NASA 2,663,846.31; validation R² −2.23) under 6 operating conditions. Condition-aware preprocessing documented as future work. `reports/v2_fd004.md`.
+- FD004 acquired (Kaggle mirror; NASA S3 403 for all probed paths); **sealed-labels gate**: repo-wide grep proved no code reads `RUL_FD004.txt`, sha256 pinned at download and re-verified before the first-ever label read. The exact GRU recipe **does not transfer**: collapses to a constant (official RMSE 64.42, R² −0.40, NASA 2,663,846.31; validation R² −2.23) under 6 operating conditions. Condition-aware preprocessing documented as future work. `reports/m1_fd004.md`.
 
-### V2-12 — Final documentation & attribution
+### M1-12 — Final documentation & attribution
 
-- README rewritten: raw-RUL headline with post-hoc labeling, V2 pipeline/reproduction, FD004 verdict, attribution (NASA C-MAPSS + `aun151214/predictive-maintenance-cmapss`).
+- README rewritten: raw-RUL headline with post-hoc labeling, M1 pipeline/reproduction, FD004 verdict, attribution (NASA C-MAPSS + `aun151214/predictive-maintenance-cmapss`).
 - "Exactly once" claims corrected (labeled historical/post-hoc) in `reports/phase9_final_evaluation.md`, `reports/phase10_serving.md`, `configs/final_model.yaml`, `scripts/final_evaluation.py`.
 - Mojibake check on legacy reports: verified clean (valid UTF-8); `reports/phase8_ablation.md` "6918 engines" typo → "sequences/windows"; notebook absolute path made machine-neutral.
-- PROJECT_SPEC.md: V2 status section mapping roadmap phases 10–16.
+- PROJECT_SPEC.md: M1 status section mapping roadmap phases 10–16.
 
 ## [0.11.0] — Phase 10 — 2026-08-15
 

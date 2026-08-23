@@ -1,0 +1,23 @@
+methodology_version: '2.2'
+dataset: FD001
+uncertainty:
+  method: engine_cluster_conformal
+  alpha: 0.1
+  q: 66.2097
+  q_by_alpha:
+    '0.1': 66.2097
+    '0.2': 44.7955
+    '0.3': 41.4224
+  calibration_engine_count: 15
+  checkpoint_fractions:
+  - 0.25
+  - 0.45
+  - 0.65
+  - 0.8
+  - 0.95
+  audit_source: experiments/m3/fd001_conformal_quantiles.csv
+  interpretation: 'empirical_m3_calibration: split-conformal interval calibrated
+    on 15 engines held out from M3 fitting and selection; those engines were inspected
+    during earlier project iterations, so this is an empirically calibrated uncertainty
+    interval, not a pristine one-shot external conformal guarantee. Application to
+    arbitrary uploaded trajectories is an engineering extrapolation.'

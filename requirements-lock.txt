@@ -1,7 +1,7 @@
 ## Pinned constraints for deterministic CI and local reproduction (Phase 9)
 ## Role: primary constraints for Windows (requirements-lock.txt) and Linux (requirements-ci-linux-py312.txt) selection via CI platform rule
 ## Generated: 2026-08-21T03:28:15Z via `.venv\Scripts\python.exe -m pip freeze` in Python 3.12.10 (Windows Windows-10-10.0.19045-SP0)
-## Python: 3.12.10 (V2.2 configs record 3.12.10; CI pinned to 3.12.10; local validated on 3.12.10)
+## Python: 3.12.10 (M3 configs record 3.12.10; CI pinned to 3.12.10; local validated on 3.12.10)
 ## Pip: 26.2.1 (validated installer version; CI must install pip==26.2.1 before constraints)
 ## Platform: Windows (Windows-10-10.0.19045-SP0) — Windows constraints at requirements-lock.txt, Linux constraints at requirements-ci-linux-py312.txt
 ## Install (Windows/local): python -m pip install "pip==26.2.1" && python -m pip install -r requirements.txt -c requirements-lock.txt && python -m pip install -e . --no-deps && python -m pip check

@@ -1,0 +1,552 @@
+"""Methodology M3: freeze the FD004 condition-aware model (YAML-driven).
+
+Reads configs/final_model_m3_fd004.yaml (source of truth). The 37 validation
+engines have already served their variant-selection role; the final model is
+retrained on 212 engines (175 training + 37 validation) with preprocessing fit
+on those 212 rows only. The 37 reserved/calibration engines stay untouched.
+Final epoch count comes from the development-only inner-fit/inner-stop control.
+No official FD004 labels are read here (post-hoc evaluation is separate).
+
+Artifacts:
+    models/m3/fd004_gru_w45_huber_cond<V>.keras
+    models/m3/fd004_condition<V>.joblib
+    experiments/m3/fd004_final_fit_metadata.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import time
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import yaml
+from joblib import dump as dump_joblib
+
+from rul_prediction.benchmark.fd004_config import (
+    FD004ConfigError,
+    FD004FinalConfig,
+    HISTORICAL_CONDITION_JOBLIB_SHA256,
+    load_fd004_final_config,
+)
+from rul_prediction.benchmark.m1 import ROOT
+from rul_prediction.data.canonical_hash import canonical_sha256_json
+from rul_prediction.data.loader import load_train
+from rul_prediction.data.m1_preprocessing import add_raw_rul, build_m1_train_sequences
+from rul_prediction.models.m1_models import m1_gru
+from rul_prediction.reproducibility import (
+    DirtyExecutionError,
+    assert_reproducible_run_state,
+)
+from rul_prediction.training.trainer import set_seed
+
+try:
+    from run_m3_fd004 import build_matrix, fit_preprocessing
+except ImportError:  # package invocation from the repo root
+    from scripts.run_m3_fd004 import build_matrix, fit_preprocessing
+
+
+def resolve_model_config(cfg: dict) -> dict:
+    """Resolve every final-fit deployment parameter from the YAML via STRICT typed validation.
+
+    Any invalid or missing field raises FD004ConfigError (fail closed) — there is
+    no lenient fallback: an unvalidated value must never reach training.
+    """
+    from rul_prediction.benchmark.fd004_config import from_mapping
+
+    typed = from_mapping(cfg)
+    return {
+        "candidate": typed.candidate_name,
+        "architecture": typed.architecture,
+        "window": int(typed.window),
+        "units": tuple(int(u) for u in typed.units),
+        "dropout": float(typed.dropout),
+        "loss": typed.loss,
+        "learning_rate": float(typed.learning_rate),
+        "batch_size": int(typed.batch_size),
+        "seed": int(typed.seed),
+        "fixed_epochs": int(typed.fixed_epochs),
+        "variant": typed.selected_variant,
+        "n_clusters": int(typed.n_clusters),
+        "cluster_seed": int(typed.clustering_random_state),
+        "n_init": int(typed.clustering_n_init),
+        "optimizer_name": typed.optimizer_name,
+        "optimizer_clipnorm": float(typed.optimizer_clipnorm),
+    }
+
+
+def _require_case_exact(path: Path) -> Path:
+    """Fail closed if the resolved path's final component differs in case on disk.
+
+    On case-insensitive filesystems (Windows/macOS) ``exists()`` passes for a
+    wrong-case request; Linux clean clones would break later. Detect the
+    mismatch here so every platform behaves identically.
+    """
+    parent = path.parent
+    if not parent.is_dir():
+        raise FD004ConfigError(f"split evidence parent directory not found: {parent}")
+    if path.name not in {p.name for p in parent.iterdir()}:
+        raise FD004ConfigError(
+            f"split evidence not found with exact-case name: requested {path.name!r} "
+            f"under {parent} (tracked name may differ in case)"
+        )
+    return path
+
+
+def load_and_validate_split(config: FD004FinalConfig, frame: pd.DataFrame) -> dict:
+    """Load split/cutoff from config paths, recompute hashes/counts, verify IDs/disjointness.
+
+    Fails closed (FD004ConfigError) on:
+      - missing or case-mismatched files, count mismatch,
+      - canonical engine-ID hash mismatch, RAW exact-file hash mismatch,
+      - overlap, missing IDs.
+    """
+    split_path = config.resolve_split_path()
+    _require_case_exact(split_path)
+    if not split_path.exists():
+        raise FD004ConfigError(f"split provenance not found: {split_path}")
+    payload = json.loads(split_path.read_text(encoding="utf-8"))
+    # ponytail: use explicit keys, never hardcoded CWD path
+    try:
+        train_ids = set(int(x) for x in payload["train_engine_ids"])
+        val_ids = set(int(x) for x in payload["validation_engine_ids"])
+        cal_ids = set(int(x) for x in payload["calibration_engine_ids"])
+    except KeyError as e:
+        raise FD004ConfigError(f"split JSON missing key: {e}") from e
+
+    # counts
+    if len(train_ids) != config.development_engine_count:
+        raise FD004ConfigError(
+            f"development count {len(train_ids)} != config {config.development_engine_count}"
+        )
+    if len(val_ids) != config.validation_engine_count:
+        raise FD004ConfigError(
+            f"validation count {len(val_ids)} != config {config.validation_engine_count}"
+        )
+    if len(cal_ids) != config.calibration_engine_count:
+        raise FD004ConfigError(
+            f"calibration count {len(cal_ids)} != config {config.calibration_engine_count}"
+        )
+    # hashes (canonical engine-ID digests — semantic membership identity)
+    if canonical_sha256_json(sorted(train_ids)) != config.development_engine_ids_sha256:
+        raise FD004ConfigError("development_engine_ids_sha256 mismatch")
+    if canonical_sha256_json(sorted(val_ids)) != config.validation_engine_ids_sha256:
+        raise FD004ConfigError("validation_engine_ids_sha256 mismatch")
+    if canonical_sha256_json(sorted(cal_ids)) != config.calibration_engine_ids_sha256:
+        raise FD004ConfigError("calibration_engine_ids_sha256 mismatch")
+
+    # raw exact-file hashes (byte integrity) when the config pins them.
+    # RAW and CANONICAL digests are separately named and never compared across kinds.
+    from rul_prediction.benchmark.fd004_config import raw_text_file_sha256
+
+    if config.split_provenance_file_sha256 is not None:
+        actual_raw = raw_text_file_sha256(split_path)
+        if actual_raw != config.split_provenance_file_sha256:
+            raise FD004ConfigError(
+                f"split_provenance_file_sha256 (raw file) mismatch: expected "
+                f"{config.split_provenance_file_sha256}, got {actual_raw} for {split_path}"
+            )
+
+    # existence in frame
+    frame_ids = set(int(x) for x in frame["engine_id"].unique())
+    all_split_ids = train_ids | val_ids | cal_ids
+    missing = all_split_ids - frame_ids
+    if missing:
+        raise FD004ConfigError(f"split IDs missing from frame: {sorted(missing)[:10]}")
+    # disjointness
+    if not train_ids.isdisjoint(val_ids):
+        raise FD004ConfigError("train/validation overlap")
+    if not train_ids.isdisjoint(cal_ids):
+        raise FD004ConfigError("train/calibration overlap")
+    if not val_ids.isdisjoint(cal_ids):
+        raise FD004ConfigError("validation/calibration overlap")
+    # final-fit composition
+    final_ids = train_ids | val_ids
+    if len(final_ids) != config.final_engine_count:
+        raise FD004ConfigError(
+            f"final_engine_count {len(final_ids)} != config {config.final_engine_count}"
+        )
+    if not cal_ids.isdisjoint(final_ids):
+        raise FD004ConfigError("calibration overlaps final fit")
+    if len(cal_ids) != config.reserved_engine_count:
+        raise FD004ConfigError("reserved count mismatch calibration")
+
+    # validation manifest
+    manifest_path = config.resolve_validation_manifest_path()
+    _require_case_exact(manifest_path)
+    if not manifest_path.exists():
+        raise FD004ConfigError(f"validation manifest not found: {manifest_path}")
+    if config.validation_cutoff_manifest_file_sha256 is not None:
+        actual_raw = raw_text_file_sha256(manifest_path)
+        if actual_raw != config.validation_cutoff_manifest_file_sha256:
+            raise FD004ConfigError(
+                f"validation_cutoff_manifest_file_sha256 (raw file) mismatch: expected "
+                f"{config.validation_cutoff_manifest_file_sha256}, got {actual_raw} for {manifest_path}"
+            )
+    manifest = pd.read_csv(manifest_path)
+    expected_rows = config.validation_engine_count * 5
+    if len(manifest) != expected_rows:
+        raise FD004ConfigError(
+            f"validation_manifest rows {len(manifest)} != {expected_rows} (37*5)"
+        )
+    # each validation engine exactly 5 rows and all IDs subset of val_ids
+    manifest_ids = set(int(x) for x in manifest["engine_id"].unique())
+    if manifest_ids != val_ids:
+        raise FD004ConfigError(
+            f"validation_manifest engine IDs {sorted(manifest_ids)[:5]} != validation_engine_ids"
+        )
+    # disjoint check already above
+
+    return {
+        "train_ids": train_ids,
+        "val_ids": val_ids,
+        "cal_ids": cal_ids,
+        "final_ids": final_ids,
+        "payload": payload,
+        "manifest": manifest,
+        "manifest_path": manifest_path,
+        "split_path": split_path,
+    }
+
+
+def fit_fd004_final_model(
+    config: FD004FinalConfig, frame: pd.DataFrame, split_plan: dict
+) -> tuple:
+    """Fit final model/preprocessing on development+validation only.
+
+    Passes all behavior-driving values explicitly; never passes validation data to fit.
+    Returns (model, preprocessing_dict, feature_dim, n_parameters).
+    """
+    # fail-closed before any training side-effects
+    if config.architecture.lower() != "gru":
+        raise FD004ConfigError(f"architecture {config.architecture!r} not supported; only 'gru'")
+    if config.clustering_method.lower() != "kmeans":
+        raise FD004ConfigError(f"clustering {config.clustering_method!r} not supported; only 'kmeans'")
+    if config.selected_variant not in {"A", "B", "C", "D"}:
+        raise FD004ConfigError(f"variant {config.selected_variant!r} not supported")
+
+    final_ids = split_plan["final_ids"]
+    # ensure calibration stays reserved (fail before fit)
+    if not split_plan["cal_ids"].isdisjoint(final_ids):
+        raise FD004ConfigError("calibration not disjoint from final fit")
+
+    variant = config.selected_variant
+    # explicit threading of all clustering hyperparams (no hidden defaults)
+    pre = fit_preprocessing(
+        variant,
+        frame,
+        final_ids,
+        k=int(config.n_clusters),
+        seed=int(config.clustering_random_state),
+        n_init=int(config.clustering_n_init),
+    )
+
+    # validate preprocessing payload type matches variant
+    if variant in ("A", "B"):
+        if pre.get("global_scaler") is None:
+            raise FD004ConfigError(f"variant {variant} requires global_scaler")
+    else:  # C/D
+        if pre.get("kmeans") is None or pre.get("cluster_scalers") is None:
+            raise FD004ConfigError(f"variant {variant} requires kmeans/cluster_scalers")
+        # verify n_clusters matches fitted
+        kmeans = pre["kmeans"]
+        if getattr(kmeans, "n_clusters", config.n_clusters) != config.n_clusters:
+            raise FD004ConfigError("fitted KMeans n_clusters mismatch config")
+
+    rows = frame[frame["engine_id"].isin(final_ids)].sort_values(["engine_id", "cycle"])
+    # build_matrix uses variant branching internally; pass preprocessing objects explicitly
+    X = build_matrix(
+        variant,
+        rows,
+        pre["kmeans"],
+        pre["cluster_scalers"],
+        pre["settings_scaler"],
+        pre["global_scaler"],
+    )
+    rul = add_raw_rul(rows)["rul"].to_numpy(dtype=np.float32)
+    X_seq, y_seq, _, _, masks = build_m1_train_sequences(
+        X, rows["engine_id"].to_numpy(), rul, int(config.window)
+    )
+
+    # build model with all explicit behavior-driving args, including optimizer clipnorm
+    set_seed(int(config.seed))
+    model = m1_gru(
+        int(config.window),
+        int(X.shape[1]),
+        units=tuple(int(u) for u in config.units),
+        dropout=float(config.dropout),
+        loss=str(config.loss),
+        seed=int(config.seed),
+        learning_rate=float(config.learning_rate),
+        clipnorm=float(config.optimizer_clipnorm),
+    )
+    # never pass validation data to final fit (post-hoc only)
+    model.fit(
+        [X_seq, masks],
+        y_seq,
+        batch_size=int(config.batch_size),
+        epochs=int(config.fixed_epochs),
+        verbose=0,
+    )
+    return model, pre, int(X.shape[1])
+
+
+def save_fd004_final_artifacts(
+    config: FD004FinalConfig,
+    model,
+    preprocessing: dict,
+    split_plan: dict,
+    training_time: float | None = None,
+    root: Path | str | None = None,
+    allow_overwrite: bool = False,
+) -> Path:
+    """Persist versioned preprocessing payload and atomic metadata.
+
+    Immutable-baseline gate: refuses to overwrite a condition joblib whose
+    current bytes hash to the historical baseline (Section 9.5.1) — even with
+    allow_overwrite. Other existing artifacts require allow_overwrite=True.
+
+    Returns metadata path.
+    """
+    r = Path(root).resolve() if root else ROOT
+    # anchor paths under repo root (no CWD)
+    model_path = config.model_artifact_path(r)
+    cond_path = config.condition_artifact_path(r)
+    metadata_path = config.resolve_metadata_path(r)
+
+    # ---- fail-closed pre-write gates (before any deserialization or write) ----
+    if cond_path.exists():
+        from rul_prediction.benchmark.fd004_config import sha256_file
+
+        current = sha256_file(cond_path)
+        if current.lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower():
+            raise FD004ConfigError(
+                f"refusing to overwrite {cond_path}: its bytes match the immutable historical "
+                f"baseline {HISTORICAL_CONDITION_JOBLIB_SHA256} (Section 9.5.1). Future freezes "
+                "must write versioned payloads to identity-derived paths, never rewrite history."
+            )
+        if not allow_overwrite:
+            raise FD004ConfigError(
+                f"refusing to overwrite existing condition artifact {cond_path} "
+                "(pass --overwrite-existing to replace a non-baseline artifact)"
+            )
+    if model_path.exists() and not allow_overwrite:
+        raise FD004ConfigError(
+            f"refusing to overwrite existing model artifact {model_path} "
+            "(pass --overwrite-existing to replace it)"
+        )
+
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+
+    variant = config.selected_variant
+    # derive artifact names from validated identity (fail if variant unsupported)
+    if variant not in {"A", "B", "C", "D"}:
+        raise FD004ConfigError(f"unsupported variant {variant!r}")
+
+    # preprocessing payload validation per variant
+    if variant in ("A", "B"):
+        if preprocessing.get("global_scaler") is None:
+            raise FD004ConfigError(f"variant {variant} missing global_scaler")
+    else:
+        if preprocessing.get("kmeans") is None:
+            raise FD004ConfigError(f"variant {variant} missing kmeans")
+        if preprocessing.get("cluster_scalers") is None:
+            raise FD004ConfigError(f"variant {variant} missing cluster_scalers")
+        if preprocessing.get("settings_scaler") is None:
+            raise FD004ConfigError(f"variant {variant} missing settings_scaler")
+
+    # fit-ID hash (canonical)
+    final_ids = split_plan["final_ids"]
+    fit_ids_hash = canonical_sha256_json(sorted(final_ids))
+
+    # expected feature dim: infer from preprocessing? Use build_matrix already validated
+    # For payload we include fit info
+    # Determine preprocessing_type
+    preprocessing_type = "global" if variant in ("A", "B") else "per_regime"
+
+    payload = {
+        "schema_version": "fd004-condition-v1",
+        "candidate": config.candidate_name,
+        "variant": variant,
+        "architecture": config.architecture,
+        "window": int(config.window),
+        "loss": str(config.loss),
+        "units": list(config.units),
+        "dropout": float(config.dropout),
+        "config_file_sha256": config.config_file_sha256,
+        "config_canonical_sha256": config.config_canonical_sha256,
+        "fit_ids_sha256": fit_ids_hash,
+        "fit_engine_count": len(final_ids),
+        "preprocessing_type": preprocessing_type,
+        "n_clusters": int(config.n_clusters),
+        "clustering_random_state": int(config.clustering_random_state),
+        "clustering_n_init": int(config.clustering_n_init),
+        "operating_setting_columns": list(config.operating_setting_columns),
+        "sensor_scaling": {
+            "mode": config.sensor_scaling_mode,
+            "fit_scope": config.sensor_scaling_fit_scope,
+        },
+        # objects for future freezes
+        "global_scaler": preprocessing.get("global_scaler"),
+        "kmeans": preprocessing.get("kmeans"),
+        "cluster_scalers": preprocessing.get("cluster_scalers"),
+        "settings_scaler": preprocessing.get("settings_scaler"),
+    }
+
+    # persist model (caller saves model separately? we save here if not already)
+    # model.save is done by caller; we ensure preprocessing payload written atomically via joblib
+    # joblib dump is not atomic by itself; we dump to a unique tmp then replace
+    import tempfile
+    import os
+
+    fd, tmp_name = tempfile.mkstemp(dir=str(cond_path.parent), suffix=".joblib.tmp")
+    os.close(fd)
+    tmp_cond = Path(tmp_name)
+    try:
+        dump_joblib(payload, tmp_cond)
+        os.replace(tmp_cond, cond_path)
+    finally:
+        if tmp_cond.exists():
+            try:
+                tmp_cond.unlink()
+            except Exception:
+                pass
+
+    # model is expected to be saved by fit caller; but we ensure path exists check
+    # Save metadata atomically
+    from rul_prediction.benchmark.m3 import git_provenance
+
+    # gather artifact hashes/sizes if present
+    def _file_meta(p: Path) -> dict:
+        if not p.exists():
+            return {"path": str(p.relative_to(r)), "exists": False}
+        import hashlib
+
+        h = hashlib.sha256(p.read_bytes()).hexdigest()
+        return {
+            "path": str(p.relative_to(r)),
+            "exists": True,
+            "sha256": h,
+            "bytes": p.stat().st_size,
+        }
+
+    model_meta = _file_meta(model_path)
+    cond_meta = _file_meta(cond_path)
+
+    meta = {
+        "methodology_version": "2.2",
+        "dataset": "FD004",
+        "candidate": config.candidate_name,
+        "architecture": config.architecture,
+        "variant": variant,
+        "window": int(config.window),
+        "units": list(config.units),
+        "dropout": float(config.dropout),
+        "loss": str(config.loss),
+        "optimizer": {"name": config.optimizer_name, "clipnorm": float(config.optimizer_clipnorm)},
+        "batch_size": int(config.batch_size),
+        "learning_rate": float(config.learning_rate),
+        "seed": int(config.seed),
+        "fixed_epochs": int(config.fixed_epochs),
+        "n_clusters": int(config.n_clusters),
+        "cluster_seed": int(config.clustering_random_state),
+        "n_init": int(config.clustering_n_init),
+        "training_engine_count": len(final_ids),
+        "train_ids": sorted(final_ids),
+        "reserved_calibration_engine_count": len(split_plan["cal_ids"]),
+        "reserved_calibration_engine_ids": sorted(split_plan["cal_ids"]),
+        "config_path": str(Path(config.source_path).relative_to(r)) if config.source_path else str(Path("configs/final_model_m3_fd004.yaml")),
+        "config_file_sha256": config.config_file_sha256,
+        "config_canonical_sha256": config.config_canonical_sha256,
+        "canonical_algo": "cmapss-fd004-config-canonical-v1",
+        "split_provenance": config.split_provenance,
+        "validation_manifest": config.validation_manifest,
+        "split_provenance_file_sha256": config.split_provenance_file_sha256,
+        "validation_cutoff_manifest_file_sha256": config.validation_cutoff_manifest_file_sha256,
+        "fit_ids_sha256": fit_ids_hash,
+        "model_artifact": model_meta,
+        "condition_artifact": cond_meta,
+        "official_labels_used_in_fitting": False,
+        "training_time": training_time,
+        "provenance": git_provenance(),
+    }
+
+    # atomic write with unique temp name in target directory
+    fd, tmp_name = tempfile.mkstemp(dir=str(metadata_path.parent), suffix=".json.tmp")
+    tmp_meta = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(meta, indent=2))
+        os.replace(tmp_meta, metadata_path)
+    finally:
+        if tmp_meta.exists():
+            try:
+                tmp_meta.unlink()
+            except Exception:
+                pass
+    return metadata_path
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Freeze M3 FD004 final model")
+    parser.add_argument("--config", default="configs/final_model_m3_fd004.yaml")
+    parser.add_argument("--data-dir", default=str(ROOT / "data" / "raw"))
+    parser.add_argument("--overwrite-existing", action="store_true",
+                        help="permit replacing existing non-baseline artifacts (historical baseline is always protected)")
+    parser.add_argument("--allow-dirty-reason", default=None,
+                        help="nonempty reason permitting dirty execution inputs (requires --allow-dirty-snapshot-dir)")
+    parser.add_argument("--allow-dirty-snapshot-dir", default=None,
+                        help="durable destination for the dirty-source snapshot (required with --allow-dirty-reason)")
+    args = parser.parse_args()
+
+    # fail-closed reproducibility gate BEFORE any training/loading/output
+    try:
+        assert_reproducible_run_state(
+            allow_dirty_execution=bool(args.allow_dirty_reason),
+            dirty_reason=args.allow_dirty_reason,
+            snapshot_dir=args.allow_dirty_snapshot_dir,
+        )
+    except DirtyExecutionError as e:
+        import sys
+
+        sys.exit(f"refusing to freeze FD004: {e}")
+
+    config = load_fd004_final_config(args.config)
+
+    # refuse clobbering existing artifacts before spending training time
+    model_path = config.model_artifact_path(ROOT)
+    cond_path = config.condition_artifact_path(ROOT)
+    if not args.overwrite_existing and (model_path.exists() or cond_path.exists()):
+        from rul_prediction.benchmark.fd004_config import sha256_file
+
+        if cond_path.exists() and sha256_file(cond_path).lower() == HISTORICAL_CONDITION_JOBLIB_SHA256.lower():
+            raise FD004ConfigError(
+                f"refusing to freeze: {cond_path} holds the immutable historical baseline; "
+                "rewriting it is prohibited (Section 9.5.1)"
+            )
+        raise FD004ConfigError(
+            "refusing to freeze: artifacts already exist "
+            f"({model_path.name=}, {cond_path.name=}); pass --overwrite-existing to replace"
+        )
+
+    frame = load_train("FD004", args.data_dir)
+    split_plan = load_and_validate_split(config, frame)
+
+    start = time.perf_counter()
+    model, pre, _ = fit_fd004_final_model(config, frame, split_plan)
+    training_time = round(time.perf_counter() - start, 2)
+
+    # save model via keras (anchor under ROOT)
+    out_dir = ROOT / "models" / "m3"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    model.save(model_path)
+
+    meta_path = save_fd004_final_artifacts(config, model, pre, split_plan, training_time, ROOT)
+    print(json.dumps(json.loads(Path(meta_path).read_text(encoding="utf-8")), indent=2))
+
+
+if __name__ == "__main__":
+    main()

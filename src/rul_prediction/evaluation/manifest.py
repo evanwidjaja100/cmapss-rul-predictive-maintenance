@@ -1,4 +1,4 @@
-"""Reusable manifest-based evaluation for Methodology V2.
+"""Reusable manifest-based evaluation for Methodology M1.
 
 Every model is evaluated on exactly the rows of a fixed pseudo-test manifest:
 one terminal prediction per (engine, cutoff). Predictions are returned in

@@ -63,7 +63,7 @@ def test_config_provenance_manifest_wording_matches_code():
     assert 'pytest -m static_contract' in readme
     assert 'pytest -m "not needs_artifacts"' in readme or "not needs_artifacts" in readme
     # Check that FD004 config docs mention structured optimizer if code does
-    cfg_text = _read(ROOT / "configs/final_model_v2_2_fd004.yaml")
+    cfg_text = _read(ROOT / "configs/final_model_m3_fd004.yaml")
     assert "optimizer:" in cfg_text
     # provenance docs should mention source_tree_hash is via git ls-files, not filesystem
     # We check that reproducibility docstring contains expected phrase

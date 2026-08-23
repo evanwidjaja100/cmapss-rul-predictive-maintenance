@@ -1,2 +1,0 @@
-official_test_engine_count,official_test_RMSE,official_test_MAE,official_test_R2,official_test_NASA_total,official_test_NASA_mean,methodology,model,training_engine_count,training_time,parameters,notes,official_status,cv_RMSE_mean_std,cv_NASA_total_mean_std
-100,23.0406,15.6141,0.6926,6700.59,67.0059,v2.1,gru_w45_huber,85,290.0,v2_gru;loss=huber;bs=256;es_patience=8,padded+masked training sequences (shared history builder); raw-RUL targets,post-hoc (labels inspected in V2-0 audit; never blind),24.4526 +- 3.6204,5827.836 +- 4451.0012

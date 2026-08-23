@@ -1,8 +1,8 @@
-"""Platform-independent canonical hashing (Methodology V2.2, issue V2.2-7).
+"""Platform-independent canonical hashing (Methodology M3, issue M3-7).
 
 Raw-file hashes of JSON/text manifests are not reproducible across platforms:
 LF vs CRLF line endings, JSON whitespace and key ordering all change the byte
-stream. V2.2 hashes SEMANTIC payloads instead:
+stream. M3 hashes SEMANTIC payloads instead:
 
 - JSON payloads: json.dumps(sort_keys=True, separators=(",", ":"),
   ensure_ascii=False).encode("utf-8") -> sha256.

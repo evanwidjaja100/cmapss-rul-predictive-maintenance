@@ -265,11 +265,11 @@ class FD004FinalConfig:
         name = f"fd004_gru_w{self.window}_{self.loss}_cond{self.selected_variant}.keras"
         # also verify candidate_name matches derived core (without prefix fd004_)
         # candidate_name is like gru_w45_huber_condC
-        return r / "models" / "v2_2" / name
+        return r / "models" / "m3" / name
 
     def condition_artifact_path(self, root: Path | str | None = None) -> Path:
         r = _resolve_repo_root(root)
-        return r / "models" / "v2_2" / f"fd004_condition{self.selected_variant}.joblib"
+        return r / "models" / "m3" / f"fd004_condition{self.selected_variant}.joblib"
 
     def resolve_split_path(self, root: Path | str | None = None) -> Path:
         r = _resolve_repo_root(root)
@@ -282,7 +282,7 @@ class FD004FinalConfig:
 
     def resolve_metadata_path(self, root: Path | str | None = None) -> Path:
         r = _resolve_repo_root(root)
-        return r / "experiments" / "v2_2" / "fd004_final_fit_metadata.json"
+        return r / "experiments" / "m3" / "fd004_final_fit_metadata.json"
 
 
 def from_mapping(

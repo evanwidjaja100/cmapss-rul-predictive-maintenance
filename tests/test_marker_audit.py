@@ -19,7 +19,7 @@ SUPPLEMENTAL = {"needs_artifacts"}
 MARKER_RE = re.compile(r"@pytest\.mark\.(\w+)")
 DEF_RE = re.compile(r"^\s*def (test_\w+)\s*\(", re.MULTILINE)
 
-GITIGNORED_HINTS = ["data/raw", "data/processed", "models/", "models\\", "FD001_train_sequences", "load_test", "V2Predictor"]
+GITIGNORED_HINTS = ["data/raw", "data/processed", "models/", "models\\", "FD001_train_sequences", "load_test", "M1Predictor"]
 
 def _collect_tests():
     out = []
@@ -136,12 +136,12 @@ def test_gitignored_artifact_tests_carry_needs_artifacts():
             # If hint present but file is pure unit that doesn't actually open? We allow if file-level needs missing but functions are mocked
             # For now, we just ensure at least the known gated files have needs
     # Known gated files must have needs_artifacts
-    for rel in ["tests/test_artifacts.py", "tests/test_loader.py", "tests/test_v2_serving.py", "tests/test_inference_golden.py"]:
+    for rel in ["tests/test_artifacts.py", "tests/test_loader.py", "tests/test_m1_serving.py", "tests/test_inference_golden.py"]:
         src = (ROOT / rel).read_text(encoding="utf-8")
         assert "needs_artifacts" in src, f"{rel} must carry needs_artifacts"
 
 def test_tracked_artifacts_tests_read_committed_evidence():
-    # Tracked artifacts tests should reference experiments/v2_2 but not require needs_artifacts
+    # Tracked artifacts tests should reference experiments/m3 but not require needs_artifacts
     # Ensure at least some tracked_artifacts tests exist
     count = 0
     for p in (ROOT / "tests").glob("test_*.py"):
